@@ -23,10 +23,11 @@ import java.util.UUID;
  * auth:
  *   key: <uuid>
  *
- * endpoints:
+ * enabled_endpoints:
  *   run: true
  *   log: true
  *   ping: true
+ *   stream_logs: true
  *   info: true
  *   status: true
  *   tps: true
@@ -40,10 +41,11 @@ public final class Config {
     private final int port;
     private final String authKey;
 
-    // v2 endpoint toggles
+    // endpoint toggles
     private final boolean runEnabled;
     private final boolean logEnabled;
     private final boolean pingEnabled;
+    private final boolean streamLogsEnabled;
     private final boolean infoEnabled;
     private final boolean statusEnabled;
     private final boolean tpsEnabled;
@@ -63,6 +65,7 @@ public final class Config {
             boolean runEnabled,
             boolean logEnabled,
             boolean pingEnabled,
+            boolean streamLogsEnabled,
             boolean infoEnabled,
             boolean statusEnabled,
             boolean tpsEnabled,
@@ -76,6 +79,7 @@ public final class Config {
         this.runEnabled = runEnabled;
         this.logEnabled = logEnabled;
         this.pingEnabled = pingEnabled;
+        this.streamLogsEnabled = streamLogsEnabled;
         this.infoEnabled = infoEnabled;
         this.statusEnabled = statusEnabled;
         this.tpsEnabled = tpsEnabled;
@@ -91,6 +95,7 @@ public final class Config {
     public boolean isRunEnabled() { return runEnabled; }
     public boolean isLogEnabled() { return logEnabled; }
     public boolean isPingEnabled() { return pingEnabled; }
+    public boolean isStreamLogsEnabled() { return streamLogsEnabled; }
     public boolean isInfoEnabled() { return infoEnabled; }
     public boolean isStatusEnabled() { return statusEnabled; }
     public boolean isTpsEnabled() { return tpsEnabled; }
@@ -142,15 +147,16 @@ public final class Config {
                 auth.put("key", UUID.randomUUID().toString());
                 root.put("auth", auth);
 
-                Map<String, Object> endpoints = new LinkedHashMap<>();
-                endpoints.put("run", true);
-                endpoints.put("log", true);
-                endpoints.put("ping", true);
-                endpoints.put("info", true);
-                endpoints.put("status", true);
-                endpoints.put("tps", true);
-                endpoints.put("players", true);
-                root.put("endpoints", endpoints);
+                Map<String, Object> enabledEndpoints = new LinkedHashMap<>();
+                enabledEndpoints.put("run", true);
+                enabledEndpoints.put("log", true);
+                enabledEndpoints.put("ping", true);
+                enabledEndpoints.put("stream_logs", true);
+                enabledEndpoints.put("info", true);
+                enabledEndpoints.put("status", true);
+                enabledEndpoints.put("tps", true);
+                enabledEndpoints.put("players", true);
+                root.put("enabled_endpoints", enabledEndpoints);
 
                 Map<String, Object> players = new LinkedHashMap<>();
                 players.put("max-list", 50);
@@ -166,7 +172,7 @@ public final class Config {
                 // Insert blank lines between sections
                 String spaced = dumped
                         .replace("\nauth:", "\n\nauth:")
-                        .replace("\nendpoints:", "\n\nendpoints:")
+                        .replace("\nenabled_endpoints:", "\n\nenabled_endpoints:")
                         .replace("\nplayers:", "\n\nplayers:");
 
                 try (OutputStream out = Files.newOutputStream(configFile);
@@ -191,16 +197,20 @@ public final class Config {
             Map<String, Object> auth = (Map<String, Object>) root.getOrDefault("auth", new LinkedHashMap<>());
             String authKey = (String) auth.getOrDefault("key", "");
 
-            Map<String, Object> endpoints = (Map<String, Object>) root.getOrDefault("endpoints", new LinkedHashMap<>());
+            Map<String, Object> enabledEndpoints = (Map<String, Object>) root.getOrDefault(
+                    "enabled_endpoints",
+                    root.getOrDefault("endpoints", new LinkedHashMap<>())
+            );
             Map<String, Object> players = (Map<String, Object>) root.getOrDefault("players", new LinkedHashMap<>());
 
-            boolean run = (Boolean) endpoints.getOrDefault("run", true);
-            boolean log = (Boolean) endpoints.getOrDefault("log", true);
-            boolean ping = (Boolean) endpoints.getOrDefault("ping", true);
-            boolean info = (Boolean) endpoints.getOrDefault("info", true);
-            boolean status = (Boolean) endpoints.getOrDefault("status", true);
-            boolean tps = (Boolean) endpoints.getOrDefault("tps", true);
-            boolean playersEnabled = (Boolean) endpoints.getOrDefault("players", true);
+            boolean run = coerceBoolean(enabledEndpoints.getOrDefault("run", true));
+            boolean log = coerceBoolean(enabledEndpoints.getOrDefault("log", true));
+            boolean ping = coerceBoolean(enabledEndpoints.getOrDefault("ping", true));
+            boolean streamLogs = coerceBoolean(enabledEndpoints.getOrDefault("stream_logs", true));
+            boolean info = coerceBoolean(enabledEndpoints.getOrDefault("info", true));
+            boolean status = coerceBoolean(enabledEndpoints.getOrDefault("status", true));
+            boolean tps = coerceBoolean(enabledEndpoints.getOrDefault("tps", true));
+            boolean playersEnabled = coerceBoolean(enabledEndpoints.getOrDefault("players", true));
 
             int playersMaxList = ((Number) players.getOrDefault("max-list", 50)).intValue();
 
@@ -210,6 +220,7 @@ public final class Config {
                     run,
                     log,
                     ping,
+                    streamLogs,
                     info,
                     status,
                     tps,
@@ -221,5 +232,15 @@ public final class Config {
         } catch (IOException e) {
             throw new RuntimeException("Failed to load HungerBridge config", e);
         }
+    }
+
+    private static boolean coerceBoolean(Object value) {
+        if (value instanceof Boolean) {
+            return (Boolean) value;
+        }
+        if (value instanceof Number) {
+            return ((Number) value).intValue() != 0;
+        }
+        return Boolean.parseBoolean(String.valueOf(value));
     }
 }

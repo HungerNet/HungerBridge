@@ -24,11 +24,34 @@ Generated automatically on first run.
 ```yaml
 port: 1913
 
+auth:
+  key: "CHANGE_ME"
+
 enabled_endpoints:
   run: true
   log: true
   ping: true
+  stream_logs: true
+  info: true
+  status: true
+  tps: true
+  players: true
 
-auth:
-  enabled: true
-  key: "CHANGE_ME"
+players:
+  max-list: 50
+```
+
+### Streaming server logs
+
+Use the SSE stream to receive Minecraft log lines in real time:
+
+```bash
+curl -N -H "X-Auth-Key: CHANGE_ME" http://localhost:1913/stream/logs
+```
+
+The server sends each line as an SSE event:
+
+```text
+data:[00:00:00 INFO]: Server started!
+
+```

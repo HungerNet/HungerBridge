@@ -18,6 +18,7 @@ public final class HungerBridgeFabric implements DedicatedServerModInitializer {
 
     private static BridgeServer bridgeServer;
     private static MinecraftServer mcServer;
+    private static FabricLogAppender logAppender;
 
     private static final int HB_TICK_SAMPLES = 18_000;
     private static final long[] HB_TICK_NANOS = new long[HB_TICK_SAMPLES];
@@ -107,6 +108,12 @@ public final class HungerBridgeFabric implements DedicatedServerModInitializer {
 
         mcServer = server;
 
+        org.apache.logging.log4j.core.Logger root =
+                (org.apache.logging.log4j.core.Logger) org.apache.logging.log4j.LogManager.getRootLogger();
+        logAppender = new FabricLogAppender();
+        logAppender.start();
+        root.addAppender(logAppender);
+
         Logger logger = new FabricLoggerAdapter(SLF4J_LOGGER);
 
         Path configDir = server.getFile("config").resolve("HungerBridge");
@@ -135,6 +142,13 @@ public final class HungerBridgeFabric implements DedicatedServerModInitializer {
             SLF4J_LOGGER.info("HungerBridge stopping...");
             bridgeServer.stop();
             bridgeServer = null;
+        }
+        if (logAppender != null) {
+            org.apache.logging.log4j.core.Logger root =
+                    (org.apache.logging.log4j.core.Logger) org.apache.logging.log4j.LogManager.getRootLogger();
+            root.removeAppender(logAppender);
+            logAppender.stop();
+            logAppender = null;
         }
 
         mcServer = null;

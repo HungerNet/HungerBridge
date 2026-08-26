@@ -1,5 +1,7 @@
 run: true
-version: "3.0-alpha1"
+version: "4-dev.1"
 mc_version: "1.21.11"
 description: |
-  - Removed Modrinth updloading.
+  Dev 1:
+  - Changed version format
+  - Added live log streaming

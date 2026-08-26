@@ -12,9 +12,16 @@ import java.nio.file.Path;
 public final class HungerBridgePlugin extends JavaPlugin {
 
     private BridgeServer bridgeServer;
+    private PaperLogAppender logAppender;
 
     @Override
     public void onEnable() {
+        org.apache.logging.log4j.core.Logger root =
+                (org.apache.logging.log4j.core.Logger) org.apache.logging.log4j.LogManager.getRootLogger();
+        logAppender = new PaperLogAppender();
+        logAppender.start();
+        root.addAppender(logAppender);
+
         Logger logger = (level, message) -> {
             org.apache.logging.log4j.Logger raw =
                     org.apache.logging.log4j.LogManager.getLogger("");
@@ -49,6 +56,13 @@ public final class HungerBridgePlugin extends JavaPlugin {
         if (bridgeServer != null) {
             bridgeServer.stop();
             bridgeServer = null;
+        }
+        if (logAppender != null) {
+            org.apache.logging.log4j.core.Logger root =
+                    (org.apache.logging.log4j.core.Logger) org.apache.logging.log4j.LogManager.getRootLogger();
+            root.removeAppender(logAppender);
+            logAppender.stop();
+            logAppender = null;
         }
         getLogger().info("HungerBridge disabled.");
     }
