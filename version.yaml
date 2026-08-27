@@ -1,7 +1,14 @@
 run: true
-version: "4-dev.1"
+version: "4-dev.2"
 mc_version: "1.21.11"
 description: |
   Dev 1:
   - Changed version format
   - Added live log streaming
+  Dev 2:
+  - Added Stonecutter
+  - Convigured for multi-loader multi-version setup:
+    - Fabric/Paper:
+      - 1.21.11
+      - 26.1.2
+      - 26.2

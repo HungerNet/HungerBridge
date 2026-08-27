@@ -1,0 +1,54 @@
+name: Multi-version Build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-matrix:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - platform: paper
+            version: 1.21.11
+            jdk: '21'
+          - platform: paper
+            version: 26.1.2
+            jdk: '25'
+          - platform: paper
+            version: 26.2
+            jdk: '25'
+          - platform: fabric
+            version: 1.21.11
+            jdk: '21'
+          - platform: fabric
+            version: 26.1.2
+            jdk: '25'
+          - platform: fabric
+            version: 26.2
+            jdk: '25'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ matrix.jdk }}
+
+      - name: Show Java
+        run: java -version
+
+      - name: Set Stonecutter active target
+        run: |
+          if [ "${{ matrix.platform }}" = "paper" ]; then
+            echo "STONECUTTER_ACTIVE_PAPER=${{ matrix.version }}-paper" >> $GITHUB_ENV
+          else
+            echo "STONECUTTER_ACTIVE=${{ matrix.version }}-fabric" >> $GITHUB_ENV
+          fi
+
+      - name: Build project
+        run: |
+          ./gradlew :${{ matrix.platform }}:build --no-daemon --stacktrace

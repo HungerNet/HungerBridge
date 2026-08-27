@@ -11,6 +11,21 @@ rootProject.name = "HungerBridge"
 
 include("common", "paper", "fabric")
 
+// Only include the active versioned subprojects to avoid configuring
+// all targets in one Gradle session (which would require multiple JDKs).
+// Select with environment variables:
+//  - STONECUTTER_ACTIVE: default Fabric target (e.g. 1.21.11-fabric)
+//  - STONECUTTER_ACTIVE_PAPER: Paper-specific target (overrides STONECUTTER_ACTIVE)
+
+def defaultFabric = "1.21.11-fabric"
+def defaultPaper = "1.21.11-paper"
+
+def activeFabric = System.getenv('STONECUTTER_ACTIVE') ?: defaultFabric
+def activePaper = System.getenv('STONECUTTER_ACTIVE_PAPER') ?: System.getenv('STONECUTTER_ACTIVE') ?: defaultPaper
+
+include("paper:versions:${activePaper}")
+include("fabric:versions:${activeFabric}")
+
 buildscript {
     repositories {
         mavenCentral()

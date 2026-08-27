@@ -1,21 +1,9 @@
 plugins {
     id 'java'
-    id 'io.papermc.paperweight.userdev' version '1.7.1'
 }
 
 project.version = gradle.ext.hbVersion
 
-dependencies {
-    implementation project(":common")
-    paperweightDevelopmentBundle("io.papermc.paper:dev-bundle:1.21.1-R0.1-SNAPSHOT")
-}
-
-processResources {
-    filesMatching("plugin.yml") {
-        expand "version": project.version
-    }
-}
-
-tasks.jar {
-    from(project(":common").sourceSets.main.output)
-}
+// Version-specific Paper configuration lives under paper/versions/*.
+// Keep the root project as a thin wrapper so the active target is the only one
+// applying Paperweight and resolving a dev bundle.

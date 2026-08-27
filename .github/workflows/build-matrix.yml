@@ -1,0 +1,70 @@
+name: Build multi-version matrix
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: paper-1.21.11
+            project: paper
+            target: 1.21.11-paper
+            jdk: '21'
+          - name: paper-26.1.2
+            project: paper
+            target: 26.1.2-paper
+            jdk: '25'
+          - name: paper-26.2
+            project: paper
+            target: 26.2-paper
+            jdk: '25'
+          - name: fabric-1.21.11
+            project: fabric
+            target: 1.21.11-fabric
+            jdk: '21'
+          - name: fabric-26.1.2
+            project: fabric
+            target: 26.1.2-fabric
+            jdk: '25'
+          - name: fabric-26.2
+            project: fabric
+            target: 26.2-fabric
+            jdk: '25'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java ${{ matrix.jdk }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.jdk }}
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/gradle-wrapper.properties') }}-${{ matrix.jdk }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Set active target
+        run: |
+          echo "STONECUTTER_ACTIVE=${{ matrix.target }}" >> $GITHUB_ENV
+          if [ "${{ matrix.project }}" = "paper" ]; then
+            echo "STONECUTTER_ACTIVE_PAPER=${{ matrix.target }}" >> $GITHUB_ENV
+          fi
+
+      - name: Build
+        env:
+          STONECUTTER_ACTIVE: ${{ matrix.target }}
+          STONECUTTER_ACTIVE_PAPER: ${{ matrix.target }}
+        run: |
+          ./gradlew :${{ matrix.project }}:build --no-daemon --stacktrace

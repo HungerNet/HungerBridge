@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "hungerbridge",
+  "version": "${version}",
+  "name": "HungerBridge",
+  "description": "HungerBridge Fabric bridge",
+  "authors": ["HungerBridge"],
+  "license": "MIT",
+  "environment": "server",
+  "entrypoints": {
+    "main": ["com.hungerbridge.fabric.HungerBridgeFabric"]
+  },
+  "mixins": [
+    "hungerbridge.mixins.json"
+  ]
+}
