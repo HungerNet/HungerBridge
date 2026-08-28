@@ -1,54 +1,56 @@
-name: Multi-version Build
+name: Build multi-version matrix
 
 on:
   push:
   pull_request:
 
 jobs:
-  build-matrix:
+  build:
     runs-on: ubuntu-latest
+
     strategy:
       matrix:
         include:
-          - platform: paper
-            version: 1.21.11
-            jdk: '21'
-          - platform: paper
-            version: 26.1.2
-            jdk: '25'
-          - platform: paper
-            version: 26.2
-            jdk: '25'
-          - platform: fabric
-            version: 1.21.11
-            jdk: '21'
-          - platform: fabric
-            version: 26.1.2
-            jdk: '25'
-          - platform: fabric
-            version: 26.2
-            jdk: '25'
+          - { name: paper-1.21.11, project: paper, target: 1.21.11-paper, jdk: '21' }
+          - { name: paper-26.1.2, project: paper, target: 26.1.2-paper, jdk: '25' }
+          - { name: paper-26.2, project: paper, target: 26.2-paper, jdk: '25' }
+          - { name: fabric-1.21.11, project: fabric, target: 1.21.11-fabric, jdk: '21' }
+          - { name: fabric-26.1.2, project: fabric, target: 26.1.2-fabric, jdk: '25' }
+          - { name: fabric-26.2, project: fabric, target: 26.2-fabric, jdk: '25' }
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Java
+      - name: Debug workspace
+        run: ls -R .
+
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          distribution: ${{ matrix.jdk == '25' && 'zulu' || 'temurin' }}
+          distribution: temurin
           java-version: ${{ matrix.jdk }}
 
-      - name: Show Java
-        run: java -version
-
-      - name: Set Stonecutter active target
+      - name: Set active target
         run: |
-          if [ "${{ matrix.platform }}" = "paper" ]; then
-            echo "STONECUTTER_ACTIVE_PAPER=${{ matrix.version }}-paper" >> $GITHUB_ENV
+          if [ "${PROJECT}" = "paper" ]; then
+            echo "STONECUTTER_ACTIVE=${TARGET}" >> $GITHUB_ENV
+            echo "STONECUTTER_ACTIVE_PAPER=${TARGET}" >> $GITHUB_ENV
           else
-            echo "STONECUTTER_ACTIVE=${{ matrix.version }}-fabric" >> $GITHUB_ENV
+            echo "STONECUTTER_ACTIVE=${TARGET}" >> $GITHUB_ENV
+            echo "STONECUTTER_ACTIVE_PAPER=__none__" >> $GITHUB_ENV
           fi
+        env:
+          PROJECT: ${{ matrix.project }}
+          TARGET: ${{ matrix.target }}
 
-      - name: Build project
+      - name: Clean Gradle caches
+        run: rm -rf ~/.gradle/caches ~/.gradle/composite-builds ~/.gradle/configuration-cache ~/.gradle/build-scan-data
+
+      - name: Clean project Gradle dir
+        run: rm -rf HungerBridge/HungerBridge/.gradle
+
+      - name: Build
         run: |
-          ./gradlew :${{ matrix.platform }}:build --no-daemon --stacktrace
+          cd HungerBridge/HungerBridge
+          ./gradlew :${{ matrix.project }}:build --no-daemon --stacktrace
