@@ -48,9 +48,9 @@ jobs:
         run: rm -rf ~/.gradle/caches ~/.gradle/composite-builds ~/.gradle/configuration-cache ~/.gradle/build-scan-data
 
       - name: Clean project Gradle dir
-        run: rm -rf "$GITHUB_WORKSPACE/HungerBridge/.gradle"
+        run: rm -rf "$GITHUB_WORKSPACE/.gradle"
 
       - name: Build
         run: |
-          cd "$GITHUB_WORKSPACE/HungerBridge"
+          cd "$GITHUB_WORKSPACE"
           ./gradlew :${{ matrix.project }}:build --no-daemon --stacktrace
