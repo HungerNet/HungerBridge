@@ -25,6 +25,14 @@ jobs:
       - name: Debug workspace
         run: ls -R "$GITHUB_WORKSPACE"
 
+      - name: Nuclear Gradle cleanup 1
+        run: |
+          rm -rf "$GITHUB_WORKSPACE/.gradle"
+          rm -rf ~/.gradle/caches
+          rm -rf ~/.gradle/composite-builds
+          rm -rf ~/.gradle/configuration-cache
+          rm -rf ~/.gradle/build-scan-data
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
