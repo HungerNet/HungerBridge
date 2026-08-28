@@ -8,10 +8,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: HungerBridge/HungerBridge
-
     strategy:
       matrix:
         include:
@@ -44,7 +40,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Java ${{ matrix.jdk }}
+      - name: Enter correct project directory
+        run: cd HungerBridge/HungerBridge
+
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -77,7 +76,7 @@ jobs:
         run: rm -rf ~/.gradle/caches ~/.gradle/composite-builds ~/.gradle/configuration-cache ~/.gradle/build-scan-data
 
       - name: Clean project Gradle dir
-        run: rm -rf .gradle
+        run: rm -rf HungerBridge/HungerBridge/.gradle
 
       - name: Build
-        run: ./gradlew :${{ matrix.project }}:build --no-daemon --stacktrace
+        run: cd HungerBridge/HungerBridge && ./gradlew :${{ matrix.project }}:build --no-daemon --stacktrace
