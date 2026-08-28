@@ -7,6 +7,11 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: HungerBridge
+
     strategy:
       matrix:
         include:
@@ -34,10 +39,6 @@ jobs:
             project: fabric
             target: 26.2-fabric
             jdk: '25'
-
-    defaults:
-      run:
-        working-directory: HungerBridge
 
     steps:
       - name: Checkout
