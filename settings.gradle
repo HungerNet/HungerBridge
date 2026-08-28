@@ -21,7 +21,8 @@ def defaultFabric = "1.21.11-fabric"
 def defaultPaper = "1.21.11-paper"
 
 def activeFabric = System.getenv('STONECUTTER_ACTIVE') ?: defaultFabric
-def activePaper = System.getenv('STONECUTTER_ACTIVE_PAPER') ?: System.getenv('STONECUTTER_ACTIVE') ?: defaultPaper
+def paperEnv = System.getenv('STONECUTTER_ACTIVE_PAPER')
+def activePaper = paperEnv?.trim() ? paperEnv : defaultPaper
 
 include("paper:versions:${activePaper}")
 include("fabric:versions:${activeFabric}")
