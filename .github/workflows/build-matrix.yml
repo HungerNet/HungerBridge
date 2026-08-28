@@ -64,7 +64,5 @@ jobs:
           fi
 
       - name: Build
-        env:
-          STONECUTTER_ACTIVE: ${{ matrix.target }}
         run: |
           ./gradlew :${{ matrix.project }}:build --no-daemon --stacktrace
