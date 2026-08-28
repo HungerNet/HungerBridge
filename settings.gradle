@@ -9,7 +9,7 @@ pluginManagement {
 
 rootProject.name = "HungerBridge"
 
-include("common", "paper", "fabric")
+include("common", "paper")
 
 // Only include the active versioned subprojects to avoid configuring
 // all targets in one Gradle session (which would require multiple JDKs).

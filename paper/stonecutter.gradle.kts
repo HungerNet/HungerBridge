@@ -1,12 +1,3 @@
-plugins {
-    id("dev.kikugie.stonecutter")
-    id("gg.meza.stonecraft")
-}
-
-// Allow overriding the active Paper target via environment variable
-// Priority: STONECUTTER_ACTIVE_PAPER > STONECUTTER_ACTIVE > default
-val activeTarget: String = System.getenv("STONECUTTER_ACTIVE_PAPER") ?: System.getenv("STONECUTTER_ACTIVE") ?: "1.21.11-paper"
-
-stonecutter {
-    active(activeTarget)
-}
+// Stonecutter auto-discovery is intentionally disabled.
+// We select the active Paper target explicitly from settings.gradle so only one
+// versioned paper project is configured at a time.

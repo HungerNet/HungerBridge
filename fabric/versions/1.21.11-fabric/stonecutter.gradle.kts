@@ -1,8 +1,2 @@
-plugins {
-    id("dev.kikugie.stonecutter")
-    id("gg.meza.stonecraft")
-}
-
-stonecutter {
-    active("1.21.11-fabric")
-}
+// Version selection is handled by settings.gradle. This project is configured
+// explicitly and should not auto-register additional Stonecutter targets.

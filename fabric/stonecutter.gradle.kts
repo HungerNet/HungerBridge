@@ -1,12 +1,3 @@
-plugins {
-    id("dev.kikugie.stonecutter")
-    id("gg.meza.stonecraft")
-}
-
-// Allow overriding the active Fabric target via environment variable
-// e.g. `STONECUTTER_ACTIVE=26.2-fabric ./gradlew <task>`
-val activeTarget: String = System.getenv("STONECUTTER_ACTIVE") ?: "1.21.11-fabric"
-
-stonecutter {
-    active(activeTarget)
-}
+// Stonecutter auto-discovery is intentionally disabled.
+// We select the active Fabric target explicitly from settings.gradle so only one
+// versioned fabric project is configured at a time.
