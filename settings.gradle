@@ -12,22 +12,21 @@ rootProject.name = "HungerBridge"
 include("common")
 
 def defaultFabric = "1.21.11-fabric"
-def defaultPaper = "1.21.11-paper"
+def defaultPaper  = "1.21.11-paper"
 
-def activeFabric = System.getenv('STONECUTTER_ACTIVE') ?: defaultFabric
+// Fabric target ALWAYS comes from STONECUTTER_ACTIVE
+def activeFabric = System.getenv("STONECUTTER_ACTIVE") ?: defaultFabric
 
-def paperEnv = System.getenv('STONECUTTER_ACTIVE_PAPER')
-def activePaper = (paperEnv != null && paperEnv.trim() && paperEnv != "__none__")
-        ? paperEnv
-        : "__none__"
+// Paper target ONLY included when STONECUTTER_ACTIVE_PAPER is NOT "__none__"
+def activePaper = System.getenv("STONECUTTER_ACTIVE_PAPER") ?: "__none__"
 
-// Include PAPER only when building paper
+// STRICT equality — no Groovy truthiness, no trim(), no coercion
 if (activePaper != "__none__") {
     include("paper")
     include("paper:versions:${activePaper}")
 }
 
-// Always include fabric
+// Fabric ALWAYS included
 include("fabric")
 include("fabric:versions:${activeFabric}")
 
