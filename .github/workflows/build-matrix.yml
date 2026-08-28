@@ -62,6 +62,7 @@ jobs:
               echo "STONECUTTER_ACTIVE_PAPER=${{ matrix.target }}" >> $GITHUB_ENV
           else
               echo "STONECUTTER_ACTIVE=${{ matrix.target }}" >> $GITHUB_ENV
+              echo "STONECUTTER_ACTIVE_PAPER=" >> $GITHUB_ENV
           fi
 
       - name: Build
