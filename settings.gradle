@@ -9,7 +9,7 @@ pluginManagement {
 
 rootProject.name = "HungerBridge"
 
-include("common", "paper")
+include("common")
 
 def defaultFabric = "1.21.11-fabric"
 def defaultPaper = "1.21.11-paper"
@@ -17,12 +17,18 @@ def defaultPaper = "1.21.11-paper"
 def activeFabric = System.getenv('STONECUTTER_ACTIVE') ?: defaultFabric
 
 def paperEnv = System.getenv('STONECUTTER_ACTIVE_PAPER')
-def activePaper =
-    (paperEnv != null && paperEnv.trim() && paperEnv != "__none__")
+def activePaper = (paperEnv != null && paperEnv.trim() && paperEnv != "__none__")
         ? paperEnv
-        : defaultPaper
+        : "__none__"
 
-include("paper:versions:${activePaper}")
+// Include PAPER only when building paper
+if (activePaper != "__none__") {
+    include("paper")
+    include("paper:versions:${activePaper}")
+}
+
+// Always include fabric
+include("fabric")
 include("fabric:versions:${activeFabric}")
 
 buildscript {
