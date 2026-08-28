@@ -57,14 +57,14 @@ jobs:
 
       - name: Set active target
         run: |
-          echo "STONECUTTER_ACTIVE=${{ matrix.target }}" >> $GITHUB_ENV
           if [ "${{ matrix.project }}" = "paper" ]; then
-            echo "STONECUTTER_ACTIVE_PAPER=${{ matrix.target }}" >> $GITHUB_ENV
+              echo "STONECUTTER_ACTIVE_PAPER=${{ matrix.target }}" >> $GITHUB_ENV
+          else
+              echo "STONECUTTER_ACTIVE=${{ matrix.target }}" >> $GITHUB_ENV
           fi
 
       - name: Build
         env:
           STONECUTTER_ACTIVE: ${{ matrix.target }}
-          STONECUTTER_ACTIVE_PAPER: ${{ matrix.target }}
         run: |
           ./gradlew :${{ matrix.project }}:build --no-daemon --stacktrace
