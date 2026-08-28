@@ -40,6 +40,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Debug workspace
+        run: ls -R /home/runner/work/HungerBridge
+
+
       - name: Enter correct project directory
         run: cd HungerBridge
         shell: bash
