@@ -11,6 +11,8 @@ rootProject.name = "HungerBridge"
 
 include("common")
 
+def defaultFabric = "1.21.11-fabric"
+def defaultPaper  = "1.21.11-paper"
 
 // Fabric target ALWAYS comes from STONECUTTER_ACTIVE
 def activeFabric = System.getenv("STONECUTTER_ACTIVE") ?: defaultFabric
