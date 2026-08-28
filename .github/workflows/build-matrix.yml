@@ -68,6 +68,12 @@ jobs:
           PROJECT: ${{ matrix.project }}
           TARGET: ${{ matrix.target }}
 
+      - name: Clean Gradle caches
+        run: rm -rf ~/.gradle/caches ~/.gradle/composite-builds ~/.gradle/configuration-cache ~/.gradle/build-scan-data
+
+      - name: Clean project Gradle dir
+        run: rm -rf .gradle
+
       - name: Build
         run: |
           ./gradlew :${{ matrix.project }}:build --no-daemon --stacktrace
