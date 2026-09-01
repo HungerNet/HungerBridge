@@ -1,6 +1,11 @@
 pluginManagement {
     repositories {
         gradlePluginPortal()
+
+        // Fabric Loom plugin repository
+        maven("https://maven.fabricmc.net/")
+
+        // Paperweight plugin repository
         maven("https://repo.papermc.io/repository/maven-public/")
     }
 }
