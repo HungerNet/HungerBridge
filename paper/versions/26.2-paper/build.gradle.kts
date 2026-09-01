@@ -27,3 +27,9 @@ sourceSets {
         resources.srcDir(rootProject.file("paper/src/main/resources"))
     }
 }
+
+tasks.processResources {
+    filesMatching("plugin.yml") {
+        expand("version" to project.version)
+    }
+}

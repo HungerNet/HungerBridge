@@ -21,8 +21,8 @@ dependencies {
     include(project(":common"))
 }
 
-// tasks.processResources {
-//     filesMatching("fabric.mod.json") {
-//         expand("version" to project.version)
-//     }
-// }
+tasks.processResources {
+    filesMatching("fabric.mod.json") {
+        expand("version" to project.version)
+    }
+}

@@ -1,6 +1,11 @@
+import org.yaml.snakeyaml.Yaml
+
 plugins {
     id 'java'
 }
+
+def versionYaml = new Yaml().load(file("version.yaml").text)
+version = versionYaml["version"]
 
 subprojects {
     apply plugin: 'java'
