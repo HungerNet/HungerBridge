@@ -39,6 +39,12 @@ jobs:
           distribution: temurin
           java-version: ${{ matrix.jdk }}
 
+      - name: Print Java version
+        run: |
+          echo "Java version and javac"
+          java -version || true
+          javac -version || true
+
       - name: Set active target
         run: |
           if [ "${{ matrix.project }}" = "paper" ]; then
@@ -58,4 +64,9 @@ jobs:
       - name: Build
         run: |
           cd "$GITHUB_WORKSPACE"
+          # Increase heap for Gradle and child JVMs to help Paperweight decompilation
+          export JAVA_TOOL_OPTIONS="-Xmx6g"
+          export GRADLE_OPTS="-Dorg.gradle.jvmargs=-Xmx6g"
+          echo "JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS}"
+          echo "GRADLE_OPTS=${GRADLE_OPTS}"
           ./gradlew :${{ matrix.project }}:build --no-daemon --stacktrace
