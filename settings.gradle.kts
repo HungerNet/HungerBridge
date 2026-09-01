@@ -12,16 +12,18 @@ pluginManagement {
 
 rootProject.name = "HungerBridge"
 
-include("common")
-
 val active = System.getenv("STONECUTTER_ACTIVE") ?: "__none__"
 
+// Fabric loader
 if (active.endsWith("-fabric")) {
+    include("common")
     include("fabric")
     include("fabric:versions:$active")
 }
 
+// Paper loader
 if (active.endsWith("-paper")) {
+    include("common")
     include("paper")
     include("paper:versions:$active")
 }
