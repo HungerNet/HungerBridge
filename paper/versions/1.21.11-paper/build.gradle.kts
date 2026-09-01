@@ -1,32 +1,23 @@
 plugins {
-    id("io.papermc.paperweight.experimental") version "2.0.0-beta.23"
+    id("io.papermc.paperweight.userdev") version "2.0.0-beta.23"
 }
 
-// Artifact version derived from Stonecutter
-version = "hungerbridge-${'$'}{stonecutter.current.minecraftVersion}-${'$'}{stonecutter.current.loader}+${'$'}{stonecutter.current.version}"
+version = rootProject.version.toString()
 
 repositories {
     mavenCentral()
-    maven { url = uri("https://repo.papermc.io/repository/maven-public/") }
-    maven { url = uri("https://repo.papermc.io/repository/maven-releases/") }
+    maven("https://repo.papermc.io/repository/maven-public/")
+    maven("https://repo.papermc.io/repository/maven-releases/")
 }
 
 dependencies {
-    // Use the exact timestamped dev-bundle and force the ZIP artifact to ensure
-    // the configuration contains a single file (Paperweight expects one file).
     paperweightDevelopmentBundle("io.papermc.paper:dev-bundle:1.21.11-R0.1-20260511.115010-91@zip")
     implementation(project(":common"))
 }
 
-// Versioned project compiles the shared root `paper/src` sources so they are
-// compiled with the dev-bundle and `:common` on the classpath.
 sourceSets {
     named("main") {
-        java {
-            srcDir(rootProject.file("paper/src/main/java"))
-        }
-        resources {
-            srcDir(rootProject.file("paper/src/main/resources"))
-        }
+        java.srcDir(rootProject.file("paper/src/main/java"))
+        resources.srcDir(rootProject.file("paper/src/main/resources"))
     }
 }
