@@ -8,6 +8,7 @@ version = "hungerbridge-${'$'}{stonecutter.current.minecraftVersion}-${'$'}{ston
 repositories {
     mavenCentral()
     maven { url = uri("https://repo.papermc.io/repository/maven-public/") }
+    maven { url = uri("https://repo.papermc.io/repository/maven-releases/") }
 }
 
 dependencies {
