@@ -10,14 +10,18 @@ repositories {
 }
 
 java {
-    toolchain {
-        languageVersion.set(JavaLanguageVersion.of(25))
-    }
+    toolchain.languageVersion = JavaLanguageVersion.of(25)
 }
 
 dependencies {
     minecraft("com.mojang:minecraft:26.1.2")
-    // Kotlin DSL: Loom does NOT generate modImplementation accessors
-    add("implementation", "net.fabricmc:fabric-loader:0.19.2")
+    implementation("net.fabricmc:fabric-loader:0.19.2")
     implementation(project(":common"))
+    include(project(":common"))
 }
+
+// tasks.processResources {
+//     filesMatching("fabric.mod.json") {
+//         expand("version" to project.version)
+//     }
+// }
