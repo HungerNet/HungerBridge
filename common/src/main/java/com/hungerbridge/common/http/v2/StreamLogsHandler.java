@@ -40,10 +40,47 @@ public final class StreamLogsHandler implements HttpHandler {
         OutputStream out = ex.getResponseBody();
         LogDistributor.StreamConnection connection = LogDistributor.get().register(out);
 
+        // check for ?history=N query parameter
+        String query = ex.getRequestURI().getQuery();
+        int historyCount = 0;
+        if (query != null) {
+            for (String param : query.split("&")) {
+                String[] kv = param.split("=", 2);
+                if (kv.length == 2 && "history".equalsIgnoreCase(kv[0])) {
+                    try {
+                        historyCount = Integer.parseInt(kv[1]);
+                    } catch (NumberFormatException ignored) {
+                        // ignore invalid numbers
+                    }
+                }
+            }
+        }
+        if (historyCount > 0) {
+            LogDistributor.get().sendHistory(connection, historyCount);
+        }
+
         try {
-            connection.await();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+            // Write chunks produced by the LogDistributor from the handler thread.
+            while (connection.isActive()) {
+                String chunk;
+                try {
+                    chunk = connection.getQueue().take();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+                if (chunk == null || chunk.isEmpty()) {
+                    // empty chunk used as wake-up; check active flag
+                    continue;
+                }
+                try {
+                    out.write(chunk.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    out.flush();
+                } catch (IOException e) {
+                    // client disconnected or write failed
+                    break;
+                }
+            }
         } finally {
             LogDistributor.get().unregister(connection);
             try {

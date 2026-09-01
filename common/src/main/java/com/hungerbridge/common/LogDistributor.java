@@ -24,6 +24,9 @@ public final class LogDistributor {
         t.setDaemon(true);
         return t;
     });
+    // in-memory history buffer for recent log lines (sent to new connections)
+    private final java.util.Deque<String> history = new java.util.ArrayDeque<>();
+    private static final int HISTORY_MAX = 200;
 
     private LogDistributor() {}
 
@@ -37,6 +40,22 @@ public final class LogDistributor {
         return connection;
     }
 
+    /**
+     * Send up to `count` most-recent history lines to the provided connection.
+     * If count is larger than available history, all history is sent.
+     */
+    public void sendHistory(StreamConnection connection, int count) {
+        if (connection == null || count <= 0) return;
+        java.util.List<String> snapshot;
+        synchronized (history) {
+            snapshot = new java.util.ArrayList<>(history);
+        }
+        int start = Math.max(0, snapshot.size() - Math.min(count, HISTORY_MAX));
+        for (int i = start; i < snapshot.size(); i++) {
+            connection.write("data:" + escapeSse(snapshot.get(i)) + "\n\n");
+        }
+    }
+
     public void unregister(StreamConnection connection) {
         if (connection == null) {
             return;
@@ -48,6 +67,14 @@ public final class LogDistributor {
     public void publish(String line) {
         if (line == null) {
             return;
+        }
+
+        // record in history
+        synchronized (history) {
+            history.addLast(line);
+            if (history.size() > HISTORY_MAX) {
+                history.removeFirst();
+            }
         }
 
         String payload = "data:" + escapeSse(line) + "\n\n";
@@ -73,6 +100,7 @@ public final class LogDistributor {
         private final AtomicBoolean active = new AtomicBoolean(true);
         private final CountDownLatch closed = new CountDownLatch(1);
         private final ScheduledFuture<?> keepaliveTask;
+        private final java.util.concurrent.BlockingQueue<String> queue = new java.util.concurrent.LinkedBlockingQueue<>();
 
         private StreamConnection(OutputStream output, ScheduledExecutorService scheduler) {
             this.output = output;
@@ -92,16 +120,23 @@ public final class LogDistributor {
             closed.await();
         }
 
+        public java.util.concurrent.BlockingQueue<String> getQueue() {
+            return queue;
+        }
+
+        public boolean isActive() {
+            return active.get();
+        }
+
         public void write(String chunk) {
             if (!active.get()) {
                 return;
             }
-
+            // enqueue the chunk for the handler thread to write
             try {
-                output.write(chunk.getBytes(StandardCharsets.UTF_8));
-                output.flush();
-            } catch (IOException e) {
-                close();
+                queue.offer(chunk, 1, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
             }
         }
 
@@ -113,11 +148,8 @@ public final class LogDistributor {
             if (keepaliveTask != null) {
                 keepaliveTask.cancel(false);
             }
-            try {
-                output.close();
-            } catch (IOException ignored) {
-                // Client is already gone or the socket is closed.
-            }
+            // wake up any waiting handler by offering an empty string
+            queue.offer("");
             closed.countDown();
         }
     }
