@@ -16,3 +16,16 @@ dependencies {
     paperweightDevelopmentBundle("io.papermc.paper:dev-bundle:1.21.11-R0.1-20260511.115010-91@zip")
     implementation(project(":common"))
 }
+
+// Include shared root `paper` sources so the versioned project compiles them
+// together with the dev-bundle and `:common` on the classpath.
+sourceSets {
+    named("main") {
+        java {
+            srcDir(rootProject.file("paper/src/main/java"))
+        }
+        resources {
+            srcDir(rootProject.file("paper/src/main/resources"))
+        }
+    }
+}

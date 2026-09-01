@@ -14,3 +14,14 @@ dependencies {
     paperweightDevelopmentBundle("io.papermc.paper:dev-bundle:26.2.build.119-stable")
     implementation(project(":common"))
 }
+
+sourceSets {
+    named("main") {
+        java {
+            srcDir(rootProject.file("paper/src/main/java"))
+        }
+        resources {
+            srcDir(rootProject.file("paper/src/main/resources"))
+        }
+    }
+}
