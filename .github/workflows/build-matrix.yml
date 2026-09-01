@@ -69,4 +69,10 @@ jobs:
           export GRADLE_OPTS="-Dorg.gradle.jvmargs=-Xmx6g"
           echo "JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS}"
           echo "GRADLE_OPTS=${GRADLE_OPTS}"
-          ./gradlew :${{ matrix.project }}:build --no-daemon --stacktrace
+          if [ "${{ matrix.project }}" = "paper" ]; then
+            ./gradlew :paper:versions:${{ matrix.target }}:build --no-daemon --stacktrace
+          elif [ "${{ matrix.project }}" = "fabric" ]; then
+            ./gradlew :fabric:versions:${{ matrix.target }}:build --no-daemon --stacktrace
+          else
+            ./gradlew :${{ matrix.project }}:build --no-daemon --stacktrace
+          fi
