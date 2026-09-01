@@ -12,8 +12,13 @@ repositories {
 }
 
 dependencies {
-    paperweightDevelopmentBundle("io.papermc.paper:dev-bundle:26.1.2.build.74-stable@zip")
+    // NEW Paperweight 2.x DSL — correct for 26.x
+    paperweight.paperDevBundle("26.1.2.build.+")
     implementation(project(":common"))
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(25)
 }
 
 sourceSets {
