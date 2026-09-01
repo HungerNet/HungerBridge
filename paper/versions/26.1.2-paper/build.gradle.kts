@@ -1,7 +1,3 @@
-plugins {
-    id("io.papermc.paperweight.userdev") version "2.0.0-beta.23"
-}
-
 // Artifact version derived from Stonecutter
 version = "hungerbridge-${'$'}{stonecutter.current.minecraftVersion}-${'$'}{stonecutter.current.loader}+${'$'}{stonecutter.current.version}"
 
@@ -10,18 +6,6 @@ repositories {
     maven { url = uri("https://repo.papermc.io/repository/maven-public/") }
 }
 
-dependencies {
-    paperweightDevelopmentBundle("io.papermc.paper:dev-bundle:26.1.2.build.74-stable")
-    implementation(project(":common"))
-}
- 
-sourceSets {
-    named("main") {
-        java {
-            srcDir(rootProject.file("paper/src/main/java"))
-        }
-        resources {
-            srcDir(rootProject.file("paper/src/main/resources"))
-        }
-    }
-}
+// Versioned projects are thin wrappers; the root project compiles the shared
+// `paper/src` sources when Paper is active so compilation happens with the
+// dev-bundle and `:common` on the classpath.
