@@ -27,8 +27,12 @@ tasks.processResources {
     }
 }
 
-sourceSets {
-    main {
-        resources.srcDir(".")
+tasks.processResources {
+    from(".") {
+        include("fabric.mod.json")
+        include("hungerbridge.mixins.json")
+    }
+    filesMatching("fabric.mod.json") {
+        expand("version" to project.version)
     }
 }
