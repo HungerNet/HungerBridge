@@ -33,12 +33,12 @@ println("Normalized STONECUTTER_ACTIVE = ${'$'}active")
 if (active.endsWith("-fabric")) {
     include("common")
     include("fabric")
-    include("fabric:versions:$active")
+    include("fabric:versions:${active}")
 }
 
 // Paper loader
 if (active.endsWith("-paper")) {
     include("common")
     include("paper")
-    include("paper:versions:$active")
+    include("paper:versions:${active}")
 }
