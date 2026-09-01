@@ -36,3 +36,10 @@ tasks.processResources {
         expand("version" to project.version)
     }
 }
+
+sourceSets {
+    main {
+        java.srcDir("../../src/main/java")
+        resources.srcDir("../../src/main/resources")
+    }
+}
