@@ -25,3 +25,9 @@ tasks.processResources {
         expand("version" to project.version)
     }
 }
+
+sourceSets {
+    main {
+        resources.srcDir(".")
+    }
+}
