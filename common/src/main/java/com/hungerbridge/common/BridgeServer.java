@@ -62,7 +62,7 @@ public final class BridgeServer {
             server.createContext("/v2/log", new LogHandler(config, logger));
         }
         if (config.isStreamLogsEnabled()) {
-            server.createContext("/stream/logs", new StreamLogsHandler(config));
+            server.createContext("/v2/stream/logs", new StreamLogsHandler(config));
         }
         if (config.isTpsEnabled()) {
             server.createContext("/v2/tps", new TpsHandler(config, logger, executor));
