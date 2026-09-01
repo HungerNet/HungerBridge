@@ -41,11 +41,13 @@ jobs:
 
       - name: Set active target
         run: |
+          TARGET="${{ matrix.target }}"
           if [ "${{ matrix.project }}" = "paper" ]; then
-            echo "STONECUTTER_ACTIVE=${{ matrix.target }}" >> $GITHUB_ENV
-            echo "STONECUTTER_ACTIVE_PAPER=${{ matrix.target }}" >> $GITHUB_ENV
+            FABRIC_TARGET="${TARGET%-paper}-fabric"
+            echo "STONECUTTER_ACTIVE=${FABRIC_TARGET}" >> $GITHUB_ENV
+            echo "STONECUTTER_ACTIVE_PAPER=${TARGET}" >> $GITHUB_ENV
           else
-            echo "STONECUTTER_ACTIVE=${{ matrix.target }}" >> $GITHUB_ENV
+            echo "STONECUTTER_ACTIVE=${TARGET}" >> $GITHUB_ENV
             echo "STONECUTTER_ACTIVE_PAPER=__none__" >> $GITHUB_ENV
           fi
 
