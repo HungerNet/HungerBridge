@@ -76,3 +76,8 @@ jobs:
           else
             ./gradlew :${{ matrix.project }}:build --no-daemon --stacktrace
           fi
+      - name: Show paperclip log
+        if: failure()
+        run: |
+          LOG_DIR="$HOME/.gradle/caches/paperweight-userdev/v2/work"
+          find "$LOG_DIR" -maxdepth 2 -type f -name 'output.log' -print -exec cat {} \;
