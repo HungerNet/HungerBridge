@@ -22,62 +22,37 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Debug workspace
-        run: ls -R "$GITHUB_WORKSPACE"
-
-      - name: Nuclear Gradle cleanup 1
-        run: |
-          rm -rf "$GITHUB_WORKSPACE/.gradle"
-          rm -rf ~/.gradle/caches
-          rm -rf ~/.gradle/composite-builds
-          rm -rf ~/.gradle/configuration-cache
-          rm -rf ~/.gradle/build-scan-data
-
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: ${{ matrix.jdk }}
 
-      - name: Print Java version
+      - name: Set active Stonecutter target
         run: |
-          echo "Java version and javac"
-          java -version || true
-          javac -version || true
-
-      - name: Set active target
-        run: |
+          echo "STONECUTTER_ACTIVE=${{ matrix.target }}" >> $GITHUB_ENV
           if [ "${{ matrix.project }}" = "paper" ]; then
-            echo "STONECUTTER_ACTIVE=${{ matrix.target }}" >> $GITHUB_ENV
             echo "STONECUTTER_ACTIVE_PAPER=${{ matrix.target }}" >> $GITHUB_ENV
           else
-            echo "STONECUTTER_ACTIVE=${{ matrix.target }}" >> $GITHUB_ENV
             echo "STONECUTTER_ACTIVE_PAPER=__none__" >> $GITHUB_ENV
           fi
 
-      - name: Clean Gradle caches
-        run: rm -rf ~/.gradle/caches ~/.gradle/composite-builds ~/.gradle/configuration-cache ~/.gradle/build-scan-data
-
-      - name: Clean project Gradle dir
-        run: rm -rf "$GITHUB_WORKSPACE/.gradle"
-
-      - name: Build
+      - name: Build version
         run: |
           cd "$GITHUB_WORKSPACE"
-          # Increase heap for Gradle and child JVMs to help Paperweight decompilation
           export JAVA_TOOL_OPTIONS="-Xmx6g"
           export GRADLE_OPTS="-Dorg.gradle.jvmargs=-Xmx6g"
-          echo "JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS}"
-          echo "GRADLE_OPTS=${GRADLE_OPTS}"
+
           if [ "${{ matrix.project }}" = "paper" ]; then
             ./gradlew :paper:versions:${{ matrix.target }}:build --no-daemon --stacktrace
-          elif [ "${{ matrix.project }}" = "fabric" ]; then
-            ./gradlew :fabric:versions:${{ matrix.target }}:build --no-daemon --stacktrace
           else
-            ./gradlew :${{ matrix.project }}:build --no-daemon --stacktrace
+            ./gradlew :fabric:versions:${{ matrix.target }}:build --no-daemon --stacktrace
           fi
-      - name: Show paperclip log
-        if: failure()
-        run: |
-          LOG_DIR="$HOME/.gradle/caches/paperweight-userdev/v2/work"
-          find "$LOG_DIR" -maxdepth 2 -type f -name 'output.log' -print -exec cat {} \;
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: |
+            paper/versions/${{ matrix.target }}/build/libs/*.jar
+            fabric/versions/${{ matrix.target }}/build/libs/*.jar

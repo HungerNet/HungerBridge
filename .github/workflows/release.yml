@@ -4,10 +4,11 @@ permissions:
   contents: write
 
 on:
+  workflow_dispatch:
   push:
     branches:
-      - "**"
-  workflow_dispatch:
+      - main
+      - master
 
 jobs:
   release:
@@ -21,36 +22,12 @@ jobs:
         id: version
         run: |
           VERSION=$(grep '^version:' version.yaml | sed 's/version:[[:space:]]*"\(.*\)"/\1/')
-          MC_VERSION=$(grep '^mc_version:' version.yaml | sed 's/mc_version:[[:space:]]*"\(.*\)"/\1/')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "mc_version=$MC_VERSION" >> $GITHUB_OUTPUT
 
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
         with:
-          distribution: temurin
-          java-version: 21
-
-      - name: Cache Gradle
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
-
-      - name: Build
-        run: ./gradlew clean build --no-daemon
-
-      - name: Prepare release artifacts
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          MC_VERSION="${{ steps.version.outputs.mc_version }}"
-          mkdir -p release
-          cp paper/build/libs/*.jar "release/HungerBridge-paper-${VERSION}+${MC_VERSION}.jar"
-          cp fabric/build/libs/*.jar "release/HungerBridge-fabric-${VERSION}+${MC_VERSION}.jar"
+          path: release/
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -58,10 +35,8 @@ jobs:
           tag_name: v${{ steps.version.outputs.version }}
           name: HungerBridge ${{ steps.version.outputs.version }}
           body: |
-            HungerBridge release.
-            Multiloader HTTP bridge for Paper and Fabric.
-          files: |
-            release/HungerBridge-paper-${{ steps.version.outputs.version }}+${{ steps.version.outputs.mc_version }}.jar
-            release/HungerBridge-fabric-${{ steps.version.outputs.version }}+${{ steps.version.outputs.mc_version }}.jar
+            HungerBridge multiloader release.
+            Includes Paper and Fabric builds for all supported versions.
+          files: release/**/*.jar
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
