@@ -11,6 +11,11 @@ repositories {
     maven("https://repo.papermc.io/repository/maven-snapshots/")
 }
 
+paperweight {
+    // REQUIRED for 26.x — disables patch mode
+    paperclipPatchTask.set(null)
+}
+
 dependencies {
     paperweightDevelopmentBundle("io.papermc.paper:dev-bundle:26.2.build.121-stable@zip")
     implementation(project(":common"))
