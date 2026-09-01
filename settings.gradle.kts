@@ -12,7 +12,22 @@ pluginManagement {
 
 rootProject.name = "HungerBridge"
 
-val active = System.getenv("STONECUTTER_ACTIVE") ?: "__none__"
+val raw = System.getenv("STONECUTTER_ACTIVE") ?: "__none__"
+
+val active = when {
+    raw.contains("paper") -> {
+        val mc = raw.filter { it.isDigit() || it == '.' }
+        if (mc.isNotBlank()) "${'$'}mc-paper" else "__none__"
+    }
+    raw.contains("fabric") -> {
+        val mc = raw.filter { it.isDigit() || it == '.' }
+        if (mc.isNotBlank()) "${'$'}mc-fabric" else "__none__"
+    }
+    raw.all { it.isDigit() || it == '.' } -> "${'$'}raw-paper"
+    else -> "__none__"
+}
+
+println("Normalized STONECUTTER_ACTIVE = ${'$'}active")
 
 // Fabric loader
 if (active.endsWith("-fabric")) {
