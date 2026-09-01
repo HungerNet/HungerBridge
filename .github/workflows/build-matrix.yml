@@ -51,13 +51,11 @@ jobs:
             echo "STONECUTTER_ACTIVE_PAPER=__none__" >> $GITHUB_ENV
           fi
 
-      - name: Nuclear Gradle cleanup
-        run: |
-          rm -rf "$GITHUB_WORKSPACE/.gradle"
-          rm -rf ~/.gradle/caches
-          rm -rf ~/.gradle/composite-builds
-          rm -rf ~/.gradle/configuration-cache
-          rm -rf ~/.gradle/build-scan-data
+      - name: Clean Gradle caches
+        run: rm -rf ~/.gradle/caches ~/.gradle/composite-builds ~/.gradle/configuration-cache ~/.gradle/build-scan-data
+
+      - name: Clean project Gradle dir
+        run: rm -rf "$GITHUB_WORKSPACE/.gradle"
 
       - name: Build
         run: |
