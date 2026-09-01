@@ -1,6 +1,0 @@
-name: HungerBridge
-main: com.hungerbridge.paper.HungerBridgePlugin
-version: ${version}
-api-version: 1.21
-author: iFamished
-description: Multiloader HTTP bridge for Paper and Fabric.

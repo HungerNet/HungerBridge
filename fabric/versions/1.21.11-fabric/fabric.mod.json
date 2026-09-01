@@ -3,14 +3,23 @@
   "id": "hungerbridge",
   "version": "${version}",
   "name": "HungerBridge",
-  "description": "HungerBridge Fabric bridge",
-  "authors": ["HungerBridge"],
+  "description": "Multiloader HTTP bridge for Paper and Fabric",
+  "authors": ["iFamished"],
   "license": "MIT",
   "environment": "server",
   "entrypoints": {
-    "main": ["com.hungerbridge.fabric.HungerBridgeFabric"]
+    "server": [
+      "com.hungerbridge.fabric.HungerBridgeFabric"
+    ]
   },
   "mixins": [
     "hungerbridge.mixins.json"
-  ]
+  ],
+
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "minecraft": ">=1.21.11",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
 }
