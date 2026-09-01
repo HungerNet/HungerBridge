@@ -11,10 +11,10 @@ jobs:
     strategy:
       matrix:
         include:
-          - { name: paper-1.21.11, project: paper, target: 1.21.11-paper, jdk: '21' }
+          - { name: paper-1.21.11, project: paper, target: 1.21.11-paper, jdk: '25' }
           - { name: paper-26.1.2, project: paper, target: 26.1.2-paper, jdk: '25' }
           - { name: paper-26.2, project: paper, target: 26.2-paper, jdk: '25' }
-          - { name: fabric-1.21.11, project: fabric, target: 1.21.11-fabric, jdk: '21' }
+          - { name: fabric-1.21.11, project: fabric, target: 1.21.11-fabric, jdk: '25' }
           - { name: fabric-26.1.2, project: fabric, target: 26.1.2-fabric, jdk: '25' }
           - { name: fabric-26.2, project: fabric, target: 26.2-fabric, jdk: '25' }
 
