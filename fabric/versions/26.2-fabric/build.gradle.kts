@@ -1,5 +1,5 @@
 plugins {
-    id("fabric-loom") version "1.18.0-alpha.19"
+    id("net.fabricmc.fabric-loom") version "1.18.0-alpha.19"
 }
 
 version = rootProject.version.toString()
@@ -17,7 +17,7 @@ java {
 
 dependencies {
     minecraft("com.mojang:minecraft:26.2")
-    mappings(loom.officialMojangMappings())
+    // mappings(loom.officialMojangMappings())
     modImplementation("net.fabricmc:fabric-loader:0.19.2")
     implementation(project(":common"))
 }
