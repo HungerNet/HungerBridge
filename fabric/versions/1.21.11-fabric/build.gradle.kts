@@ -14,6 +14,7 @@ java {
 }
 
 dependencies {
+    implementation("org.yaml:snakeyaml:2.2")
     minecraft("com.mojang:minecraft:1.21.11")
     mappings(loom.officialMojangMappings())
     modImplementation("net.fabricmc:fabric-loader:0.19.2")
@@ -21,10 +22,12 @@ dependencies {
     include(project(":common"))
 }
 
-tasks.processResources {
-    filesMatching("fabric.mod.json") {
-        expand("version" to project.version)
-    }
+tasks.jar {
+    from({
+        configurations.runtimeClasspath.get()
+            .filter { it.name.contains("snakeyaml") }
+            .map { zipTree(it) }
+    })
 }
 
 tasks.processResources {
