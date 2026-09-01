@@ -1,6 +1,9 @@
 plugins {
-    id("fabric-loom") version "1.15.5"
+    id("fabric-loom") version "1.9.2"
 }
+
+// Artifact version derived from Stonecutter
+version = "hungerbridge-${'$'}{stonecutter.current.minecraftVersion}-${'$'}{stonecutter.current.loader}+${'$'}{stonecutter.current.version}"
 
 repositories {
     mavenCentral()

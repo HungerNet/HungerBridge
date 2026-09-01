@@ -1,6 +1,5 @@
 run: true
 version: "4-dev.2"
-mc_version: "1.21.11"
 description: |
   Dev 1:
   - Changed version format

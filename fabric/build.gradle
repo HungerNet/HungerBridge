@@ -2,7 +2,7 @@ plugins {
     id "java"
 }
 
-project.version = gradle.ext.hbVersion
+# Version is defined per-version via Stonecutter in the versioned subprojects
 
 repositories {
     mavenCentral()

@@ -2,6 +2,9 @@ plugins {
     id("io.papermc.paperweight.userdev") version "2.0.0-SNAPSHOT"
 }
 
+// Artifact version derived from Stonecutter
+version = "hungerbridge-${'$'}{stonecutter.current.minecraftVersion}-${'$'}{stonecutter.current.loader}+${'$'}{stonecutter.current.version}"
+
 repositories {
     mavenCentral()
     maven { url = uri("https://repo.papermc.io/repository/maven-public/") }
