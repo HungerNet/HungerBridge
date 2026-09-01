@@ -11,7 +11,7 @@ repositories {
 }
 
 dependencies {
-    paperweightDevelopmentBundle("io.papermc.paper:dev-bundle:26.2.build.121-stable")
+    paperweightDevelopmentBundle("io.papermc.paper:dev-bundle:26.2-R0.1-SNAPSHOT")
     implementation(project(":common"))
 }
 
