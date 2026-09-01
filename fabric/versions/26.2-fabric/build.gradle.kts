@@ -1,5 +1,5 @@
 plugins {
-    id("fabric-loom") version "1.9.2"
+    id("fabric-loom") version "1.18.0-alpha.19"
 }
 
 // Artifact version derived from Stonecutter
