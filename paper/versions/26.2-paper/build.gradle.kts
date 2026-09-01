@@ -11,7 +11,7 @@ repositories {
 }
 
 dependencies {
-    paperweightDevelopmentBundle("io.papermc.paper:dev-bundle:26.2.build.121-stable@zip")
+    paperweightDevelopmentBundle("io.papermc.paper:dev-bundle:26.2.build.+@zip")
     implementation(project(":common"))
 }
 
