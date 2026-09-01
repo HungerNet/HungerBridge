@@ -2,7 +2,7 @@ plugins {
     id("io.papermc.paperweight.userdev") version "2.0.0-beta.23"
 }
 
-version = "hungerbridge-${stonecutter.current.minecraftVersion}-${stonecutter.current.loader}+${stonecutter.current.version}"
+version = rootProject.version.toString()
 
 repositories {
     mavenCentral()

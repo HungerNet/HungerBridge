@@ -1,3 +1,5 @@
+version = "hungerbridge-${stonecutter.current.minecraftVersion}-${stonecutter.current.loader}+${stonecutter.current.version}"
+
 plugins {
     id("java")
     id("io.papermc.paperweight.userdev") version "2.0.0-beta.23" apply false
