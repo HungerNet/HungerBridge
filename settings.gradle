@@ -14,21 +14,26 @@ include("common")
 def defaultFabric = "1.21.11-fabric"
 def defaultPaper  = "1.21.11-paper"
 
-// Fabric target ALWAYS comes from STONECUTTER_ACTIVE
-def activeFabric = System.getenv("STONECUTTER_ACTIVE") ?: defaultFabric
+// Decide active target from STONECUTTER_ACTIVE to avoid including both loaders
+def active = System.getenv("STONECUTTER_ACTIVE") ?: "__none__"
 
-// Paper target ONLY included when STONECUTTER_ACTIVE_PAPER is NOT "__none__"
-def activePaper = System.getenv("STONECUTTER_ACTIVE_PAPER") ?: "__none__"
-
-// STRICT equality — no Groovy truthiness, no trim(), no coercion
-if (activePaper != "__none__") {
+if (active.endsWith("-fabric")) {
+    include("fabric")
+    include("fabric:versions:${active}")
+} else if (active.endsWith("-paper")) {
     include("paper")
-    include("paper:versions:${activePaper}")
+    include("paper:versions:${active}")
+} else {
+    // Fallback: if STONECUTTER_ACTIVE_PAPER is set, prefer that; otherwise default to fabric
+    def activePaper = System.getenv("STONECUTTER_ACTIVE_PAPER") ?: "__none__"
+    if (activePaper != "__none__") {
+        include("paper")
+        include("paper:versions:${activePaper}")
+    } else {
+        include("fabric")
+        include("fabric:versions:${defaultFabric}")
+    }
 }
-
-// Fabric ALWAYS included
-include("fabric")
-include("fabric:versions:${activeFabric}")
 
 buildscript {
     repositories {
