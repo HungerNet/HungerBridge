@@ -233,21 +233,24 @@ public final class HungerBridgeFabric implements DedicatedServerModInitializer {
                                             if (t == null) ctx.getSource().sendFailure(net.minecraft.network.chat.Component.literal("create failed"));
                                             else ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal("created: " + t.id + ":" + t.secret), false);
                                             return 1;
-                                        }).then(net.minecraft.commands.Commands.argument("blacklist", com.mojang.brigadier.arguments.StringArgumentType.word()).executes(ctx -> {
-                                            int ttl = com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(ctx, "ttl");
-                                            String wl = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "whitelist");
-                                            String bl = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "blacklist");
-                                            java.util.List<String> wll = java.util.Arrays.stream(wl.split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList();
-                                            java.util.List<String> bll = java.util.Arrays.stream(bl.split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList();
-                                            com.hungerbridge.common.AdminService admin = bridgeServer.getAdminService();
-                                            if (admin == null) return 1;
-                                            var t = admin.createToken(ttl, wll, bll);
-                                            if (t == null) ctx.getSource().sendFailure(net.minecraft.network.chat.Component.literal("create failed"));
-                                            else ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal("created: " + t.id + ":" + t.secret), false);
-                                            return 1;
-                                        }))
-                        )
-                );
+                                        })
+                                        .then(net.minecraft.commands.Commands.argument("blacklist", com.mojang.brigadier.arguments.StringArgumentType.word())
+                                                .executes(ctx -> {
+                                                    int ttl = com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(ctx, "ttl");
+                                                    String wl = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "whitelist");
+                                                    String bl = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "blacklist");
+                                                    java.util.List<String> wll = java.util.Arrays.stream(wl.split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList();
+                                                    java.util.List<String> bll = java.util.Arrays.stream(bl.split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList();
+                                                    com.hungerbridge.common.AdminService admin = bridgeServer.getAdminService();
+                                                    if (admin == null) return 1;
+                                                    var t = admin.createToken(ttl, wll, bll);
+                                                    if (t == null) ctx.getSource().sendFailure(net.minecraft.network.chat.Component.literal("create failed"));
+                                                    else ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal("created: " + t.id + ":" + t.secret), false);
+                                                    return 1;
+                                                })
+                                        )
+                                )
+                ));
                 tokens.then(net.minecraft.commands.Commands.literal("revoke").then(
                         net.minecraft.commands.Commands.argument("id", com.mojang.brigadier.arguments.StringArgumentType.word()).executes(ctx -> {
                             String id = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "id");
