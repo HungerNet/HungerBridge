@@ -1,0 +1,13 @@
+# Example security.yaml for HungerBridge
+
+# If true and public_base_url is set, HungerBridge will attempt to probe
+# the origin via HTTP to ensure the origin is NOT directly reachable. If the
+# probe succeeds the server will fail to start (fail-closed).
+self_probe: true
+public_base_url: "https://my-proxy.example.com"
+probe_timeout_ms: 1500
+
+# Optional IP allow/deny lists applied after authentication.
+# Lines may be single IPs (192.0.2.5) or CIDR ranges (192.0.2.0/24).
+ip_whitelist: []
+ip_blacklist: []

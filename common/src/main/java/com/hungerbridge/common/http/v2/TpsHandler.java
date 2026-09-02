@@ -38,6 +38,11 @@ public final class TpsHandler implements HttpHandler {
             HttpUtil.error(ex, 401, "unauthorized", "Invalid X-Auth-Key", config);
             return;
         }
+        if (!HttpUtil.checkAcl(ex, config, "tps")) {
+            HttpUtil.error(ex, 403, "forbidden", "Token not permitted to access tps", config);
+            return;
+        }
+        if (!HttpUtil.rateLimit(ex, config, "tps")) return;
 
         JsonObject resp = Json.obj(
                 "ok", true,

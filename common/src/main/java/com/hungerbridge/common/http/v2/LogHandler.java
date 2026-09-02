@@ -35,6 +35,11 @@ public final class LogHandler implements HttpHandler {
             HttpUtil.error(ex, 401, "unauthorized", "Invalid X-Auth-Key", config);
             return;
         }
+        if (!HttpUtil.checkAcl(ex, config, "log")) {
+            HttpUtil.error(ex, 403, "forbidden", "Token not permitted to post logs", config);
+            return;
+        }
+        if (!HttpUtil.rateLimit(ex, config, "log")) return;
 
         JsonObject json = HttpUtil.readJson(ex);
         if (json == null || !json.has("message")) {

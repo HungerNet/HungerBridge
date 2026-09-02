@@ -35,6 +35,11 @@ public final class PingHandler implements HttpHandler {
             HttpUtil.error(ex, 401, "unauthorized", "Invalid X-Auth-Key", config);
             return;
         }
+        if (!HttpUtil.checkAcl(ex, config, "ping")) {
+            HttpUtil.error(ex, 403, "forbidden", "Token not permitted to ping", config);
+            return;
+        }
+        if (!HttpUtil.rateLimit(ex, config, "ping")) return;
 
         long serverTimeMs = System.currentTimeMillis();
 

@@ -1,0 +1,22 @@
+# Example tokens.yaml — human-editable policy and examples for HungerBridge
+# This file is optional and is for administrators to document desired token
+# policies. The authoritative storage is saved to storage/tokens.json by the
+# running server. Do NOT store production secrets in repository files.
+
+# Global security settings (optional)
+allowed_skew_seconds: 300  # allowed timestamp skew for signed requests
+default_token_ttl_seconds: 0  # 0 = never expires
+
+# Example token entries (for documentation only — use the management API to create)
+# tokens:
+#   - id: exampletokenid
+#     # secret: DO_NOT_COMMIT
+#     revoked: false
+#     expiry: 0
+#     whitelist:
+#       - run
+#       - info
+#     blacklist: []
+
+# Admin note: Use the /v2/tokens management endpoint with your root X-Auth-Key
+# to create and revoke tokens. The created secret is only returned once.

@@ -34,6 +34,11 @@ public final class StatusHandler implements HttpHandler {
             HttpUtil.error(ex, 401, "unauthorized", "Invalid X-Auth-Key", config);
             return;
         }
+        if (!HttpUtil.checkAcl(ex, config, "status")) {
+            HttpUtil.error(ex, 403, "forbidden", "Token not permitted to access status", config);
+            return;
+        }
+        if (!HttpUtil.rateLimit(ex, config, "status")) return;
 
         JsonObject resp = Json.obj(
                 "ok", true

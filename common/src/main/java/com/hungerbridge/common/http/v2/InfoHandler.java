@@ -35,6 +35,11 @@ public final class InfoHandler implements HttpHandler {
             HttpUtil.error(ex, 401, "unauthorized", "Invalid X-Auth-Key", config);
             return;
         }
+        if (!HttpUtil.checkAcl(ex, config, "info")) {
+            HttpUtil.error(ex, 403, "forbidden", "Token not permitted to access info", config);
+            return;
+        }
+        if (!HttpUtil.rateLimit(ex, config, "info")) return;
 
         JsonObject bridge = Json.obj(
                 "version", config.getVersion(),

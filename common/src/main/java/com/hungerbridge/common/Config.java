@@ -1,5 +1,7 @@
 package com.hungerbridge.common;
 
+import com.hungerbridge.common.security.TokenManager;
+
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 
@@ -58,6 +60,10 @@ public final class Config {
     private String platform = "unknown";
     private String minecraftVersion = "unknown";
     private String bridgeVersion;
+    private TokenManager tokenManager;
+    private com.hungerbridge.common.security.RateLimiter rateLimiter;
+    private com.hungerbridge.common.log.AuditLogger auditLogger;
+    private com.hungerbridge.common.security.SecurityConfig securityConfig;
 
     public Config(
             int port,
@@ -233,6 +239,15 @@ public final class Config {
             throw new RuntimeException("Failed to load HungerBridge config", e);
         }
     }
+
+    public void setTokenManager(TokenManager tm) { this.tokenManager = tm; }
+    public TokenManager getTokenManager() { return tokenManager; }
+    public void setRateLimiter(com.hungerbridge.common.security.RateLimiter rl) { this.rateLimiter = rl; }
+    public com.hungerbridge.common.security.RateLimiter getRateLimiter() { return rateLimiter; }
+    public void setAuditLogger(com.hungerbridge.common.log.AuditLogger al) { this.auditLogger = al; }
+    public com.hungerbridge.common.log.AuditLogger getAuditLogger() { return auditLogger; }
+    public void setSecurityConfig(com.hungerbridge.common.security.SecurityConfig sc) { this.securityConfig = sc; }
+    public com.hungerbridge.common.security.SecurityConfig getSecurityConfig() { return securityConfig; }
 
     private static boolean coerceBoolean(Object value) {
         if (value instanceof Boolean) {

@@ -1,5 +1,5 @@
 run: true
-version: "4-dev.4"
+version: "4-dev.5"
 description: |
   Dev 1:
   - Changed version format
@@ -15,3 +15,5 @@ description: |
   - Fixed /stream endpoint
   Dev 4:
   - Add history paramater and logic
+  Dev 5:
+  - Overhauled security

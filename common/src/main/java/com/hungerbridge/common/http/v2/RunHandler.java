@@ -39,6 +39,11 @@ public final class RunHandler implements HttpHandler {
             HttpUtil.error(ex, 401, "unauthorized", "Invalid X-Auth-Key", config);
             return;
         }
+        if (!HttpUtil.checkAcl(ex, config, "run")) {
+            HttpUtil.error(ex, 403, "forbidden", "Token not permitted to run commands", config);
+            return;
+        }
+        if (!HttpUtil.rateLimit(ex, config, "run")) return;
 
         JsonObject json = HttpUtil.readJson(ex);
         if (json == null || !json.has("command")) {

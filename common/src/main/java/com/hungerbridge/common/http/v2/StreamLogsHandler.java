@@ -30,6 +30,11 @@ public final class StreamLogsHandler implements HttpHandler {
             HttpUtil.error(ex, 401, "unauthorized", "Invalid X-Auth-Key", config);
             return;
         }
+        if (!HttpUtil.checkAcl(ex, config, "stream")) {
+            HttpUtil.error(ex, 403, "forbidden", "Token not permitted to access stream", config);
+            return;
+        }
+        if (!HttpUtil.rateLimit(ex, config, "stream")) return;
 
         ex.getResponseHeaders().add("Content-Type", "text/event-stream; charset=UTF-8");
         ex.getResponseHeaders().add("Cache-Control", "no-cache, no-transform");

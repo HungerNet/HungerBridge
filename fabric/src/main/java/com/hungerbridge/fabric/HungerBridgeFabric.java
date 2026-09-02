@@ -4,6 +4,7 @@ import com.hungerbridge.common.BridgeServer;
 import com.hungerbridge.common.CommandExecutor;
 import com.hungerbridge.common.Config;
 import com.hungerbridge.common.Logger;
+import com.hungerbridge.common.security.TokenManager;
 import net.fabricmc.api.DedicatedServerModInitializer;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.server.MinecraftServer;
@@ -118,6 +119,19 @@ public final class HungerBridgeFabric implements DedicatedServerModInitializer {
 
         Path configDir = server.getFile("config").resolve("HungerBridge");
         Config config = Config.load(configDir, logger);
+
+        // initialize token manager for HMAC token support
+        TokenManager tm = new TokenManager(configDir, logger);
+        config.setTokenManager(tm);
+
+        // initialize audit logger and rate limiter
+        com.hungerbridge.common.log.AuditLogger al = new com.hungerbridge.common.log.AuditLogger(configDir, logger);
+        com.hungerbridge.common.security.RateLimiter rl = new com.hungerbridge.common.security.RateLimiter(configDir, logger);
+        config.setAuditLogger(al);
+        config.setRateLimiter(rl);
+        // load optional security config (self-probe, ip lists)
+        com.hungerbridge.common.security.SecurityConfig sc = com.hungerbridge.common.security.SecurityConfig.load(configDir);
+        config.setSecurityConfig(sc);
 
         config.setPlatform("fabric");
         config.setMinecraftVersion(server.getServerVersion());
