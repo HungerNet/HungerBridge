@@ -7,6 +7,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 
 import java.util.List;
+import java.util.Map;
 
 public final class HbCommand implements CommandExecutor {
 
@@ -29,6 +30,13 @@ public final class HbCommand implements CommandExecutor {
         }
         if (args.length == 0) {
             send(sender, "HungerBridge admin commands: reload status probe audit tokens ip config");
+            send(sender, "Use '/hb help' for more details or '/hb tokens' for token subcommands");
+            return true;
+        }
+        if (args.length == 1 && args[0].equalsIgnoreCase("help")) {
+            send(sender, "Usage: /hb <subcommand> [args]");
+            send(sender, "Subcommands: reload, status, probe, audit [n], tokens, ip, config");
+            send(sender, "Tokens subcommands: list, create <ttl> <whitelist(comma)> <blacklist(comma)>, revoke <id>, rotate <id>");
             return true;
         }
         try {
@@ -56,9 +64,12 @@ public final class HbCommand implements CommandExecutor {
                             send(sender, admin.listTokens().keySet().toString());
                             break;
                         case "create": {
-                            long ttl = args.length >= 3 ? Long.parseLong(args[2]) : 3600L;
+                            long ttl = 3600L;
+                            try { if (args.length >= 3) ttl = Long.parseLong(args[2]); } catch (NumberFormatException ignored) {}
                             List<String> wl = List.of();
                             List<String> bl = List.of();
+                            if (args.length >= 4) wl = java.util.Arrays.stream(args[3].split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList();
+                            if (args.length >= 5) bl = java.util.Arrays.stream(args[4].split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList();
                             com.hungerbridge.common.security.TokenManager.Token t = admin.createToken(ttl, wl, bl);
                             if (t == null) send(sender, "create failed"); else send(sender, "created: " + t.id + ":" + t.secret);
                             break;
@@ -83,7 +94,8 @@ public final class HbCommand implements CommandExecutor {
                     send(sender, admin.getIpStatus().toString());
                     break;
                 case "config":
-                    send(sender, "config: " + admin.getStatus().toString());
+                    Map<String, Object> cs = admin.getConfigStatus();
+                    for (Map.Entry<String, Object> e : cs.entrySet()) send(sender, e.getKey() + ": " + String.valueOf(e.getValue()));
                     break;
                 default:
                     send(sender, "unknown subcommand");

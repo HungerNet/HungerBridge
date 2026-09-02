@@ -17,7 +17,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * BridgeServer (v2-only). Registers /v2/* endpoints based on config.
+ * BridgeServer. Registers HTTP endpoints based on config.
  */
 public final class BridgeServer {
 
@@ -49,7 +49,7 @@ public final class BridgeServer {
             if (!probe.startsWith("http://")) probe = "http://" + probe;
             // strip trailing slash and append /v2/ping
             if (probe.endsWith("/")) probe = probe.substring(0, probe.length()-1);
-            String probeUrl = probe + "/v2/ping";
+            String probeUrl = probe + "/ping";
             java.net.HttpURLConnection conn = null;
             try {
                 java.net.URL url = new java.net.URL(probeUrl);
@@ -81,51 +81,71 @@ public final class BridgeServer {
         pool = Executors.newCachedThreadPool();
         server.setExecutor(pool);
 
-        // v2 endpoints only
+        // endpoints (no /v2 prefix)
+        java.util.List<String> endpoints = new java.util.ArrayList<>();
         if (config.isPingEnabled()) {
-            server.createContext("/v2/ping", new PingHandler(config, logger));
+            server.createContext("/ping", new PingHandler(config, logger));
+            endpoints.add("/ping");
         }
         if (config.isInfoEnabled()) {
-            server.createContext("/v2/info", new InfoHandler(config, logger));
+            server.createContext("/info", new InfoHandler(config, logger));
+            endpoints.add("/info");
         }
         if (config.isStatusEnabled()) {
-            server.createContext("/v2/status", new StatusHandler(config, logger));
+            server.createContext("/status", new StatusHandler(config, logger));
+            endpoints.add("/status");
         }
         if (config.isRunEnabled()) {
-            server.createContext("/v2/run", new RunHandler(config, logger, executor));
+            server.createContext("/run", new RunHandler(config, logger, executor));
+            endpoints.add("/run");
         }
         if (config.isLogEnabled()) {
-            server.createContext("/v2/log", new LogHandler(config, logger));
+            server.createContext("/log", new LogHandler(config, logger));
+            endpoints.add("/log");
         }
         if (config.isStreamLogsEnabled()) {
-            server.createContext("/v2/stream/logs", new StreamLogsHandler(config));
+            server.createContext("/stream/logs", new StreamLogsHandler(config));
+            endpoints.add("/stream/logs");
         }
         // token management endpoint (requires root X-Auth-Key)
-        server.createContext("/v2/tokens", new com.hungerbridge.common.http.v2.TokenHandler(config, logger));
+        server.createContext("/tokens", new com.hungerbridge.common.http.v2.TokenHandler(config, logger));
+        endpoints.add("/tokens");
         // admin endpoints (require admin privileges / root key)
         com.hungerbridge.common.CommandsConfig cc = config.getCommandsConfig();
-        if (cc == null || cc.enableAdminHttp) {
+            if (cc == null || cc.enableAdminHttp) {
             AdminService admin = new AdminService(configDir, config, logger, this);
             this.adminService = admin;
-            server.createContext("/v2/admin/tokens/list", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_list"));
-            server.createContext("/v2/admin/tokens/create", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_create"));
-            server.createContext("/v2/admin/tokens/revoke", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_revoke"));
-            server.createContext("/v2/admin/tokens/rotate", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_rotate"));
-            server.createContext("/v2/admin/status", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "status"));
-            server.createContext("/v2/admin/probe", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "probe"));
-            server.createContext("/v2/admin/ip", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "ip"));
-            server.createContext("/v2/admin/audit", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "audit"));
-            server.createContext("/v2/admin/reload", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "reload"));
+            server.createContext("/admin/tokens/list", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_list"));
+            endpoints.add("/admin/tokens/list");
+            server.createContext("/admin/tokens/create", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_create"));
+            endpoints.add("/admin/tokens/create");
+            server.createContext("/admin/tokens/revoke", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_revoke"));
+            endpoints.add("/admin/tokens/revoke");
+            server.createContext("/admin/tokens/rotate", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_rotate"));
+            endpoints.add("/admin/tokens/rotate");
+            server.createContext("/admin/status", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "status"));
+            endpoints.add("/admin/status");
+            server.createContext("/admin/probe", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "probe"));
+            endpoints.add("/admin/probe");
+            server.createContext("/admin/ip", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "ip"));
+            endpoints.add("/admin/ip");
+            server.createContext("/admin/audit", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "audit"));
+            endpoints.add("/admin/audit");
+            server.createContext("/admin/reload", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "reload"));
+            endpoints.add("/admin/reload");
         }
         if (config.isTpsEnabled()) {
-            server.createContext("/v2/tps", new TpsHandler(config, logger, executor));
+            server.createContext("/tps", new TpsHandler(config, logger, executor));
+            endpoints.add("/tps");
         }
         if (config.isPlayersEnabled()) {
-            server.createContext("/v2/players", new PlayersHandler(config, logger, executor));
+            server.createContext("/players", new PlayersHandler(config, logger, executor));
+            endpoints.add("/players");
         }
 
         server.start();
-        logger.log("INFO", "HungerBridge HTTP server started on port " + config.getPort());
+        if (logger != null) logger.log("INFO", "HungerBridge HTTP server started on port " + config.getPort());
+        if (logger != null) logger.log("INFO", "Registered endpoints: " + String.join(", ", endpoints));
     }
 
     public synchronized void stop() {

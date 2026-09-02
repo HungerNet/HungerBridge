@@ -16,10 +16,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * /v2/tokens
+ * /tokens
  * - GET: list tokens (requires root X-Auth-Key)
  * - POST: create token (requires root X-Auth-Key)
- * - DELETE /v2/tokens/{id}: revoke token (requires root X-Auth-Key)
+ * - DELETE /tokens/{id}: revoke token (requires root X-Auth-Key)
  */
 public final class TokenHandler implements HttpHandler {
 
@@ -83,13 +83,13 @@ public final class TokenHandler implements HttpHandler {
         }
 
         if ("DELETE".equalsIgnoreCase(method)) {
-            // path expected: /v2/tokens/{id}
+            // path expected: /tokens/{id}
             String[] parts = path.split("/");
-            if (parts.length < 4) {
+            if (parts.length < 3) {
                 HttpUtil.error(ex, 400, "bad_request", "Missing token id", config);
                 return;
             }
-            String id = parts[3];
+            String id = parts[2];
             boolean ok = tm.revokeToken(id);
             if (!ok) {
                 HttpUtil.error(ex, 404, "not_found", "Token not found", config);

@@ -139,28 +139,28 @@ without using RCON.
 
 It exposes a small, secure HTTP API and an in-game admin command set (`/hb`).
 
-Core v2 HTTP API endpoints
+Core HTTP API endpoints
 
-- `POST /v2/run` — execute a command as console (JSON `{command, silent, show_console}`)
-- `POST /v2/log` — write raw text to the server console (JSON `{level, message}`)
-- `GET  /v2/ping` — health check
-- `GET  /v2/info` — server and bridge metadata
-- `GET  /v2/status` — runtime status (ok)
-- `GET  /v2/tps` — TPS and tick time metrics
-- `GET  /v2/players` — players count/list
-- `GET  /v2/stream/logs` — SSE stream of console logs (supports signed headers)
+ - `POST /run` — execute a command as console (JSON `{command, silent, show_console}`)
+ - `POST /log` — write raw text to the server console (JSON `{level, message}`)
+ - `GET  /ping` — health check
+ - `GET  /info` — server and bridge metadata
+ - `GET  /status` — runtime status (ok)
+ - `GET  /tps` — TPS and tick time metrics
+ - `GET  /players` — players count/list
+ - `GET  /stream/logs` — SSE stream of console logs (supports signed headers)
 
 Admin HTTP endpoints (require root `X-Auth-Key` or an admin-capable token)
 
-- `GET  /v2/admin/tokens/list` — list tokens (no secrets)
-- `POST /v2/admin/tokens/create` — create token (JSON: `ttl`, `whitelist`, `blacklist`) — returns `id` and `secret`
-- `POST /v2/admin/tokens/revoke` — revoke token (JSON: `id`)
-- `POST /v2/admin/tokens/rotate` — rotate token secret (JSON: `id`) — returns new `id` and `secret`
-- `GET  /v2/admin/status` — rate limits, ACLs, probe status
-- `GET  /v2/admin/probe` — perform manual self-probe and return result
-- `GET  /v2/admin/ip` — show configured IP whitelist/blacklist
-- `GET  /v2/admin/audit?n=<N>` — return last N audit entries
-- `POST /v2/admin/reload` — reload `security.yaml`, `commands.yaml`, and tokens
+ - `GET  /admin/tokens/list` — list tokens (no secrets)
+ - `POST /admin/tokens/create` — create token (JSON: `ttl`, `whitelist`, `blacklist`) — returns `id` and `secret`
+ - `POST /admin/tokens/revoke` — revoke token (JSON: `id`)
+ - `POST /admin/tokens/rotate` — rotate token secret (JSON: `id`) — returns new `id` and `secret`
+ - `GET  /admin/status` — rate limits, ACLs, probe status
+ - `GET  /admin/probe` — perform manual self-probe and return result
+ - `GET  /admin/ip` — show configured IP whitelist/blacklist
+ - `GET  /admin/audit?n=<N>` — return last N audit entries
+ - `POST /admin/reload` — reload `security.yaml`, `commands.yaml`, and tokens
 
 Supported platforms
 

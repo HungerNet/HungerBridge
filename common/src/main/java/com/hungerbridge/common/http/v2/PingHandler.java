@@ -11,7 +11,7 @@ import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
 
 /**
- * /v2/ping
+ * /ping
  * GET, requires X-Auth-Key
  * Responds with server_time (ms)
  */

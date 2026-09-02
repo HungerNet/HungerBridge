@@ -98,7 +98,7 @@ public final class AdminService {
         if (probe.startsWith("https://")) probe = "http://" + probe.substring(8);
         if (!probe.startsWith("http://")) probe = "http://" + probe;
         if (probe.endsWith("/")) probe = probe.substring(0, probe.length()-1);
-        String probeUrl = probe + "/v2/ping";
+        String probeUrl = probe + "/ping";
         try {
             java.net.URL url = new java.net.URL(probeUrl);
             java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
@@ -149,6 +149,33 @@ public final class AdminService {
             m.put("ip_blacklist", sc.ipBlacklist);
         }
         return m;
+    }
+
+    public Map<String, Object> getConfigStatus() {
+        Map<String, Object> out = new HashMap<>();
+        try {
+            Path cfg = configDir.resolve("config.yaml");
+            Path sec = configDir.resolve("security.yaml");
+            Path cmd = configDir.resolve("commands.yaml");
+            Path storage = configDir.resolve("storage");
+            Path tokens = storage.resolve("tokens.json");
+            Path sessions = storage.resolve("sessions.json");
+            Path logs = configDir.resolve("logs");
+
+            out.put("config.yaml_exists", Files.exists(cfg));
+            out.put("security.yaml_exists", Files.exists(sec));
+            out.put("commands.yaml_exists", Files.exists(cmd));
+            out.put("tokens_json_exists", Files.exists(tokens));
+            out.put("sessions_json_exists", Files.exists(sessions));
+            out.put("logs_dir_exists", Files.exists(logs));
+
+            // validation: attempt to load
+            out.put("security_valid", com.hungerbridge.common.security.SecurityConfig.load(configDir) != null);
+            out.put("commands_valid", com.hungerbridge.common.CommandsConfig.load(configDir) != null);
+        } catch (Exception e) {
+            out.put("error", e.getMessage());
+        }
+        return out;
     }
 
     public boolean reloadConfig() {

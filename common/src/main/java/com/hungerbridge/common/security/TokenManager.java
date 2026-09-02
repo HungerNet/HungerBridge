@@ -47,7 +47,10 @@ public final class TokenManager {
         this.sessionsFile = storageDir.resolve("sessions.json");
 
         try {
-            if (!Files.exists(storageDir)) Files.createDirectories(storageDir);
+            if (!Files.exists(storageDir)) {
+                Files.createDirectories(storageDir);
+                if (logger != null) logger.log("INFO", "Created storage directory: " + storageDir);
+            } else if (logger != null) logger.log("INFO", "Using storage directory: " + storageDir);
         } catch (IOException e) {
             throw new RuntimeException("Failed to create storage directory", e);
         }
@@ -61,6 +64,7 @@ public final class TokenManager {
             if (!Files.exists(tokensFile)) {
                 // create default root token placeholder (no secret published)
                 Files.write(tokensFile, GSON.toJson(Collections.singletonMap("tokens", Collections.emptyList())).getBytes(StandardCharsets.UTF_8));
+                if (logger != null) logger.log("INFO", "Created tokens file: " + tokensFile);
                 return;
             }
             String txt = Files.readString(tokensFile, StandardCharsets.UTF_8);
@@ -72,7 +76,7 @@ public final class TokenManager {
                 tokens.put(tk.id, tk);
             }
         } catch (Exception e) {
-            logger.log("WARN", "Failed to load tokens: " + e.getMessage());
+            if (logger != null) logger.log("WARN", "Failed to load tokens: " + e.getMessage());
         }
     }
 
@@ -82,13 +86,14 @@ public final class TokenManager {
             if (!Files.exists(sessionsFile)) {
                 // create an empty sessions file to make the layout consistent
                 Files.writeString(sessionsFile, "{}", StandardCharsets.UTF_8);
-            }
+                if (logger != null) logger.log("INFO", "Created sessions file: " + sessionsFile);
+            } else if (logger != null) logger.log("INFO", "Using sessions file: " + sessionsFile);
             String txt = Files.readString(sessionsFile, StandardCharsets.UTF_8);
             Type t = new TypeToken<Map<String, Long>>(){}.getType();
             Map<String, Long> sess = GSON.fromJson(txt, t);
             if (sess != null) nonceCache.putAll(sess);
         } catch (Exception e) {
-            logger.log("WARN", "Failed to load sessions: " + e.getMessage());
+            if (logger != null) logger.log("WARN", "Failed to load sessions: " + e.getMessage());
         }
     }
 

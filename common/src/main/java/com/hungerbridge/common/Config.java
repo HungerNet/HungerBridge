@@ -124,6 +124,8 @@ public final class Config {
 
             // Generate default config and auxiliary files if config.yaml missing
             if (!Files.exists(configFile)) {
+                java.util.List<String> created = new java.util.ArrayList<>();
+                java.util.List<String> existed = new java.util.ArrayList<>();
                 String cfg = "port: 1913\n\n" +
                         "enabled_endpoints:\n" +
                         "  run: true\n" +
@@ -140,6 +142,7 @@ public final class Config {
                 try (OutputStream out = Files.newOutputStream(configFile);
                      OutputStreamWriter writer = new OutputStreamWriter(out)) {
                     writer.write(cfg);
+                    created.add("config.yaml");
                 } catch (Exception ignored) {}
 
                 try {
@@ -157,6 +160,9 @@ public final class Config {
                                 "  ip_burst: 40.0\n\n" +
                                 "audit_retention_days: 14\n";
                         Files.writeString(security, sec);
+                        created.add("security.yaml");
+                    } else {
+                        existed.add("security.yaml");
                     }
                 } catch (Exception ignored) {}
 
@@ -173,6 +179,9 @@ public final class Config {
                                 "global_whitelist: []\n" +
                                 "global_blacklist: []\n";
                         Files.writeString(commands, cc);
+                        created.add("commands.yaml");
+                    } else {
+                        existed.add("commands.yaml");
                     }
                 } catch (Exception ignored) {}
 
@@ -187,14 +196,46 @@ public final class Config {
                                 "- commands.yaml: controls in-game commands and admin HTTP enabling\n" +
                                 "- storage/: tokens.json and sessions.json (managed by the server)\n" +
                                 "- logs/: daily audit logs (JSON lines)\n\n" +
+                                "Endpoints:\n" +
+                                "- /ping\n" +
+                                "- /info\n" +
+                                "- /status\n" +
+                                "- /run\n" +
+                                "- /log\n" +
+                                "- /stream/logs\n" +
+                                "- /tokens\n" +
+                                "- /admin/* (token and config management)\n" +
+                                "- /tps\n" +
+                                "- /players\n\n" +
+                                "In-game commands (when enabled):\n" +
+                                "- /hb\n" +
+                                "- /hb reload\n" +
+                                "- /hb status\n" +
+                                "- /hb probe\n" +
+                                "- /hb audit [n]\n" +
+                                "- /hb ip\n" +
+                                "- /hb config\n" +
+                                "- /hb tokens list\n" +
+                                "- /hb tokens create <ttl> <whitelist(comma)> <blacklist(comma)>\n" +
+                                "- /hb tokens revoke <id>\n" +
+                                "- /hb tokens rotate <id>\n\n" +
                                 "Token management:\n" +
                                 "- Tokens are stored in storage/tokens.json. Use the admin HTTP endpoints or in-game /hb tokens commands to create, list, revoke, or rotate tokens.\n\n" +
                                 "Audit logs:\n" +
                                 "- Audit events are appended to logs/YYYY-MM-DD.audit.log. Configure retention in security.yaml via `audit_retention_days`.\n\n" +
                                 "Do NOT check secrets into source control.\n";
                         Files.writeString(readme, r);
+                        created.add("README.md");
+                    } else {
+                        existed.add("README.md");
                     }
                 } catch (Exception ignored) {}
+
+                // log what happened
+                if (logger != null) {
+                    if (!created.isEmpty()) logger.log("INFO", "Generated default config files: " + String.join(", ", created));
+                    if (!existed.isEmpty()) logger.log("INFO", "Existing config files: " + String.join(", ", existed));
+                }
             }
 
             // Load config.yaml
@@ -212,6 +253,20 @@ public final class Config {
 
             Map<String, Object> auth = (Map<String, Object>) root.getOrDefault("auth", new LinkedHashMap<>());
             String authKey = (String) auth.getOrDefault("key", "");
+
+            // validate auxiliary configs and log status
+            try {
+                com.hungerbridge.common.security.SecurityConfig sc = com.hungerbridge.common.security.SecurityConfig.load(configDir);
+                if (logger != null) logger.log("INFO", "Loaded security.yaml (self_probe=" + sc.selfProbe + ")");
+            } catch (Exception e) {
+                if (logger != null) logger.log("WARN", "Failed to parse security.yaml: " + e.getMessage());
+            }
+            try {
+                com.hungerbridge.common.CommandsConfig cc = com.hungerbridge.common.CommandsConfig.load(configDir);
+                if (logger != null) logger.log("INFO", "Loaded commands.yaml (enable_commands=" + cc.enableCommands + ")");
+            } catch (Exception e) {
+                if (logger != null) logger.log("WARN", "Failed to parse commands.yaml: " + e.getMessage());
+            }
 
             Map<String, Object> enabledEndpoints = (Map<String, Object>) root.getOrDefault(
                     "enabled_endpoints",
