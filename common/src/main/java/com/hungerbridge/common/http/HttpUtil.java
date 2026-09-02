@@ -103,7 +103,6 @@ public final class HttpUtil {
         }
         // IP whitelist/blacklist enforcement (enforced after authentication)
         com.hungerbridge.common.security.SecurityConfig sc = config.getSecurityConfig();
-        String ip = ex.getRemoteAddress() != null ? ex.getRemoteAddress().getAddress().getHostAddress() : null;
         if (sc != null) {
             if (sc.ipWhitelist != null && !sc.ipWhitelist.isEmpty()) {
                 boolean ok = false;
