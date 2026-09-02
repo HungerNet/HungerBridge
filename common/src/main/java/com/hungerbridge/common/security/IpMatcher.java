@@ -17,17 +17,29 @@ public final class IpMatcher {
                 int prefix = Integer.parseInt(st.nextToken());
                 byte[] baseBytes = InetAddress.getByName(base).getAddress();
                 byte[] ipBytes = InetAddress.getByName(ip).getAddress();
+
+                // prefix must be within bounds for the address family
+                int maxBits = baseBytes.length * 8;
+                if (prefix < 0 || prefix > maxBits) return false;
+
+                int fullBytes = prefix / 8;
+                int remBits = prefix % 8;
+
+                // lengths must match (no automatic IPv4-mapped handling)
                 if (baseBytes.length != ipBytes.length) return false;
-                int bits = prefix;
-                for (int i = 0; i < baseBytes.length; i++) {
-                    int mask = 0;
-                    if (bits >= 8) mask = 0xFF;
-                    else if (bits > 0) mask = (~0) << (8 - bits) & 0xFF;
-                    else mask = 0;
-                    if ((baseBytes[i] & mask) != (ipBytes[i] & mask)) return false;
-                    bits -= 8;
-                    if (bits < 0) bits = 0;
+
+                // compare full bytes
+                for (int i = 0; i < fullBytes; i++) {
+                    if ((baseBytes[i] & 0xFF) != (ipBytes[i] & 0xFF)) return false;
                 }
+
+                if (remBits > 0) {
+                    int mask = (0xFF << (8 - remBits)) & 0xFF;
+                    int idx = fullBytes;
+                    if (idx >= baseBytes.length) return false;
+                    if (((baseBytes[idx] & mask) != (ipBytes[idx] & mask))) return false;
+                }
+
                 return true;
             } else {
                 return InetAddress.getByName(pattern).getHostAddress().equals(InetAddress.getByName(ip).getHostAddress());

@@ -50,6 +50,11 @@ public final class HungerBridgePlugin extends JavaPlugin {
         // load optional security config (self-probe, ip lists)
         com.hungerbridge.common.security.SecurityConfig sc = com.hungerbridge.common.security.SecurityConfig.load(configDir);
         config.setSecurityConfig(sc);
+        com.hungerbridge.common.CommandsConfig cc = com.hungerbridge.common.CommandsConfig.load(configDir);
+        config.setCommandsConfig(cc);
+        if (sc != null && rl != null) {
+            rl.setLimits(sc.tokenRps, sc.tokenBurst, sc.ipRps, sc.ipBurst);
+        }
 
         config.setPlatform("paper");
         config.setMinecraftVersion(Bukkit.getVersion());
@@ -59,8 +64,16 @@ public final class HungerBridgePlugin extends JavaPlugin {
         // NOTE: PaperServerInfoProvider exists but is NOT passed into BridgeServer anymore.
         PaperServerInfoProvider infoProvider = new PaperServerInfoProvider(getServer());
 
-        bridgeServer = new BridgeServer(config, logger, executor);
+        bridgeServer = new BridgeServer(configDir, config, logger, executor);
         bridgeServer.start();
+
+        // register in-game admin command if enabled
+        com.hungerbridge.common.CommandsConfig cc = config.getCommandsConfig();
+        if (cc == null || cc.enableCommands) {
+            try {
+                this.getCommand("hb").setExecutor(new HbCommand(bridgeServer));
+            } catch (Exception ignored) {}
+        }
 
         getLogger().info("HungerBridge enabled.");
     }

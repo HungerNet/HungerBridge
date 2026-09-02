@@ -12,6 +12,7 @@ import com.sun.net.httpserver.HttpServer;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.nio.file.Path;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -20,14 +21,17 @@ import java.util.concurrent.Executors;
  */
 public final class BridgeServer {
 
+    private final Path configDir;
     private final Config config;
     private final Logger logger;
     private final CommandExecutor executor;
 
     private HttpServer server;
     private ExecutorService pool;
+    private AdminService adminService;
 
-    public BridgeServer(Config config, Logger logger, CommandExecutor executor) {
+    public BridgeServer(Path configDir, Config config, Logger logger, CommandExecutor executor) {
+        this.configDir = configDir;
         this.config = config;
         this.logger = logger;
         this.executor = executor;
@@ -98,6 +102,21 @@ public final class BridgeServer {
         }
         // token management endpoint (requires root X-Auth-Key)
         server.createContext("/v2/tokens", new com.hungerbridge.common.http.v2.TokenHandler(config, logger));
+        // admin endpoints (require admin privileges / root key)
+        com.hungerbridge.common.CommandsConfig cc = config.getCommandsConfig();
+        if (cc == null || cc.enableAdminHttp) {
+            AdminService admin = new AdminService(configDir, config, logger, this);
+            this.adminService = admin;
+            server.createContext("/v2/admin/tokens/list", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_list"));
+            server.createContext("/v2/admin/tokens/create", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_create"));
+            server.createContext("/v2/admin/tokens/revoke", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_revoke"));
+            server.createContext("/v2/admin/tokens/rotate", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_rotate"));
+            server.createContext("/v2/admin/status", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "status"));
+            server.createContext("/v2/admin/probe", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "probe"));
+            server.createContext("/v2/admin/ip", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "ip"));
+            server.createContext("/v2/admin/audit", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "audit"));
+            server.createContext("/v2/admin/reload", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "reload"));
+        }
         if (config.isTpsEnabled()) {
             server.createContext("/v2/tps", new TpsHandler(config, logger, executor));
         }
@@ -120,5 +139,9 @@ public final class BridgeServer {
             pool = null;
         }
         logger.log("INFO", "HungerBridge HTTP server stopped.");
+    }
+
+    public AdminService getAdminService() {
+        return adminService;
     }
 }

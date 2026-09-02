@@ -15,6 +15,13 @@ public final class SecurityConfig {
     public int probeTimeoutMs = 2000;
     public List<String> ipWhitelist = new ArrayList<>();
     public List<String> ipBlacklist = new ArrayList<>();
+    // rate limit defaults
+    public double tokenRps = 5.0;
+    public double tokenBurst = 10.0;
+    public double ipRps = 20.0;
+    public double ipBurst = 40.0;
+    // audit retention (days)
+    public int auditRetentionDays = 14;
 
     @SuppressWarnings("unchecked")
     public static SecurityConfig load(Path configDir) {
@@ -40,6 +47,23 @@ public final class SecurityConfig {
                 Object bl = root.get("ip_blacklist");
                 if (bl instanceof List) {
                     for (Object o : (List<Object>) bl) if (o != null) sc.ipBlacklist.add(o.toString());
+                }
+                Object rl = root.get("rate_limits");
+                if (rl instanceof Map) {
+                    Map<String, Object> rlm = (Map<String, Object>) rl;
+                    Object tr = rlm.get("token_rps"); if (tr instanceof Number) sc.tokenRps = ((Number) tr).doubleValue();
+                    Object tb = rlm.get("token_burst"); if (tb instanceof Number) sc.tokenBurst = ((Number) tb).doubleValue();
+                    Object ir = rlm.get("ip_rps"); if (ir instanceof Number) sc.ipRps = ((Number) ir).doubleValue();
+                    Object ib = rlm.get("ip_burst"); if (ib instanceof Number) sc.ipBurst = ((Number) ib).doubleValue();
+                }
+                Object ar = root.get("audit_retention_days");
+                if (ar instanceof Number) sc.auditRetentionDays = ((Number) ar).intValue();
+                // also support nested audit:{ retention_days: N }
+                Object audit = root.get("audit");
+                if (audit instanceof Map) {
+                    Map<String, Object> adm = (Map<String, Object>) audit;
+                    Object rd = adm.get("retention_days");
+                    if (rd instanceof Number) sc.auditRetentionDays = ((Number) rd).intValue();
                 }
             }
         } catch (Exception e) {

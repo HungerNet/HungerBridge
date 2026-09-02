@@ -133,34 +133,227 @@ Sample audit line:
 {"timestamp":"2026-09-02T12:34:56Z","token_id":"abcd1234","ip":"192.0.2.1","action":"run","result":"allowed","path":"/v2/run","method":"POST"}
 ```
 
-The audit log intentionally avoids storing token secrets. Ensure `config/HungerBridge/logs`
-is protected and rotated externally (logrotate, systemd journald forwarding, or a centralized
-log collector).
+HungerBridge is a unified **Fabric + Paper/Purpur** backend used by
+**HungerLib** to execute commands and write logs inside a Minecraft server
+without using RCON.
 
-## Origin exposure self‑probe
+It exposes a small, secure HTTP API and an in-game admin command set (`/hb`).
 
-If your deployment uses a reverse proxy, enable the self-probe to verify the
-origin server is not directly reachable over plain HTTP. Create or edit
-`config/HungerBridge/security.yaml` and set `self_probe: true` and
-`public_base_url` to the proxy's public URL. On startup HungerBridge will
-attempt to probe `http://<public_host>/v2/ping`; if the probe succeeds the
-server fails to start to avoid bypassing the proxy.
+Core v2 HTTP API endpoints
 
-Example file: `config/HungerBridge/security.yaml` (created by default in this repo)
+- `POST /v2/run` — execute a command as console (JSON `{command, silent, show_console}`)
+- `POST /v2/log` — write raw text to the server console (JSON `{level, message}`)
+- `GET  /v2/ping` — health check
+- `GET  /v2/info` — server and bridge metadata
+- `GET  /v2/status` — runtime status (ok)
+- `GET  /v2/tps` — TPS and tick time metrics
+- `GET  /v2/players` — players count/list
+- `GET  /v2/stream/logs` — SSE stream of console logs (supports signed headers)
 
-## IP whitelist / blacklist
+Admin HTTP endpoints (require root `X-Auth-Key` or an admin-capable token)
 
-You can optionally restrict access by IP. Add `ip_whitelist` or
-`ip_blacklist` entries to `security.yaml`. Patterns may be exact IPs
-or CIDR ranges (IPv4). Example:
+- `GET  /v2/admin/tokens/list` — list tokens (no secrets)
+- `POST /v2/admin/tokens/create` — create token (JSON: `ttl`, `whitelist`, `blacklist`) — returns `id` and `secret`
+- `POST /v2/admin/tokens/revoke` — revoke token (JSON: `id`)
+- `POST /v2/admin/tokens/rotate` — rotate token secret (JSON: `id`) — returns new `id` and `secret`
+- `GET  /v2/admin/status` — rate limits, ACLs, probe status
+- `GET  /v2/admin/probe` — perform manual self-probe and return result
+- `GET  /v2/admin/ip` — show configured IP whitelist/blacklist
+- `GET  /v2/admin/audit?n=<N>` — return last N audit entries
+- `POST /v2/admin/reload` — reload `security.yaml`, `commands.yaml`, and tokens
+
+Supported platforms
+
+- **Paper/Purpur** (plugin.yml registered) — in-game `/hb` command available when enabled
+- **Fabric** (Brigadier registration) — in-game `/hb` command available when enabled
+
+---
+
+## Configuration
+
+Generated automatically on first run in `config/HungerBridge`.
+
+`config.yaml` (core) — minimal example
 
 ```yaml
-ip_whitelist:
-  - 10.0.0.0/8
-  - 192.168.1.5
-ip_blacklist:
-  - 203.0.113.0/24
+port: 1913
+
+auth:
+  key: "CHANGE_ME"
+
+enabled_endpoints:
+  run: true
+  log: true
+  ping: true
+  stream_logs: true
+  info: true
+  status: true
+  tps: true
+  players: true
+
+players:
+  max-list: 50
 ```
 
-Whitelists are enforced after authentication: if any whitelist entries are
-present only those IPs are allowed. Blacklists deny matching IPs.
+`security.yaml` — security and rate-limit settings
+
+```yaml
+self_probe: true
+public_base_url: "https://my-proxy.example.com"
+probe_timeout_ms: 2000
+ip_whitelist:
+  - 10.0.0.0/8
+ip_blacklist:
+  - 203.0.113.0/24
+rate_limits:
+  token_rps: 5
+  token_burst: 10
+  ip_rps: 20
+  ip_burst: 40
+audit_retention_days: 14
+# or nested:
+# audit:
+#   retention_days: 14
+```
+
+`commands.yaml` — controls in-game commands and admin HTTP enabling
+
+```yaml
+enable_commands: true
+enable_admin_http: true
+command_aliases:
+  - hb
+  - hungerbridge
+token_defaults:
+  ttl: 3600
+  whitelist: []
+  blacklist: []
+global_whitelist: []
+global_blacklist: []
+```
+
+`storage/` files (managed by the server)
+
+- `config/HungerBridge/storage/tokens.json` — tokens metadata (secrets are not published)
+- `config/HungerBridge/storage/sessions.json` — nonce/session cache
+
+## Streaming server logs (SSE)
+
+Use the SSE stream to receive Minecraft log lines in real time. The client may
+provide a header provider callable to sign the SSE connection when using
+HMAC tokens.
+
+```bash
+curl -N -H "X-Auth-Key: CHANGE_ME" http://localhost:1913/stream/logs
+```
+
+Each SSE `data:` event contains a single raw console line.
+
+## Token management (HMAC tokens)
+
+HungerBridge supports per-client HMAC-signed tokens in addition to the
+legacy `X-Auth-Key` root key. Tokens provide ACLs (whitelist/blacklist),
+expiry, and replay protection.
+
+Create a token (requires `X-Auth-Key` root access):
+
+```bash
+curl -X POST \
+  -H "X-Auth-Key: CHANGE_ME" \
+  -H "Content-Type: application/json" \
+  -d '{"ttl":3600, "whitelist":["run"]}' \
+  http://localhost:1913/v2/admin/tokens/create
+```
+
+Sample successful response (admin responses use a uniform schema):
+
+```json
+{
+  "ok": true,
+  "data": {
+    "id": "abcd1234...",
+    "secret": "<secret-shown-once>"
+  }
+}
+```
+
+Rotate a token (invalidates the old secret and returns a new secret):
+
+```bash
+curl -X POST -H "X-Auth-Key: CHANGE_ME" -H "Content-Type: application/json" -d '{"id":"abcd1234"}' http://localhost:1913/v2/admin/tokens/rotate
+```
+
+Store returned secrets securely — they are only shown once.
+
+## Audit logging and rotation
+
+Security events are logged as JSON-lines in `config/HungerBridge/logs/`.
+Files are rotated daily and named `YYYY-MM-DD.audit.log`. The server can
+prune old audit files according to `audit_retention_days` in
+`security.yaml` (default 14 days). Example entry:
+
+```json
+{"timestamp":"2026-09-02T12:34:56Z","token_id":"abcd1234","ip":"192.0.2.1","action":"run","result":"allowed","path":"/v2/run","method":"POST"}
+```
+
+## In-game admin command `/hb`
+
+When enabled in `commands.yaml`, HungerBridge exposes `/hb` inside the
+server. Available subcommands:
+
+- `/hb reload` — reload config files
+- `/hb status` — show rate limits and probe status
+- `/hb probe` — run the self-probe
+- `/hb audit [N]` — print last N audit lines (default 20)
+- `/hb tokens list` — list token ids
+- `/hb tokens create <ttl>` — create a token with ttl (seconds)
+- `/hb tokens revoke <id>` — revoke token
+- `/hb tokens rotate <id>` — rotate token secret
+- `/hb ip` — show IP whitelist/blacklist
+- `/hb config` — show basic config/status
+
+Commands are registered using Bukkit plugin.yml (Paper) or Brigadier (Fabric).
+
+## Rate limiting
+
+Rate limits are configurable via `security.yaml` (`rate_limits`). Admin
+endpoint `GET /v2/admin/status` reports current configured limits and
+per-token/per-IP runtime settings.
+
+## Python client (`hungerlib`)
+
+The `hungerlib` Python client supports HMAC tokens and the new admin API.
+
+Example usage:
+
+```python
+from hungerlib.bridgeclient import BridgeClient
+
+# token may be legacy X-Auth-Key or new id:secret
+client = BridgeClient('http://localhost:1913', 'abcd1234:<secret>')
+
+# run a command
+print(client.runCommand('say hello'))
+
+# admin: create token (requires root key or admin token)
+resp = client.create_token(ttl=3600, whitelist=['run'])
+print(resp)
+
+# list tokens
+print(client.list_tokens())
+
+# rotate token
+print(client.rotate_token('abcd1234'))
+
+# read last 50 audit lines
+print(client.get_audit(50))
+
+# Stream logs with signed headers (bridgeclient Stream accepts header provider)
+stream = client.stream
+stream.connect(history=50)
+```
+
+---
+
+If you want me to also generate example administration scripts or unit tests
+for the new modules, say which you prefer and I will add them next.

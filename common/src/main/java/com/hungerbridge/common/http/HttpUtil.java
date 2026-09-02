@@ -66,6 +66,24 @@ public final class HttpUtil {
         Boolean legacy = (Boolean) ex.getAttribute("hb.auth.legacy");
         if (legacy != null && legacy) return true;
 
+        // global whitelist/blacklist from commands config (applied before per-token rules)
+        com.hungerbridge.common.CommandsConfig cc = config.getCommandsConfig();
+        String ip = ex.getRemoteAddress() != null ? ex.getRemoteAddress().getAddress().getHostAddress() : null;
+        if (cc != null) {
+            if (cc.globalWhitelist != null && !cc.globalWhitelist.isEmpty()) {
+                boolean ok = false;
+                for (String pat : cc.globalWhitelist) {
+                    if (com.hungerbridge.common.security.IpMatcher.matches(pat, ip)) { ok = true; break; }
+                }
+                if (!ok) return false;
+            }
+            if (cc.globalBlacklist != null && !cc.globalBlacklist.isEmpty()) {
+                for (String pat : cc.globalBlacklist) {
+                    if (com.hungerbridge.common.security.IpMatcher.matches(pat, ip)) return false;
+                }
+            }
+        }
+
         Object tokObj = ex.getAttribute("hb.auth.token");
         if (!(tokObj instanceof TokenManager.Token)) {
             // no token metadata available — deny by default

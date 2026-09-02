@@ -4,3 +4,7 @@ main: com.hungerbridge.paper.HungerBridgePlugin
 api-version: 26.1
 author: iFamished
 description: Multiloader HTTP bridge for Paper and Fabric.
+commands:
+  hb:
+    description: HungerBridge admin command
+    usage: /hb

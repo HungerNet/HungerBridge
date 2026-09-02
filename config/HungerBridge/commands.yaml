@@ -1,0 +1,11 @@
+enable_commands: true
+enable_admin_http: true
+command_aliases:
+  - hb
+  - hungerbridge
+token_defaults:
+  ttl: 3600
+  whitelist: []
+  blacklist: []
+global_whitelist: []
+global_blacklist: []

@@ -64,6 +64,7 @@ public final class Config {
     private com.hungerbridge.common.security.RateLimiter rateLimiter;
     private com.hungerbridge.common.log.AuditLogger auditLogger;
     private com.hungerbridge.common.security.SecurityConfig securityConfig;
+    private com.hungerbridge.common.CommandsConfig commandsConfig;
 
     public Config(
             int port,
@@ -248,6 +249,9 @@ public final class Config {
     public com.hungerbridge.common.log.AuditLogger getAuditLogger() { return auditLogger; }
     public void setSecurityConfig(com.hungerbridge.common.security.SecurityConfig sc) { this.securityConfig = sc; }
     public com.hungerbridge.common.security.SecurityConfig getSecurityConfig() { return securityConfig; }
+
+    public void setCommandsConfig(com.hungerbridge.common.CommandsConfig cc) { this.commandsConfig = cc; }
+    public com.hungerbridge.common.CommandsConfig getCommandsConfig() { return commandsConfig; }
 
     private static boolean coerceBoolean(Object value) {
         if (value instanceof Boolean) {

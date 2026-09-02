@@ -186,6 +186,19 @@ public final class TokenManager {
         return true;
     }
 
+    public Token rotateToken(String id) {
+        Token t = tokens.get(id);
+        if (t == null) return null;
+        if (t.revoked) return null;
+        byte[] rnd = new byte[32];
+        new java.security.SecureRandom().nextBytes(rnd);
+        String secret = bytesToHex(rnd);
+        t.secret = secret;
+        // update expiry remains the same
+        persistTokens();
+        return t;
+    }
+
     public Map<String, Token> listTokens() {
         return Collections.unmodifiableMap(tokens);
     }

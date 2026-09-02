@@ -18,10 +18,10 @@ public final class RateLimiter {
     private final Logger logger;
 
     // defaults (can be made configurable later)
-    private final double defaultRatePerSecond = 5.0; // tokens/sec
-    private final double defaultBurst = 10.0; // max tokens
-    private final double defaultIpRatePerSecond = 20.0;
-    private final double defaultIpBurst = 40.0;
+    private double defaultRatePerSecond = 5.0; // tokens/sec
+    private double defaultBurst = 10.0; // max tokens
+    private double defaultIpRatePerSecond = 20.0;
+    private double defaultIpBurst = 40.0;
 
     public RateLimiter(Path configDir, Logger logger) {
         this.logger = logger;
@@ -56,6 +56,18 @@ public final class RateLimiter {
             return b;
         });
     }
+
+    public void setLimits(double tokenRps, double tokenBurst, double ipRps, double ipBurst) {
+        this.defaultRatePerSecond = tokenRps;
+        this.defaultBurst = tokenBurst;
+        this.defaultIpRatePerSecond = ipRps;
+        this.defaultIpBurst = ipBurst;
+    }
+
+    public double getTokenRps() { return defaultRatePerSecond; }
+    public double getTokenBurst() { return defaultBurst; }
+    public double getIpRps() { return defaultIpRatePerSecond; }
+    public double getIpBurst() { return defaultIpBurst; }
 
     public synchronized boolean allowRequestForToken(String tokenId) {
         if (tokenId == null) return true; // treat anonymous as allowed for token check
