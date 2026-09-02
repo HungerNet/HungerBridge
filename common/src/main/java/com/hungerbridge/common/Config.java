@@ -43,6 +43,7 @@ public final class Config {
     private com.hungerbridge.common.security.RateLimiter rateLimiter;
     private com.hungerbridge.common.log.AuditLogger auditLogger;
     private com.hungerbridge.common.security.SecurityConfig securityConfig;
+    private com.hungerbridge.common.TokensConfig tokensConfig;
     private com.hungerbridge.common.CommandsConfig commandsConfig;
 
     public Config(
@@ -144,18 +145,26 @@ public final class Config {
             String authKey = (String) auth.getOrDefault("key", "");
 
             // validate auxiliary configs and log status
+            com.hungerbridge.common.security.SecurityConfig sc = null;
+            com.hungerbridge.common.CommandsConfig cc = null;
+            com.hungerbridge.common.TokensConfig tc = null;
             try {
-                com.hungerbridge.common.security.SecurityConfig sc = com.hungerbridge.common.security.SecurityConfig.load(configDir);
+                sc = com.hungerbridge.common.security.SecurityConfig.load(configDir);
                 if (logger != null) logger.log("INFO", "Loaded security.yaml (self_probe=" + sc.selfProbe + ")");
             } catch (Exception e) {
                 if (logger != null) logger.log("WARN", "Failed to parse security.yaml: " + e.getMessage());
             }
             try {
-                com.hungerbridge.common.CommandsConfig cc = com.hungerbridge.common.CommandsConfig.load(configDir);
+                cc = com.hungerbridge.common.CommandsConfig.load(configDir);
                 if (logger != null) logger.log("INFO", "Loaded commands.yaml (enable_commands=" + cc.enableCommands + ")");
             } catch (Exception e) {
                 if (logger != null) logger.log("WARN", "Failed to parse commands.yaml: " + e.getMessage());
             }
+
+            try {
+                tc = com.hungerbridge.common.TokensConfig.load(configDir);
+                if (logger != null) logger.log("INFO", "Loaded tokens.yaml (allowed_skew_seconds=" + tc.allowedSkewSeconds + ")");
+            } catch (Exception ignored) {}
 
             Map<String, Object> enabledEndpoints = (Map<String, Object>) root.getOrDefault(
                     "enabled_endpoints",
@@ -174,7 +183,7 @@ public final class Config {
 
             int playersMaxList = ((Number) players.getOrDefault("max-list", 50)).intValue();
 
-            return new Config(
+                Config cfg = new Config(
                     port,
                     authKey,
                     run,
@@ -187,7 +196,26 @@ public final class Config {
                     playersEnabled,
                     playersMaxList,
                     bridgeVersion
-            );
+                );
+
+                // attach parsed auxiliary configs
+                if (sc != null) cfg.setSecurityConfig(sc);
+                if (cc != null) cfg.setCommandsConfig(cc);
+
+                // Merge token policy: commands.yaml (cc) takes precedence, then tokens.yaml (tc), then defaults.
+                int finalAllowedSkew = 300;
+                long finalDefaultTtl = 0L;
+                if (tc != null) {
+                    finalAllowedSkew = tc.allowedSkewSeconds;
+                    finalDefaultTtl = tc.defaultTokenTtlSeconds;
+                }
+                if (cc != null) {
+                    if (cc.allowedSkewSeconds >= 0) finalAllowedSkew = cc.allowedSkewSeconds;
+                    if (cc.defaultTokenTtlSeconds >= 0) finalDefaultTtl = cc.defaultTokenTtlSeconds;
+                }
+                cfg.setTokensConfig(com.hungerbridge.common.TokensConfig.fromValues(finalAllowedSkew, finalDefaultTtl));
+
+                return cfg;
 
         } catch (IOException e) {
             throw new RuntimeException("Failed to load HungerBridge config", e);
@@ -202,6 +230,9 @@ public final class Config {
     public com.hungerbridge.common.log.AuditLogger getAuditLogger() { return auditLogger; }
     public void setSecurityConfig(com.hungerbridge.common.security.SecurityConfig sc) { this.securityConfig = sc; }
     public com.hungerbridge.common.security.SecurityConfig getSecurityConfig() { return securityConfig; }
+
+    public void setTokensConfig(com.hungerbridge.common.TokensConfig tc) { this.tokensConfig = tc; }
+    public com.hungerbridge.common.TokensConfig getTokensConfig() { return tokensConfig; }
 
     public void setCommandsConfig(com.hungerbridge.common.CommandsConfig cc) { this.commandsConfig = cc; }
     public com.hungerbridge.common.CommandsConfig getCommandsConfig() { return commandsConfig; }
@@ -246,7 +277,7 @@ public final class Config {
 
         writeIfMissing(runtimeConfigDir.resolve("config.yaml"), "port: 1913\n\nauth:\n  key: \"CHANGE_ME\"\n\nenabled_endpoints:\n  run: true\n  log: true\n  ping: true\n  stream_logs: true\n  info: true\n  status: true\n  tps: true\n  players: true\n\nplayers:\n  max-list: 50\n");
         writeIfMissing(runtimeConfigDir.resolve("security.yaml"), "self_probe: true\npublic_base_url: \"https://my-proxy.example.com\"\nprobe_timeout_ms: 1500\n\nip_whitelist: []\nip_blacklist: []\n\nrate_limits:\n  token_rps: 5.0\n  token_burst: 10.0\n  ip_rps: 20.0\n  ip_burst: 40.0\n\naudit_retention_days: 14\n");
-        writeIfMissing(runtimeConfigDir.resolve("commands.yaml"), "enable_commands: true\nenable_admin_http: true\ncommand_aliases:\n  - hb\n  - hungerbridge\ntoken_defaults:\n  ttl: 3600\n  whitelist: []\n  blacklist: []\nglobal_whitelist: []\nglobal_blacklist: []\n");
+        writeIfMissing(runtimeConfigDir.resolve("commands.yaml"), "enable_commands: true\nenable_admin_http: true\ntoken_defaults:\n  ttl: 3600\n  whitelist: []\n  blacklist: []\nglobal_whitelist: []\nglobal_blacklist: []\n");
         writeIfMissing(runtimeConfigDir.resolve("tokens.yaml"), "allowed_skew_seconds: 300\ndefault_token_ttl_seconds: 0\n\n# tokens:\n#   - id: exampletokenid\n#     revoked: false\n#     expiry: 0\n#     whitelist:\n#       - run\n#     blacklist: []\n");
     }
 

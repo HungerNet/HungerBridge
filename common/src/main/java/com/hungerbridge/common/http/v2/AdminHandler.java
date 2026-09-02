@@ -67,9 +67,16 @@ public final class AdminHandler implements HttpHandler {
                 }
                 case "tokens_create": {
                     JsonObject body = HttpUtil.readJson(ex);
-                    long ttl = body != null && body.has("ttl") ? body.get("ttl").getAsLong() : config.getCommandsConfig().tokenDefaultTtl;
-                    List<String> wl = body != null && body.has("whitelist") ? com.hungerbridge.common.Json.GSON.fromJson(body.get("whitelist"), List.class) : config.getCommandsConfig().tokenDefaultWhitelist;
-                    List<String> bl = body != null && body.has("blacklist") ? com.hungerbridge.common.Json.GSON.fromJson(body.get("blacklist"), List.class) : config.getCommandsConfig().tokenDefaultBlacklist;
+                        long ttl;
+                        if (body != null && body.has("ttl")) ttl = body.get("ttl").getAsLong();
+                        else if (config.getCommandsConfig() != null) ttl = config.getCommandsConfig().tokenDefaultTtl;
+                        else if (config.getTokensConfig() != null) ttl = config.getTokensConfig().defaultTokenTtlSeconds;
+                        else ttl = 0L;
+
+                        List<String> wl = body != null && body.has("whitelist") ? com.hungerbridge.common.Json.GSON.fromJson(body.get("whitelist"), List.class) :
+                            (config.getCommandsConfig() != null ? config.getCommandsConfig().tokenDefaultWhitelist : java.util.List.of());
+                        List<String> bl = body != null && body.has("blacklist") ? com.hungerbridge.common.Json.GSON.fromJson(body.get("blacklist"), List.class) :
+                            (config.getCommandsConfig() != null ? config.getCommandsConfig().tokenDefaultBlacklist : java.util.List.of());
                     com.hungerbridge.common.security.TokenManager.Token t = admin.createToken(ttl, wl, bl);
                     if (t == null) { HttpUtil.error(ex, 500, "create_failed", "failed to create token", config); break; }
                     JsonObject out = new JsonObject();

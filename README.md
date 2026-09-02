@@ -221,9 +221,6 @@ audit_retention_days: 14
 ```yaml
 enable_commands: true
 enable_admin_http: true
-command_aliases:
-  - hb
-  - hungerbridge
 token_defaults:
   ttl: 3600
   whitelist: []

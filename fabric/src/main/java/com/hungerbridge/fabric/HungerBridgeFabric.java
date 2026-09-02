@@ -152,14 +152,11 @@ public final class HungerBridgeFabric implements DedicatedServerModInitializer {
         bridgeServer = new BridgeServer(configDir, config, logger, executor);
         bridgeServer.start();
 
-        // register brigadier command names if enabled
-        if (cc == null || cc.enableCommands) {
-            try {
-                var dispatcher = server.getCommands().getDispatcher();
-                registerCommands(dispatcher, "hungerbridge");
-                registerCommands(dispatcher, "hb");
-            } catch (Exception ignored) {}
-        }
+        // register brigadier command names (always enabled)
+        try {
+            var dispatcher = server.getCommands().getDispatcher();
+            registerCommands(dispatcher, "hungerbridge");
+        } catch (Exception ignored) {}
 
         SLF4J_LOGGER.info("HungerBridge started on port {}", config.getPort());
     }

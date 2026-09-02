@@ -51,7 +51,12 @@ public final class HttpUtil {
             }
         }
 
-        boolean ok = tm.verifyHmac(tokenId, ts, nonce, sig, ex.getRequestMethod(), ex.getRequestURI().getPath(), bodyStr, 300);
+        int allowedSkew = 300;
+        try {
+            com.hungerbridge.common.TokensConfig tc = config.getTokensConfig();
+            if (tc != null) allowedSkew = tc.allowedSkewSeconds;
+        } catch (Exception ignored) {}
+        boolean ok = tm.verifyHmac(tokenId, ts, nonce, sig, ex.getRequestMethod(), ex.getRequestURI().getPath(), bodyStr, allowedSkew);
         if (!ok) return false;
 
         // attach token metadata for downstream ACL checks
