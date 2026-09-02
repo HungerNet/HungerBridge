@@ -132,113 +132,81 @@ public final class Config {
             try {
                 Path versionFile = configDir.getParent().getParent().resolve("version.yaml");
                 if (Files.exists(versionFile)) {
-                    Yaml yaml = new Yaml();
-                    try (InputStream vin = Files.newInputStream(versionFile)) {
-                        Object vloaded = yaml.load(vin);
-                        if (vloaded instanceof Map) {
-                            Map<String, Object> vroot = (Map<String, Object>) vloaded;
-                            bridgeVersion = (String) vroot.getOrDefault("version", "unknown");
+                    // write the canonical config.yaml as provided
+                    String cfg = "port: 1913\n\n" +
+                            "enabled_endpoints:\n" +
+                            "  run: true\n" +
+                            "  log: true\n" +
+                            "  ping: true\n" +
+                            "  stream_logs: true\n" +
+                            "  info: true\n" +
+                            "  status: true\n" +
+                            "  tps: true\n" +
+                            "  players: true\n\n" +
+                            "players:\n" +
+                            "  max-list: 50\n";
+
+                    try (OutputStream out = Files.newOutputStream(configFile);
+                         OutputStreamWriter writer = new OutputStreamWriter(out)) {
+                        writer.write(cfg);
+                    }
+
+                    // create canonical security.yaml
+                    try {
+                        Path security = configDir.resolve("security.yaml");
+                        if (!Files.exists(security)) {
+                            String sec = "self_probe: false\n" +
+                                    "public_base_url: 'https://bridge.example.com'\n" +
+                                    "probe_timeout_ms: 2000\n\n" +
+                                    "ip_whitelist: []\n" +
+                                    "ip_blacklist: []\n\n" +
+                                    "rate_limits:\n" +
+                                    "  token_rps: 5.0\n" +
+                                    "  token_burst: 10.0\n" +
+                                    "  ip_rps: 20.0\n" +
+                                    "  ip_burst: 40.0\n\n" +
+                                    "audit_retention_days: 14\n";
+                            Files.writeString(security, sec);
                         }
-                    }
-                }
-            } catch (Exception ignored) {}
+                    } catch (Exception ignored) {}
 
-            // Generate default config
-            if (!Files.exists(configFile)) {
-                logger.log("WARN", "Config file not found, generating default config at " + configFile);
+                    // create canonical commands.yaml
+                    try {
+                        Path commands = configDir.resolve("commands.yaml");
+                        if (!Files.exists(commands)) {
+                            String cc = "enable_commands: true\n" +
+                                    "enable_admin_http: true\n" +
+                                    "command_aliases: []\n\n" +
+                                    "token_defaults:\n" +
+                                    "  ttl: 3600\n" +
+                                    "  whitelist: []\n" +
+                                    "  blacklist: []\n\n" +
+                                    "global_whitelist: []\n" +
+                                    "global_blacklist: []\n";
+                            Files.writeString(commands, cc);
+                        }
+                    } catch (Exception ignored) {}
 
-                Map<String, Object> root = new LinkedHashMap<>();
-                root.put("port", 1913);
-
-                Map<String, Object> auth = new LinkedHashMap<>();
-                auth.put("key", UUID.randomUUID().toString());
-                root.put("auth", auth);
-
-                Map<String, Object> enabledEndpoints = new LinkedHashMap<>();
-                enabledEndpoints.put("run", true);
-                enabledEndpoints.put("log", true);
-                enabledEndpoints.put("ping", true);
-                enabledEndpoints.put("stream_logs", true);
-                enabledEndpoints.put("info", true);
-                enabledEndpoints.put("status", true);
-                enabledEndpoints.put("tps", true);
-                enabledEndpoints.put("players", true);
-                root.put("enabled_endpoints", enabledEndpoints);
-
-                Map<String, Object> players = new LinkedHashMap<>();
-                players.put("max-list", 50);
-                root.put("players", players);
-
-                DumperOptions options = new DumperOptions();
-                options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
-                options.setPrettyFlow(true);
-                Yaml yaml = new Yaml(options);
-
-                String dumped = yaml.dump(root);
-
-                // Insert blank lines between sections
-                String spaced = dumped
-                        .replace("\nauth:", "\n\nauth:")
-                        .replace("\nenabled_endpoints:", "\n\nenabled_endpoints:")
-                        .replace("\nplayers:", "\n\nplayers:");
-
-                try (OutputStream out = Files.newOutputStream(configFile);
-                     OutputStreamWriter writer = new OutputStreamWriter(out)) {
-                    writer.write(spaced);
-                }
-
-                // Also create default auxiliary config files if they don't exist
-                try {
-                    Path security = configDir.resolve("security.yaml");
-                    if (!Files.exists(security)) {
-                        String sec = "# HungerBridge security settings\n" +
-                                "self_probe: false\n" +
-                                "public_base_url: ''\n" +
-                                "probe_timeout_ms: 2000\n" +
-                                "ip_whitelist: []\n" +
-                                "ip_blacklist: []\n" +
-                                "rate_limits:\n" +
-                                "  token_rps: 5.0\n" +
-                                "  token_burst: 10.0\n" +
-                                "  ip_rps: 20.0\n" +
-                                "  ip_burst: 40.0\n" +
-                                "audit_retention_days: 14\n";
-                        Files.writeString(security, sec);
-                    }
-                } catch (Exception ignored) {}
-
-                try {
-                    Path commands = configDir.resolve("commands.yaml");
-                    if (!Files.exists(commands)) {
-                        String cc = "# Commands config\n" +
-                                "enable_commands: true\n" +
-                                "enable_admin_http: true\n" +
-                                "command_aliases: []\n" +
-                                "token_defaults:\n" +
-                                "  ttl: 3600\n" +
-                                "  whitelist: []\n" +
-                                "  blacklist: []\n" +
-                                "global_whitelist: []\n" +
-                                "global_blacklist: []\n";
-                        Files.writeString(commands, cc);
-                    }
-                } catch (Exception ignored) {}
-
-                try {
-                    Path endpoints = configDir.resolve("endpoints.yaml");
-                    if (!Files.exists(endpoints)) {
-                        String ep = "# Optional endpoints toggles\n" +
-                                "run: true\n" +
-                                "log: true\n" +
-                                "ping: true\n" +
-                                "stream_logs: true\n" +
-                                "info: true\n" +
-                                "status: true\n" +
-                                "tps: true\n" +
-                                "players: true\n";
-                        Files.writeString(endpoints, ep);
-                    }
-                } catch (Exception ignored) {}
+                    // create README with useful guidance
+                    try {
+                        Path readme = configDir.resolve("README.md");
+                        if (!Files.exists(readme)) {
+                            String r = "# HungerBridge configuration\n\n" +
+                                    "This directory contains runtime configuration and storage for HungerBridge.\n\n" +
+                                    "Files and directories:\n" +
+                                    "- config.yaml: core server config (port, enabled endpoints, players)\n" +
+                                    "- security.yaml: security settings, IP allow/deny and rate limits\n" +
+                                    "- commands.yaml: controls in-game commands and admin HTTP enabling\n" +
+                                    "- storage/: tokens.json and sessions.json (managed by the server)\n" +
+                                    "- logs/: daily audit logs (JSON lines)\n\n" +
+                                    "Token management:\n" +
+                                    "- Tokens are stored in storage/tokens.json. Use the admin HTTP endpoints or in-game /hb tokens commands to create, list, revoke, or rotate tokens.\n\n" +
+                                    "Audit logs:\n" +
+                                    "- Audit events are appended to logs/YYYY-MM-DD.audit.log. Configure retention in security.yaml via `audit_retention_days`.\n\n" +
+                                    "Do NOT check secrets into source control.\n";
+                            Files.writeString(readme, r);
+                        }
+                    } catch (Exception ignored) {}
 
                 try {
                     Path readme = configDir.resolve("README.md");
