@@ -186,6 +186,74 @@ public final class Config {
                      OutputStreamWriter writer = new OutputStreamWriter(out)) {
                     writer.write(spaced);
                 }
+
+                // Also create default auxiliary config files if they don't exist
+                try {
+                    Path security = configDir.resolve("security.yaml");
+                    if (!Files.exists(security)) {
+                        String sec = "# HungerBridge security settings\n" +
+                                "self_probe: false\n" +
+                                "public_base_url: ''\n" +
+                                "probe_timeout_ms: 2000\n" +
+                                "ip_whitelist: []\n" +
+                                "ip_blacklist: []\n" +
+                                "rate_limits:\n" +
+                                "  token_rps: 5.0\n" +
+                                "  token_burst: 10.0\n" +
+                                "  ip_rps: 20.0\n" +
+                                "  ip_burst: 40.0\n" +
+                                "audit_retention_days: 14\n";
+                        Files.writeString(security, sec);
+                    }
+                } catch (Exception ignored) {}
+
+                try {
+                    Path commands = configDir.resolve("commands.yaml");
+                    if (!Files.exists(commands)) {
+                        String cc = "# Commands config\n" +
+                                "enable_commands: true\n" +
+                                "enable_admin_http: true\n" +
+                                "command_aliases: []\n" +
+                                "token_defaults:\n" +
+                                "  ttl: 3600\n" +
+                                "  whitelist: []\n" +
+                                "  blacklist: []\n" +
+                                "global_whitelist: []\n" +
+                                "global_blacklist: []\n";
+                        Files.writeString(commands, cc);
+                    }
+                } catch (Exception ignored) {}
+
+                try {
+                    Path endpoints = configDir.resolve("endpoints.yaml");
+                    if (!Files.exists(endpoints)) {
+                        String ep = "# Optional endpoints toggles\n" +
+                                "run: true\n" +
+                                "log: true\n" +
+                                "ping: true\n" +
+                                "stream_logs: true\n" +
+                                "info: true\n" +
+                                "status: true\n" +
+                                "tps: true\n" +
+                                "players: true\n";
+                        Files.writeString(endpoints, ep);
+                    }
+                } catch (Exception ignored) {}
+
+                try {
+                    Path readme = configDir.resolve("README.md");
+                    if (!Files.exists(readme)) {
+                        String r = "# HungerBridge configuration directory\n\n" +
+                                "This folder contains runtime configuration and storage for HungerBridge.\n\n" +
+                                "- `config.yaml` - core configuration (generated)\n" +
+                                "- `security.yaml` - security and rate-limit settings\n" +
+                                "- `commands.yaml` - in-game/admin command settings\n" +
+                                "- `endpoints.yaml` - optional endpoint toggles\n" +
+                                "- `storage/` - token and session storage (managed by the server)\n" +
+                                "- `logs/` - audit logs\n";
+                        Files.writeString(readme, r);
+                    }
+                } catch (Exception ignored) {}
             }
 
             // Load config.yaml

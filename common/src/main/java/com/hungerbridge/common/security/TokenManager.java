@@ -79,7 +79,10 @@ public final class TokenManager {
     private void loadSessions() {
         // sessions.json currently stores nonce cache expiries to survive restarts.
         try {
-            if (!Files.exists(sessionsFile)) return;
+            if (!Files.exists(sessionsFile)) {
+                // create an empty sessions file to make the layout consistent
+                Files.writeString(sessionsFile, "{}", StandardCharsets.UTF_8);
+            }
             String txt = Files.readString(sessionsFile, StandardCharsets.UTF_8);
             Type t = new TypeToken<Map<String, Long>>(){}.getType();
             Map<String, Long> sess = GSON.fromJson(txt, t);
