@@ -208,25 +208,31 @@ public final class Config {
 
     private static void seedRuntimeConfigFromAutogen(Path runtimeConfigDir, Logger logger) throws IOException {
         Path autogenRoot = findAutogenTemplateDir();
-        if (autogenRoot == null || !Files.exists(autogenRoot)) {
-            // Fallback only when the repo templates are unavailable; do not create a second
-            // checked-in runtime config directory. All live config still stays in the target dir.
-            if (logger != null) logger.log("WARN", "No autogen/HungerBridge templates found; using minimal in-memory defaults for runtime config generation.");
-            return;
-        }
-
+        boolean copiedAny = false;
         java.util.List<String> created = new java.util.ArrayList<>();
         java.util.List<String> existed = new java.util.ArrayList<>();
-        for (String fileName : java.util.List.of("config.yaml", "commands.yaml", "security.yaml", "tokens.yaml")) {
-            Path source = autogenRoot.resolve(fileName);
-            Path target = runtimeConfigDir.resolve(fileName);
-            if (!Files.exists(source)) continue;
-            if (!Files.exists(target)) {
-                Files.copy(source, target);
-                created.add(fileName);
-            } else {
-                existed.add(fileName);
+
+        if (autogenRoot != null && Files.exists(autogenRoot)) {
+            for (String fileName : java.util.List.of("config.yaml", "commands.yaml", "security.yaml", "tokens.yaml")) {
+                Path source = autogenRoot.resolve(fileName);
+                Path target = runtimeConfigDir.resolve(fileName);
+                if (!Files.exists(source)) continue;
+                if (!Files.exists(target)) {
+                    Files.copy(source, target);
+                    created.add(fileName);
+                    copiedAny = true;
+                } else {
+                    existed.add(fileName);
+                }
             }
+        }
+
+        if (!copiedAny && (autogenRoot == null || !Files.exists(autogenRoot))) {
+            if (logger != null) {
+                logger.log("WARN", "No autogen/HungerBridge templates found; creating runtime defaults in the active config directory.");
+            }
+            writeFallbackRuntimeConfigs(runtimeConfigDir);
+            return;
         }
 
         if (logger != null) {
@@ -235,11 +241,31 @@ public final class Config {
         }
     }
 
+    private static void writeFallbackRuntimeConfigs(Path runtimeConfigDir) throws IOException {
+        Files.createDirectories(runtimeConfigDir);
+
+        writeIfMissing(runtimeConfigDir.resolve("config.yaml"), "port: 1913\n\nauth:\n  key: \"CHANGE_ME\"\n\nenabled_endpoints:\n  run: true\n  log: true\n  ping: true\n  stream_logs: true\n  info: true\n  status: true\n  tps: true\n  players: true\n\nplayers:\n  max-list: 50\n");
+        writeIfMissing(runtimeConfigDir.resolve("security.yaml"), "self_probe: true\npublic_base_url: \"https://my-proxy.example.com\"\nprobe_timeout_ms: 1500\n\nip_whitelist: []\nip_blacklist: []\n\nrate_limits:\n  token_rps: 5.0\n  token_burst: 10.0\n  ip_rps: 20.0\n  ip_burst: 40.0\n\naudit_retention_days: 14\n");
+        writeIfMissing(runtimeConfigDir.resolve("commands.yaml"), "enable_commands: true\nenable_admin_http: true\ncommand_aliases:\n  - hb\n  - hungerbridge\ntoken_defaults:\n  ttl: 3600\n  whitelist: []\n  blacklist: []\nglobal_whitelist: []\nglobal_blacklist: []\n");
+        writeIfMissing(runtimeConfigDir.resolve("tokens.yaml"), "allowed_skew_seconds: 300\ndefault_token_ttl_seconds: 0\n\n# tokens:\n#   - id: exampletokenid\n#     revoked: false\n#     expiry: 0\n#     whitelist:\n#       - run\n#     blacklist: []\n");
+    }
+
+    private static void writeIfMissing(Path path, String content) throws IOException {
+        if (Files.exists(path)) return;
+        Files.writeString(path, content);
+    }
+
     private static Path findAutogenTemplateDir() {
         java.util.List<Path> candidates = new java.util.ArrayList<>();
         Path userDir = Path.of(System.getProperty("user.dir", "")).toAbsolutePath();
+        Path parent = userDir.getParent();
+
         candidates.add(userDir.resolve("autogen").resolve("HungerBridge"));
-        candidates.add(userDir.resolve("..").resolve("HungerBridge").resolve("autogen").resolve("HungerBridge"));
+        candidates.add(userDir.resolve("HungerBridge").resolve("autogen").resolve("HungerBridge"));
+        if (parent != null) {
+            candidates.add(parent.resolve("HungerBridge").resolve("autogen").resolve("HungerBridge"));
+            candidates.add(parent.resolve("autogen").resolve("HungerBridge"));
+        }
         candidates.add(Path.of(".").toAbsolutePath().resolve("autogen").resolve("HungerBridge"));
 
         for (Path candidate : candidates) {
