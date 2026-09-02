@@ -153,7 +153,6 @@ public final class HungerBridgeFabric implements DedicatedServerModInitializer {
         bridgeServer.start();
 
         // register brigadier /hb command if enabled
-        com.hungerbridge.common.CommandsConfig cc = config.getCommandsConfig();
         if (cc == null || cc.enableCommands) {
             try {
                 var dispatcher = server.getCommands().getDispatcher();
@@ -162,14 +161,14 @@ public final class HungerBridgeFabric implements DedicatedServerModInitializer {
                 hb.then(net.minecraft.commands.Commands.literal("status").executes(ctx -> {
                     com.hungerbridge.common.AdminService admin = bridgeServer.getAdminService();
                     if (admin == null) return 1;
-                    ctx.getSource().sendSuccess(net.minecraft.network.chat.Component.literal(admin.getStatus().toString()), false);
+                    ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(admin.getStatus().toString()), false);
                     return 1;
                 }));
 
                 hb.then(net.minecraft.commands.Commands.literal("probe").executes(ctx -> {
                     com.hungerbridge.common.AdminService admin = bridgeServer.getAdminService();
                     if (admin == null) return 1;
-                    ctx.getSource().sendSuccess(net.minecraft.network.chat.Component.literal(admin.runProbe().toString()), false);
+                    ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(admin.runProbe().toString()), false);
                     return 1;
                 }));
 
@@ -177,7 +176,7 @@ public final class HungerBridgeFabric implements DedicatedServerModInitializer {
                     com.hungerbridge.common.AdminService admin = bridgeServer.getAdminService();
                     if (admin == null) return 1;
                     boolean ok = admin.reloadConfig();
-                    ctx.getSource().sendSuccess(net.minecraft.network.chat.Component.literal(ok ? "reloaded" : "reload failed"), false);
+                    ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(ok ? "reloaded" : "reload failed"), false);
                     return 1;
                 }));
 
@@ -186,7 +185,7 @@ public final class HungerBridgeFabric implements DedicatedServerModInitializer {
                             int n = com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(ctx, "n");
                             com.hungerbridge.common.AdminService admin = bridgeServer.getAdminService();
                             if (admin == null) return 1;
-                            for (String l : admin.getAuditSummary(n)) ctx.getSource().sendSuccess(net.minecraft.network.chat.Component.literal(l), false);
+                            for (String l : admin.getAuditSummary(n)) ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(l), false);
                             return 1;
                         })
                 ));
@@ -196,7 +195,7 @@ public final class HungerBridgeFabric implements DedicatedServerModInitializer {
                 tokens.then(net.minecraft.commands.Commands.literal("list").executes(ctx -> {
                     com.hungerbridge.common.AdminService admin = bridgeServer.getAdminService();
                     if (admin == null) return 1;
-                    ctx.getSource().sendSuccess(net.minecraft.network.chat.Component.literal(admin.listTokens().keySet().toString()), false);
+                    ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(admin.listTokens().keySet().toString()), false);
                     return 1;
                 }));
                 tokens.then(net.minecraft.commands.Commands.literal("create").then(
@@ -206,7 +205,7 @@ public final class HungerBridgeFabric implements DedicatedServerModInitializer {
                             if (admin == null) return 1;
                             var t = admin.createToken(ttl, java.util.List.of(), java.util.List.of());
                             if (t == null) ctx.getSource().sendFailure(net.minecraft.network.chat.Component.literal("create failed"));
-                            else ctx.getSource().sendSuccess(net.minecraft.network.chat.Component.literal("created: " + t.id + ":" + t.secret), false);
+                            else ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal("created: " + t.id + ":" + t.secret), false);
                             return 1;
                         })
                 ));
@@ -216,7 +215,7 @@ public final class HungerBridgeFabric implements DedicatedServerModInitializer {
                             com.hungerbridge.common.AdminService admin = bridgeServer.getAdminService();
                             if (admin == null) return 1;
                             boolean r = admin.revokeToken(id);
-                            ctx.getSource().sendSuccess(net.minecraft.network.chat.Component.literal(r ? "revoked" : "not found"), false);
+                            ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(r ? "revoked" : "not found"), false);
                             return 1;
                         })
                 ));
@@ -227,7 +226,7 @@ public final class HungerBridgeFabric implements DedicatedServerModInitializer {
                             if (admin == null) return 1;
                             var t = admin.rotateToken(id);
                             if (t == null) ctx.getSource().sendFailure(net.minecraft.network.chat.Component.literal("rotate failed"));
-                            else ctx.getSource().sendSuccess(net.minecraft.network.chat.Component.literal("rotated: " + t.id + ":" + t.secret), false);
+                            else ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal("rotated: " + t.id + ":" + t.secret), false);
                             return 1;
                         })
                 ));
