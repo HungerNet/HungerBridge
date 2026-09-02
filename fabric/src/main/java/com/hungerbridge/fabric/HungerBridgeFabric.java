@@ -152,134 +152,115 @@ public final class HungerBridgeFabric implements DedicatedServerModInitializer {
         bridgeServer = new BridgeServer(configDir, config, logger, executor);
         bridgeServer.start();
 
-        // register brigadier /hb command if enabled
+        // register brigadier command names if enabled
         if (cc == null || cc.enableCommands) {
             try {
                 var dispatcher = server.getCommands().getDispatcher();
-                var hb = net.minecraft.commands.Commands.literal("hb");
-
-                hb.executes(ctx -> {
-                    ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal("HungerBridge commands: reload status probe audit tokens ip config"), false);
-                    return 1;
-                });
-
-                hb.then(net.minecraft.commands.Commands.literal("status").executes(ctx -> {
-                    com.hungerbridge.common.AdminService admin = bridgeServer.getAdminService();
-                    if (admin == null) return 1;
-                    ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(admin.getStatus().toString()), false);
-                    return 1;
-                }));
-
-                hb.then(net.minecraft.commands.Commands.literal("probe").executes(ctx -> {
-                    com.hungerbridge.common.AdminService admin = bridgeServer.getAdminService();
-                    if (admin == null) return 1;
-                    ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(admin.runProbe().toString()), false);
-                    return 1;
-                }));
-
-                hb.then(net.minecraft.commands.Commands.literal("reload").executes(ctx -> {
-                    com.hungerbridge.common.AdminService admin = bridgeServer.getAdminService();
-                    if (admin == null) return 1;
-                    boolean ok = admin.reloadConfig();
-                    ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(ok ? "reloaded" : "reload failed"), false);
-                    return 1;
-                }));
-
-                hb.then(net.minecraft.commands.Commands.literal("audit").then(
-                        net.minecraft.commands.Commands.argument("n", com.mojang.brigadier.arguments.IntegerArgumentType.integer(1)).executes(ctx -> {
-                            int n = com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(ctx, "n");
-                            com.hungerbridge.common.AdminService admin = bridgeServer.getAdminService();
-                            if (admin == null) return 1;
-                            for (String l : admin.getAuditSummary(n)) ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(l), false);
-                            return 1;
-                        })
-                ));
-
-                hb.then(net.minecraft.commands.Commands.literal("config").executes(ctx -> {
-                    com.hungerbridge.common.AdminService admin = bridgeServer.getAdminService();
-                    if (admin == null) return 1;
-                    var cs = admin.getConfigStatus();
-                    for (java.util.Map.Entry<String, Object> e : cs.entrySet()) ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(e.getKey() + ": " + String.valueOf(e.getValue())), false);
-                    return 1;
-                }));
-
-                // tokens subcommands
-                var tokens = net.minecraft.commands.Commands.literal("tokens");
-                tokens.then(net.minecraft.commands.Commands.literal("list").executes(ctx -> {
-                    com.hungerbridge.common.AdminService admin = bridgeServer.getAdminService();
-                    if (admin == null) return 1;
-                    ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(admin.listTokens().keySet().toString()), false);
-                    return 1;
-                }));
-                tokens.then(net.minecraft.commands.Commands.literal("create").then(
-                        net.minecraft.commands.Commands.argument("ttl", com.mojang.brigadier.arguments.IntegerArgumentType.integer(0))
-                                .executes(ctx -> {
-                                    int ttl = com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(ctx, "ttl");
-                                    com.hungerbridge.common.AdminService admin = bridgeServer.getAdminService();
-                                    if (admin == null) return 1;
-                                    var t = admin.createToken(ttl, java.util.List.of(), java.util.List.of());
-                                    if (t == null) ctx.getSource().sendFailure(net.minecraft.network.chat.Component.literal("create failed"));
-                                    else ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal("created: " + t.id + ":" + t.secret), false);
-                                    return 1;
-                                })
-                                .then(net.minecraft.commands.Commands.argument("whitelist", com.mojang.brigadier.arguments.StringArgumentType.word())
-                                        .executes(ctx -> {
-                                            int ttl = com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(ctx, "ttl");
-                                            String wl = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "whitelist");
-                                            java.util.List<String> wll = java.util.Arrays.stream(wl.split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList();
-                                            com.hungerbridge.common.AdminService admin = bridgeServer.getAdminService();
-                                            if (admin == null) return 1;
-                                            var t = admin.createToken(ttl, wll, java.util.List.of());
-                                            if (t == null) ctx.getSource().sendFailure(net.minecraft.network.chat.Component.literal("create failed"));
-                                            else ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal("created: " + t.id + ":" + t.secret), false);
-                                            return 1;
-                                        })
-                                        .then(net.minecraft.commands.Commands.argument("blacklist", com.mojang.brigadier.arguments.StringArgumentType.word())
-                                                .executes(ctx -> {
-                                                    int ttl = com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(ctx, "ttl");
-                                                    String wl = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "whitelist");
-                                                    String bl = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "blacklist");
-                                                    java.util.List<String> wll = java.util.Arrays.stream(wl.split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList();
-                                                    java.util.List<String> bll = java.util.Arrays.stream(bl.split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList();
-                                                    com.hungerbridge.common.AdminService admin = bridgeServer.getAdminService();
-                                                    if (admin == null) return 1;
-                                                    var t = admin.createToken(ttl, wll, bll);
-                                                    if (t == null) ctx.getSource().sendFailure(net.minecraft.network.chat.Component.literal("create failed"));
-                                                    else ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal("created: " + t.id + ":" + t.secret), false);
-                                                    return 1;
-                                                })
-                                        )
-                                )
-                ));
-                tokens.then(net.minecraft.commands.Commands.literal("revoke").then(
-                        net.minecraft.commands.Commands.argument("id", com.mojang.brigadier.arguments.StringArgumentType.word()).executes(ctx -> {
-                            String id = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "id");
-                            com.hungerbridge.common.AdminService admin = bridgeServer.getAdminService();
-                            if (admin == null) return 1;
-                            boolean r = admin.revokeToken(id);
-                            ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(r ? "revoked" : "not found"), false);
-                            return 1;
-                        })
-                ));
-                tokens.then(net.minecraft.commands.Commands.literal("rotate").then(
-                        net.minecraft.commands.Commands.argument("id", com.mojang.brigadier.arguments.StringArgumentType.word()).executes(ctx -> {
-                            String id = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "id");
-                            com.hungerbridge.common.AdminService admin = bridgeServer.getAdminService();
-                            if (admin == null) return 1;
-                            var t = admin.rotateToken(id);
-                            if (t == null) ctx.getSource().sendFailure(net.minecraft.network.chat.Component.literal("rotate failed"));
-                            else ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal("rotated: " + t.id + ":" + t.secret), false);
-                            return 1;
-                        })
-                ));
-
-                hb.then(tokens);
-
-                dispatcher.register(hb);
+                registerCommands(dispatcher, "hungerbridge");
+                registerCommands(dispatcher, "hb");
             } catch (Exception ignored) {}
         }
 
         SLF4J_LOGGER.info("HungerBridge started on port {}", config.getPort());
+    }
+
+    private static void registerCommands(net.minecraft.commands.CommandDispatcher<net.minecraft.commands.CommandSourceStack> dispatcher, String name) {
+        var cmd = net.minecraft.commands.Commands.literal(name);
+
+        cmd.executes(ctx -> {
+            java.util.List<String> lines = com.hungerbridge.common.CommonCommandHandler.handle(bridgeServer, new String[0]);
+            for (String l : lines) ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(l), false);
+            return 1;
+        });
+
+        cmd.then(net.minecraft.commands.Commands.literal("status").executes(ctx -> {
+            java.util.List<String> lines = com.hungerbridge.common.CommonCommandHandler.handle(bridgeServer, new String[]{"status"});
+            for (String l : lines) ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(l), false);
+            return 1;
+        }));
+
+        cmd.then(net.minecraft.commands.Commands.literal("probe").executes(ctx -> {
+            java.util.List<String> lines = com.hungerbridge.common.CommonCommandHandler.handle(bridgeServer, new String[]{"probe"});
+            for (String l : lines) ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(l), false);
+            return 1;
+        }));
+
+        cmd.then(net.minecraft.commands.Commands.literal("reload").executes(ctx -> {
+            java.util.List<String> lines = com.hungerbridge.common.CommonCommandHandler.handle(bridgeServer, new String[]{"reload"});
+            for (String l : lines) ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(l), false);
+            return 1;
+        }));
+
+        cmd.then(net.minecraft.commands.Commands.literal("audit").then(
+            net.minecraft.commands.Commands.argument("n", com.mojang.brigadier.arguments.IntegerArgumentType.integer(1)).executes(ctx -> {
+                int n = com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(ctx, "n");
+                java.util.List<String> lines = com.hungerbridge.common.CommonCommandHandler.handle(bridgeServer, new String[]{"audit", String.valueOf(n)});
+                for (String l : lines) ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(l), false);
+                return 1;
+            })
+        ));
+
+        cmd.then(net.minecraft.commands.Commands.literal("config").executes(ctx -> {
+            java.util.List<String> lines = com.hungerbridge.common.CommonCommandHandler.handle(bridgeServer, new String[]{"config"});
+            for (String l : lines) ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(l), false);
+            return 1;
+        }));
+
+        // tokens subcommands
+        var tokens = net.minecraft.commands.Commands.literal("tokens");
+        tokens.then(net.minecraft.commands.Commands.literal("list").executes(ctx -> {
+            java.util.List<String> lines = com.hungerbridge.common.CommonCommandHandler.handle(bridgeServer, new String[]{"tokens", "list"});
+            for (String l : lines) ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(l), false);
+            return 1;
+        }));
+        tokens.then(net.minecraft.commands.Commands.literal("create").then(
+                net.minecraft.commands.Commands.argument("ttl", com.mojang.brigadier.arguments.IntegerArgumentType.integer(0))
+                                .executes(ctx -> {
+                                    int ttl = com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(ctx, "ttl");
+                                    java.util.List<String> lines = com.hungerbridge.common.CommonCommandHandler.handle(bridgeServer, new String[]{"tokens", "create", String.valueOf(ttl)});
+                                    for (String l : lines) ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(l), false);
+                                    return 1;
+                                })
+                        .then(net.minecraft.commands.Commands.argument("whitelist", com.mojang.brigadier.arguments.StringArgumentType.word())
+                                .executes(ctx -> {
+                                    int ttl = com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(ctx, "ttl");
+                                    String wl = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "whitelist");
+                                    java.util.List<String> wll = java.util.Arrays.stream(wl.split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList();
+                                    java.util.List<String> lines = com.hungerbridge.common.CommonCommandHandler.handle(bridgeServer, new String[]{"tokens", "create", String.valueOf(ttl), wl});
+                                    for (String l : lines) ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(l), false);
+                                    return 1;
+                                })
+                                .then(net.minecraft.commands.Commands.argument("blacklist", com.mojang.brigadier.arguments.StringArgumentType.word())
+                                        .executes(ctx -> {
+                                            int ttl = com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(ctx, "ttl");
+                                            String wl = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "whitelist");
+                                            String bl = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "blacklist");
+                                            java.util.List<String> lines = com.hungerbridge.common.CommonCommandHandler.handle(bridgeServer, new String[]{"tokens", "create", String.valueOf(ttl), wl, bl});
+                                            for (String l : lines) ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(l), false);
+                                            return 1;
+                                        })
+                                )
+        ));
+        tokens.then(net.minecraft.commands.Commands.literal("revoke").then(
+            net.minecraft.commands.Commands.argument("id", com.mojang.brigadier.arguments.StringArgumentType.word()).executes(ctx -> {
+                String id = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "id");
+                java.util.List<String> lines = com.hungerbridge.common.CommonCommandHandler.handle(bridgeServer, new String[]{"tokens", "revoke", id});
+                for (String l : lines) ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(l), false);
+                return 1;
+            })
+        ));
+        tokens.then(net.minecraft.commands.Commands.literal("rotate").then(
+            net.minecraft.commands.Commands.argument("id", com.mojang.brigadier.arguments.StringArgumentType.word()).executes(ctx -> {
+                String id = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "id");
+                java.util.List<String> lines = com.hungerbridge.common.CommonCommandHandler.handle(bridgeServer, new String[]{"tokens", "rotate", id});
+                for (String l : lines) ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(l), false);
+                return 1;
+            })
+        ));
+
+        cmd.then(tokens);
+
+        dispatcher.register(cmd);
     }
 
     // Called by mixin on server shutdown

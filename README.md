@@ -137,7 +137,7 @@ HungerBridge is a unified **Fabric + Paper/Purpur** backend used by
 **HungerLib** to execute commands and write logs inside a Minecraft server
 without using RCON.
 
-It exposes a small, secure HTTP API and an in-game admin command set (`/hb`).
+It exposes a small, secure HTTP API and an in-game admin command set (`/hungerbridge`, alias `/hb`).
 
 Core HTTP API endpoints
 
@@ -164,8 +164,8 @@ Admin HTTP endpoints (require root `X-Auth-Key` or an admin-capable token)
 
 Supported platforms
 
-- **Paper/Purpur** (plugin.yml registered) — in-game `/hb` command available when enabled
-- **Fabric** (Brigadier registration) — in-game `/hb` command available when enabled
+- **Paper/Purpur** (plugin.yml registered) — in-game `/hungerbridge` command available when enabled
+- **Fabric** (Brigadier registration) — in-game `/hungerbridge` command available when enabled
 
 ---
 
@@ -296,21 +296,21 @@ prune old audit files according to `audit_retention_days` in
 {"timestamp":"2026-09-02T12:34:56Z","token_id":"abcd1234","ip":"192.0.2.1","action":"run","result":"allowed","path":"/run","method":"POST"}
 ```
 
-## In-game admin command `/hb`
+## In-game admin command `/hungerbridge`
 
-When enabled in `commands.yaml`, HungerBridge exposes `/hb` inside the
-server. Available subcommands:
+When enabled in `commands.yaml`, HungerBridge exposes `/hungerbridge` inside the
+server (the short alias `/hb` is also available). Available subcommands:
 
-- `/hb reload` — reload config files
-- `/hb status` — show rate limits and probe status
-- `/hb probe` — run the self-probe
-- `/hb audit [N]` — print last N audit lines (default 20)
-- `/hb tokens list` — list token ids
-- `/hb tokens create <ttl>` — create a token with ttl (seconds)
-- `/hb tokens revoke <id>` — revoke token
-- `/hb tokens rotate <id>` — rotate token secret
-- `/hb ip` — show IP whitelist/blacklist
-- `/hb config` — show basic config/status
+- `/hungerbridge reload` — reload config files
+- `/hungerbridge status` — show rate limits and probe status
+- `/hungerbridge probe` — run the self-probe
+- `/hungerbridge audit [N]` — print last N audit lines (default 20)
+- `/hungerbridge tokens list` — list token ids
+- `/hungerbridge tokens create <ttl>` — create a token with ttl (seconds)
+- `/hungerbridge tokens revoke <id>` — revoke token
+- `/hungerbridge tokens rotate <id>` — rotate token secret
+- `/hungerbridge ip` — show IP whitelist/blacklist
+- `/hungerbridge config` — show basic config/status
 
 Commands are registered using Bukkit plugin.yml (Paper) or Brigadier (Fabric).
 

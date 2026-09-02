@@ -5,6 +5,7 @@ api-version: 26.1
 author: iFamished
 description: Multiloader HTTP bridge for Paper and Fabric.
 commands:
-  hb:
+  hungerbridge:
     description: HungerBridge admin command
-    usage: /hb
+    usage: /hungerbridge
+    aliases: [hb]
