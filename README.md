@@ -70,7 +70,7 @@ curl -X POST \
   -H "X-Auth-Key: CHANGE_ME" \
   -H "Content-Type: application/json" \
   -d '{"ttl_seconds":3600, "whitelist":["run"]}' \
-  http://localhost:1913/v2/tokens
+  http://localhost:1913/tokens
 ```
 
 Sample successful response:
@@ -130,7 +130,7 @@ Each line contains fields such as `timestamp`, `token_id`, `ip`, `action`, and `
 Sample audit line:
 
 ```json
-{"timestamp":"2026-09-02T12:34:56Z","token_id":"abcd1234","ip":"192.0.2.1","action":"run","result":"allowed","path":"/v2/run","method":"POST"}
+{"timestamp":"2026-09-02T12:34:56Z","token_id":"abcd1234","ip":"192.0.2.1","action":"run","result":"allowed","path":"/run","method":"POST"}
 ```
 
 HungerBridge is a unified **Fabric + Paper/Purpur** backend used by
@@ -262,7 +262,7 @@ curl -X POST \
   -H "X-Auth-Key: CHANGE_ME" \
   -H "Content-Type: application/json" \
   -d '{"ttl":3600, "whitelist":["run"]}' \
-  http://localhost:1913/v2/admin/tokens/create
+  http://localhost:1913/admin/tokens/create
 ```
 
 Sample successful response (admin responses use a uniform schema):
@@ -280,7 +280,7 @@ Sample successful response (admin responses use a uniform schema):
 Rotate a token (invalidates the old secret and returns a new secret):
 
 ```bash
-curl -X POST -H "X-Auth-Key: CHANGE_ME" -H "Content-Type: application/json" -d '{"id":"abcd1234"}' http://localhost:1913/v2/admin/tokens/rotate
+curl -X POST -H "X-Auth-Key: CHANGE_ME" -H "Content-Type: application/json" -d '{"id":"abcd1234"}' http://localhost:1913/admin/tokens/rotate
 ```
 
 Store returned secrets securely — they are only shown once.
@@ -293,7 +293,7 @@ prune old audit files according to `audit_retention_days` in
 `security.yaml` (default 14 days). Example entry:
 
 ```json
-{"timestamp":"2026-09-02T12:34:56Z","token_id":"abcd1234","ip":"192.0.2.1","action":"run","result":"allowed","path":"/v2/run","method":"POST"}
+{"timestamp":"2026-09-02T12:34:56Z","token_id":"abcd1234","ip":"192.0.2.1","action":"run","result":"allowed","path":"/run","method":"POST"}
 ```
 
 ## In-game admin command `/hb`
@@ -317,7 +317,7 @@ Commands are registered using Bukkit plugin.yml (Paper) or Brigadier (Fabric).
 ## Rate limiting
 
 Rate limits are configurable via `security.yaml` (`rate_limits`). Admin
-endpoint `GET /v2/admin/status` reports current configured limits and
+endpoint `GET /admin/status` reports current configured limits and
 per-token/per-IP runtime settings.
 
 ## Python client (`hungerlib`)

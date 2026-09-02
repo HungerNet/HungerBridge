@@ -11,7 +11,7 @@ import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
 
 /**
- * /v2/log
+ * /log
  * POST, requires X-Auth-Key
  * Body: { "message": "...", "level": "info" }
  */

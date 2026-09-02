@@ -13,7 +13,7 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * /v2/run
+ * /run
  * POST, requires X-Auth-Key
  * Body: { "command": "...", "silent": bool, "show_console": bool }
  */

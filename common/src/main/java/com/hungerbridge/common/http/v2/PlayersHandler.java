@@ -13,7 +13,7 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * /v2/players
+ * /players
  * GET, requires X-Auth-Key
  * Returns count and players (limited by config.players.max-list)
  */

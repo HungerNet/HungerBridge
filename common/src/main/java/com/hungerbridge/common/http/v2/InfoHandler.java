@@ -11,7 +11,7 @@ import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
 
 /**
- * /v2/info
+ * /info
  * GET, requires X-Auth-Key
  * Returns bridge metadata
  */

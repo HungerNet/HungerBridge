@@ -1,0 +1,40 @@
+# HungerBridge in-game command toggles and defaults.
+# This file controls whether the plugin registers /hb commands and whether the
+# admin HTTP API is allowed to create/list/revoke/rotate tokens.
+#
+# enable_commands:
+#   Set to false to disable all in-game /hb commands. This does not disable the
+#   HTTP bridge itself; it only removes the local command surface.
+# enable_admin_http:
+#   Set to false to disable the /admin/* HTTP API endpoints. This is useful when
+#   you want the bridge API enabled but want to keep administrative actions behind
+#   the game server or a separate control plane.
+# command_aliases:
+#   List of extra aliases that should also be accepted by the in-game command
+#   registration layer. Most setups only need "hb".
+# token_defaults:
+#   Default values used by /hb tokens create when the caller does not specify
+#   a ttl, whitelist, or blacklist explicitly.
+# token_defaults.ttl:
+#   Default lifetime in seconds for new tokens. 0 means no expiry, but many
+#   deployments use a finite TTL such as 3600 (1 hour).
+# token_defaults.whitelist:
+#   Default list of allowed actions for newly-created tokens. Typical examples:
+#   ["run", "info", "status", "tps"]
+# token_defaults.blacklist:
+#   Default list of denied actions. These are applied as a negative ACL.
+# global_whitelist/global_blacklist:
+#   Global allow/deny rules applied before per-token ACLs. These can be used to
+#   enforce broad policy at the server level.
+
+enable_commands: true
+enable_admin_http: true
+command_aliases:
+  - hb
+  - hungerbridge
+token_defaults:
+  ttl: 3600
+  whitelist: []
+  blacklist: []
+global_whitelist: []
+global_blacklist: []

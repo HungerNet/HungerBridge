@@ -47,7 +47,7 @@ public final class BridgeServer {
             // ensure http
             if (probe.startsWith("https://")) probe = "http://" + probe.substring(8);
             if (!probe.startsWith("http://")) probe = "http://" + probe;
-            // strip trailing slash and append /v2/ping
+            // strip trailing slash and append /ping
             if (probe.endsWith("/")) probe = probe.substring(0, probe.length()-1);
             String probeUrl = probe + "/ping";
             java.net.HttpURLConnection conn = null;
@@ -81,7 +81,7 @@ public final class BridgeServer {
         pool = Executors.newCachedThreadPool();
         server.setExecutor(pool);
 
-        // endpoints (no /v2 prefix)
+        // endpoints (root-level API)
         java.util.List<String> endpoints = new java.util.ArrayList<>();
         if (config.isPingEnabled()) {
             server.createContext("/ping", new PingHandler(config, logger));

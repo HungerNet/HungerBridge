@@ -122,121 +122,10 @@ public final class Config {
                 }
             } catch (Exception ignored) {}
 
-            // Generate default config and auxiliary files if config.yaml missing
-            if (!Files.exists(configFile)) {
-                java.util.List<String> created = new java.util.ArrayList<>();
-                java.util.List<String> existed = new java.util.ArrayList<>();
-                String cfg = "port: 1913\n\n" +
-                        "enabled_endpoints:\n" +
-                        "  run: true\n" +
-                        "  log: true\n" +
-                        "  ping: true\n" +
-                        "  stream_logs: true\n" +
-                        "  info: true\n" +
-                        "  status: true\n" +
-                        "  tps: true\n" +
-                        "  players: true\n\n" +
-                        "players:\n" +
-                        "  max-list: 50\n";
-
-                try (OutputStream out = Files.newOutputStream(configFile);
-                     OutputStreamWriter writer = new OutputStreamWriter(out)) {
-                    writer.write(cfg);
-                    created.add("config.yaml");
-                } catch (Exception ignored) {}
-
-                try {
-                    Path security = configDir.resolve("security.yaml");
-                    if (!Files.exists(security)) {
-                        String sec = "self_probe: false\n" +
-                                "public_base_url: 'https://bridge.example.com'\n" +
-                                "probe_timeout_ms: 2000\n\n" +
-                                "ip_whitelist: []\n" +
-                                "ip_blacklist: []\n\n" +
-                                "rate_limits:\n" +
-                                "  token_rps: 5.0\n" +
-                                "  token_burst: 10.0\n" +
-                                "  ip_rps: 20.0\n" +
-                                "  ip_burst: 40.0\n\n" +
-                                "audit_retention_days: 14\n";
-                        Files.writeString(security, sec);
-                        created.add("security.yaml");
-                    } else {
-                        existed.add("security.yaml");
-                    }
-                } catch (Exception ignored) {}
-
-                try {
-                    Path commands = configDir.resolve("commands.yaml");
-                    if (!Files.exists(commands)) {
-                        String cc = "enable_commands: true\n" +
-                                "enable_admin_http: true\n" +
-                                "command_aliases: []\n\n" +
-                                "token_defaults:\n" +
-                                "  ttl: 3600\n" +
-                                "  whitelist: []\n" +
-                                "  blacklist: []\n\n" +
-                                "global_whitelist: []\n" +
-                                "global_blacklist: []\n";
-                        Files.writeString(commands, cc);
-                        created.add("commands.yaml");
-                    } else {
-                        existed.add("commands.yaml");
-                    }
-                } catch (Exception ignored) {}
-
-                try {
-                    Path readme = configDir.resolve("README.md");
-                    if (!Files.exists(readme)) {
-                        String r = "# HungerBridge configuration\n\n" +
-                                "This directory contains runtime configuration and storage for HungerBridge.\n\n" +
-                                "Files and directories:\n" +
-                                "- config.yaml: core server config (port, enabled endpoints, players)\n" +
-                                "- security.yaml: security settings, IP allow/deny and rate limits\n" +
-                                "- commands.yaml: controls in-game commands and admin HTTP enabling\n" +
-                                "- storage/: tokens.json and sessions.json (managed by the server)\n" +
-                                "- logs/: daily audit logs (JSON lines)\n\n" +
-                                "Endpoints:\n" +
-                                "- /ping\n" +
-                                "- /info\n" +
-                                "- /status\n" +
-                                "- /run\n" +
-                                "- /log\n" +
-                                "- /stream/logs\n" +
-                                "- /tokens\n" +
-                                "- /admin/* (token and config management)\n" +
-                                "- /tps\n" +
-                                "- /players\n\n" +
-                                "In-game commands (when enabled):\n" +
-                                "- /hb\n" +
-                                "- /hb reload\n" +
-                                "- /hb status\n" +
-                                "- /hb probe\n" +
-                                "- /hb audit [n]\n" +
-                                "- /hb ip\n" +
-                                "- /hb config\n" +
-                                "- /hb tokens list\n" +
-                                "- /hb tokens create <ttl> <whitelist(comma)> <blacklist(comma)>\n" +
-                                "- /hb tokens revoke <id>\n" +
-                                "- /hb tokens rotate <id>\n\n" +
-                                "Token management:\n" +
-                                "- Tokens are stored in storage/tokens.json. Use the admin HTTP endpoints or in-game /hb tokens commands to create, list, revoke, or rotate tokens.\n\n" +
-                                "Audit logs:\n" +
-                                "- Audit events are appended to logs/YYYY-MM-DD.audit.log. Configure retention in security.yaml via `audit_retention_days`.\n\n" +
-                                "Do NOT check secrets into source control.\n";
-                        Files.writeString(readme, r);
-                        created.add("README.md");
-                    } else {
-                        existed.add("README.md");
-                    }
-                } catch (Exception ignored) {}
-
-                // log what happened
-                if (logger != null) {
-                    if (!created.isEmpty()) logger.log("INFO", "Generated default config files: " + String.join(", ", created));
-                    if (!existed.isEmpty()) logger.log("INFO", "Existing config files: " + String.join(", ", existed));
-                }
-            }
+            // Seed the platform config directory from the checked-in autogen templates.
+            // This keeps runtime config generation centralized in autogen/HungerBridge and
+            // prevents stray repo-level config/ folders from being treated as live state.
+            seedRuntimeConfigFromAutogen(configDir, logger);
 
             // Load config.yaml
             Yaml yaml = new Yaml();
@@ -316,6 +205,51 @@ public final class Config {
 
     public void setCommandsConfig(com.hungerbridge.common.CommandsConfig cc) { this.commandsConfig = cc; }
     public com.hungerbridge.common.CommandsConfig getCommandsConfig() { return commandsConfig; }
+
+    private static void seedRuntimeConfigFromAutogen(Path runtimeConfigDir, Logger logger) throws IOException {
+        Path autogenRoot = findAutogenTemplateDir();
+        if (autogenRoot == null || !Files.exists(autogenRoot)) {
+            // Fallback only when the repo templates are unavailable; do not create a second
+            // checked-in runtime config directory. All live config still stays in the target dir.
+            if (logger != null) logger.log("WARN", "No autogen/HungerBridge templates found; using minimal in-memory defaults for runtime config generation.");
+            return;
+        }
+
+        java.util.List<String> created = new java.util.ArrayList<>();
+        java.util.List<String> existed = new java.util.ArrayList<>();
+        for (String fileName : java.util.List.of("config.yaml", "commands.yaml", "security.yaml", "tokens.yaml")) {
+            Path source = autogenRoot.resolve(fileName);
+            Path target = runtimeConfigDir.resolve(fileName);
+            if (!Files.exists(source)) continue;
+            if (!Files.exists(target)) {
+                Files.copy(source, target);
+                created.add(fileName);
+            } else {
+                existed.add(fileName);
+            }
+        }
+
+        if (logger != null) {
+            if (!created.isEmpty()) logger.log("INFO", "Seeded runtime config from autogen/HungerBridge: " + String.join(", ", created));
+            if (!existed.isEmpty()) logger.log("INFO", "Runtime config already present: " + String.join(", ", existed));
+        }
+    }
+
+    private static Path findAutogenTemplateDir() {
+        java.util.List<Path> candidates = new java.util.ArrayList<>();
+        Path userDir = Path.of(System.getProperty("user.dir", "")).toAbsolutePath();
+        candidates.add(userDir.resolve("autogen").resolve("HungerBridge"));
+        candidates.add(userDir.resolve("..").resolve("HungerBridge").resolve("autogen").resolve("HungerBridge"));
+        candidates.add(Path.of(".").toAbsolutePath().resolve("autogen").resolve("HungerBridge"));
+
+        for (Path candidate : candidates) {
+            if (Files.exists(candidate) && Files.isDirectory(candidate)) {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
 
     private static boolean coerceBoolean(Object value) {
         if (value instanceof Boolean) {

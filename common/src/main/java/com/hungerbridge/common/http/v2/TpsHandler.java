@@ -12,7 +12,7 @@ import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
 
 /**
- * /v2/tps
+ * /tps
  * GET, requires X-Auth-Key
  * Returns tps metrics and tick_time_ms
  */

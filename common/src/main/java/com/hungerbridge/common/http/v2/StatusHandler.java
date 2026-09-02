@@ -11,7 +11,7 @@ import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
 
 /**
- * /v2/status
+ * /status
  * GET, does not require auth in original code (keeps same behavior)
  */
 public final class StatusHandler implements HttpHandler {
