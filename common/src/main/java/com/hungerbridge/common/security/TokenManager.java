@@ -158,6 +158,8 @@ public final class TokenManager {
     public static final class Token {
         public String id;
         public String secret;
+        // policyId links this runtime token to a named policy in tokens.yaml
+        public String policyId = null;
         public boolean revoked = false;
         public long expiry = 0; // epoch seconds, 0 = never
         public List<String> whitelist = Collections.emptyList();
@@ -189,6 +191,16 @@ public final class TokenManager {
 
     public Token createToken(long ttlSeconds, List<String> whitelist, List<String> blacklist) {
         return createToken(null, ttlSeconds, whitelist, blacklist);
+    }
+
+    /**
+     * Attach an external policy id (from tokens.yaml) to a runtime token and persist.
+     */
+    public void setTokenPolicyId(String tokenId, String policyId) {
+        Token t = tokens.get(tokenId);
+        if (t == null) return;
+        t.policyId = policyId;
+        persistTokens();
     }
 
     public boolean revokeToken(String id) {

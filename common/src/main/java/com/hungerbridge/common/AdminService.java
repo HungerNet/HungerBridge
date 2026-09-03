@@ -59,7 +59,12 @@ public final class AdminService {
                 if (expirySeconds <= 0 && policy.defaultExpirySeconds > 0) expirySeconds = policy.defaultExpirySeconds;
             }
         }
-        return tm.createToken(id, expirySeconds, effectiveWhitelist.isEmpty() ? null : effectiveWhitelist, effectiveBlacklist.isEmpty() ? null : effectiveBlacklist);
+        // Create a runtime token with a generated id (do not use the policy id as the runtime token id).
+        TokenManager.Token t = tm.createToken(null, expirySeconds, effectiveWhitelist.isEmpty() ? null : effectiveWhitelist, effectiveBlacklist.isEmpty() ? null : effectiveBlacklist);
+        if (t != null && id != null && !id.isBlank()) {
+            tm.setTokenPolicyId(t.id, id);
+        }
+        return t;
     }
 
     public TokenManager.Token createToken(long expirySeconds, List<String> whitelist, List<String> blacklist) {
