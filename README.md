@@ -160,7 +160,6 @@ Admin HTTP endpoints (require an admin-capable token)
  - `POST /admin/tokens/create` — create token (JSON: `id`, optional `expiry`, optional `whitelist`, optional `blacklist`) — returns `id` and `secret`
  - `POST /admin/tokens/revoke` — revoke token (JSON: `id`)
  - `POST /admin/tokens/rotate` — rotate token secret (JSON: `id`) — returns new `id` and `secret`
- - `GET  /admin/status` — rate limits, ACLs, probe status
  - `GET  /admin/status` — rate limits and ACLs
  - `GET  /admin/ip` — show configured IP whitelist/blacklist
  - `GET  /admin/audit?n=<N>` — return last N audit entries
@@ -199,9 +198,6 @@ players:
 `security.yaml` — security and rate-limit settings
 
 ```yaml
-self_probe: true
-public_base_url: "https://my-proxy.example.com"
-probe_timeout_ms: 2000
 ip_list:
   mode: blacklist
   list:
@@ -306,7 +302,7 @@ prune old audit files according to `audit_retention_days` in
 HungerBridge exposes `/hungerbridge` inside the server (the short alias `/hb` is also available). Available subcommands:
 
 - `/hungerbridge reload` — reload config files
-- `/hungerbridge status` — show rate limits and probe status
+- `/hungerbridge status` — show rate limits and ACL status
 - `/hungerbridge audit [N]` — print last N audit lines (default 20)
 - `/hungerbridge token list` — list token ids
 - `/hungerbridge token create <id> [expiry]` — create a token with an explicit id and optional expiry in seconds

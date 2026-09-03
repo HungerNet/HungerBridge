@@ -40,8 +40,6 @@ public final class BridgeServer {
     public synchronized void start() {
         if (server != null) return;
 
-        // self-probe functionality removed
-
         try {
             server = HttpServer.create(new InetSocketAddress(config.getPort()), 0);
         } catch (IOException e) {

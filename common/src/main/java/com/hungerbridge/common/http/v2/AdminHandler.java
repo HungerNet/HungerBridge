@@ -121,7 +121,6 @@ public final class AdminHandler implements HttpHandler {
                     HttpUtil.writeJson(ex, 200, Response.ok(st));
                     break;
                 }
-                // probe action removed
                 case "ip": {
                     Map<String, Object> ip = admin.getIpStatus();
                     HttpUtil.writeJson(ex, 200, Response.ok(ip));

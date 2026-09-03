@@ -47,7 +47,7 @@ public final class HungerBridgePlugin extends JavaPlugin {
         com.hungerbridge.common.security.RateLimiter rl = new com.hungerbridge.common.security.RateLimiter(configDir, logger);
         config.setAuditLogger(al);
         config.setRateLimiter(rl);
-        // load optional security config (self-probe, ip lists)
+        // load optional security config (ip lists)
         com.hungerbridge.common.security.SecurityConfig sc = com.hungerbridge.common.security.SecurityConfig.load(configDir);
         config.setSecurityConfig(sc);
         if (sc != null && rl != null) {

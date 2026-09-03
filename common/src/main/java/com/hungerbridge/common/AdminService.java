@@ -40,9 +40,12 @@ public final class AdminService {
     public TokenManager.Token createToken(String id, long expirySeconds, List<String> whitelist, List<String> blacklist) {
         TokenManager tm = config.getTokenManager();
         if (tm == null) return null;
+        TokensConfig tc = config.getTokensConfig();
+        if (tc != null && id != null && !id.isBlank() && !tc.hasPolicy(id)) {
+            return null;
+        }
         List<String> effectiveWhitelist = whitelist == null ? new ArrayList<>() : new ArrayList<>(whitelist);
         List<String> effectiveBlacklist = blacklist == null ? new ArrayList<>() : new ArrayList<>(blacklist);
-        TokensConfig tc = config.getTokensConfig();
         if (tc != null && (effectiveWhitelist.isEmpty() && effectiveBlacklist.isEmpty())) {
             TokensConfig.TokenPolicy policy = tc.getPolicy(id);
             if (policy != null) {
@@ -98,9 +101,6 @@ public final class AdminService {
         Map<String, Object> m = new HashMap<>();
         SecurityConfig sc = config.getSecurityConfig();
         if (sc != null) {
-            m.put("self_probe", sc.selfProbe);
-            m.put("public_base_url", sc.publicBaseUrl);
-            m.put("probe_timeout_ms", sc.probeTimeoutMs);
             Map<String, Object> ipList = new HashMap<>();
             ipList.put("mode", sc.ipListMode);
             ipList.put("list", sc.ipList);
@@ -117,8 +117,6 @@ public final class AdminService {
         }
         return m;
     }
-
-    // probe functionality removed
 
     public List<String> getAuditSummary(int lastN) {
         try {

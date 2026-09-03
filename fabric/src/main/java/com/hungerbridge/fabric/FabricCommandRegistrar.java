@@ -14,7 +14,6 @@ public final class FabricCommandRegistrar {
         cmd.executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[0]));
 
         cmd.then(net.minecraft.commands.Commands.literal("status").executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"status"})));
-        // probe command removed
         cmd.then(net.minecraft.commands.Commands.literal("reload").executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"reload"})));
 
         // audit (with optional numeric arg)

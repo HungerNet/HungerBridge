@@ -10,9 +10,6 @@ import java.util.List;
 import java.util.Map;
 
 public final class SecurityConfig {
-    public boolean selfProbe = false;
-    public String publicBaseUrl = null;
-    public int probeTimeoutMs = 2000;
     public String ipListMode = "blacklist";
     public List<String> ipList = new ArrayList<>();
     public List<String> ipWhitelist = new ArrayList<>();
@@ -37,16 +34,14 @@ public final class SecurityConfig {
                 if (!(obj instanceof Map)) return sc;
                 Map<String, Object> root = (Map<String, Object>) obj;
 
-                Object sp = root.get("self_probe");
-                if (sp instanceof Boolean) sc.selfProbe = (Boolean) sp;
                 Object pb = root.get("private_base_url");
-                if (pb instanceof String) sc.publicBaseUrl = (String) pb;
-                else {
-                    Object pb2 = root.get("public_base_url");
-                    if (pb2 instanceof String) sc.publicBaseUrl = (String) pb2;
+                if (pb instanceof String) {
+                    // legacy key ignored; public_base_url is intentionally unsupported
                 }
-                Object pt = root.get("probe_timeout_ms");
-                if (pt instanceof Number) sc.probeTimeoutMs = ((Number) pt).intValue();
+                Object pb2 = root.get("public_base_url");
+                if (pb2 instanceof String) {
+                    // legacy key ignored; public_base_url is intentionally unsupported
+                }
 
                 Object ipListObj = root.get("ip_list");
                 if (ipListObj instanceof Map) {

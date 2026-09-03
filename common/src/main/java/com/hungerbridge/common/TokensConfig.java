@@ -35,10 +35,12 @@ public final class TokensConfig {
     }
 
     public TokenPolicy getPolicy(String tokenId) {
-        if (tokenId == null || tokenId.isBlank()) return null;
-        TokenPolicy p = policies.get(tokenId);
-        if (p != null) return p;
-        return policies.getOrDefault("admin", null);
+        if (tokenId == null || tokenId.isBlank()) return policies.get("admin");
+        return policies.get(tokenId);
+    }
+
+    public boolean hasPolicy(String tokenId) {
+        return tokenId != null && !tokenId.isBlank() && policies.containsKey(tokenId);
     }
 
     @SuppressWarnings("unchecked")

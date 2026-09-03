@@ -36,7 +36,6 @@ public final class CommonCommandHandler {
                 case "status":
                     out.add(admin.getStatus().toString());
                     break;
-                // probe command removed
                 case "audit": {
                     if (args.length >= 2 && args[1].equalsIgnoreCase("help")) {
                         out.add("audit [n]: show audit summary, optional n (default 20)");
@@ -77,7 +76,7 @@ public final class CommonCommandHandler {
                                 try { expiry = Long.parseLong(args[3]); } catch (NumberFormatException ignored) {}
                             }
                             TokenManager.Token t = admin.createToken(id, expiry, List.of(), List.of());
-                            if (t == null) out.add("create failed"); else out.add(CommandMessages.createdToken(t.id, t.secret));
+                            if (t == null) out.add("error: unknown token id or policy: " + id); else out.add(CommandMessages.createdToken(t.id, t.secret));
                             break;
                         }
                         case "revoke": {
@@ -98,7 +97,7 @@ public final class CommonCommandHandler {
                 }
                 case "ip":
                     if (args.length >= 2 && args[1].equalsIgnoreCase("help")) {
-                        out.add("ip: show ip whitelist/blacklist status and probe-related info");
+                        out.add("ip: show ip whitelist/blacklist status");
                         break;
                     }
                     out.add(admin.getIpStatus().toString());
