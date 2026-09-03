@@ -161,7 +161,7 @@ Admin HTTP endpoints (require an admin-capable token)
  - `POST /admin/tokens/revoke` — revoke token (JSON: `id`)
  - `POST /admin/tokens/rotate` — rotate token secret (JSON: `id`) — returns new `id` and `secret`
  - `GET  /admin/status` — rate limits, ACLs, probe status
- - `GET  /admin/probe` — perform manual self-probe and return result
+ - `GET  /admin/status` — rate limits and ACLs
  - `GET  /admin/ip` — show configured IP whitelist/blacklist
  - `GET  /admin/audit?n=<N>` — return last N audit entries
  - `POST /admin/reload` — reload `security.yaml` and `tokens.yaml`
@@ -307,7 +307,6 @@ HungerBridge exposes `/hungerbridge` inside the server (the short alias `/hb` is
 
 - `/hungerbridge reload` — reload config files
 - `/hungerbridge status` — show rate limits and probe status
-- `/hungerbridge probe` — run the self-probe
 - `/hungerbridge audit [N]` — print last N audit lines (default 20)
 - `/hungerbridge token list` — list token ids
 - `/hungerbridge token create <id> [expiry]` — create a token with an explicit id and optional expiry in seconds

@@ -70,6 +70,13 @@ public final class AdminHandler implements HttpHandler {
                     if (body != null && body.has("expiry")) expiry = body.get("expiry").getAsLong();
                     else if (config.getTokensConfig() != null) expiry = config.getTokensConfig().defaultExpirySeconds;
 
+                    // If a policy id is provided, ensure it exists in tokens.yaml
+                    com.hungerbridge.common.TokensConfig tccheck = config.getTokensConfig();
+                    if (id != null && tccheck != null && !tccheck.policies.containsKey(id)) {
+                        HttpUtil.error(ex, 400, "unknown_policy", "token policy id not found", config);
+                        break;
+                    }
+
                     List<String> wl = java.util.List.of();
                     List<String> bl = java.util.List.of();
                     if (body != null && body.has("whitelist")) {
@@ -114,11 +121,7 @@ public final class AdminHandler implements HttpHandler {
                     HttpUtil.writeJson(ex, 200, Response.ok(st));
                     break;
                 }
-                case "probe": {
-                    Map<String, Object> p = admin.runProbe();
-                    HttpUtil.writeJson(ex, 200, Response.ok(p));
-                    break;
-                }
+                // probe action removed
                 case "ip": {
                     Map<String, Object> ip = admin.getIpStatus();
                     HttpUtil.writeJson(ex, 200, Response.ok(ip));

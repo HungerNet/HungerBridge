@@ -118,37 +118,7 @@ public final class AdminService {
         return m;
     }
 
-    public Map<String, Object> runProbe() {
-        Map<String, Object> out = new HashMap<>();
-        SecurityConfig sc = config.getSecurityConfig();
-        if (sc == null || sc.publicBaseUrl == null) {
-            out.put("ok", false);
-            out.put("message", "no_public_base_url");
-            return out;
-        }
-        String probe = sc.publicBaseUrl.trim();
-        if (probe.startsWith("https://")) probe = "http://" + probe.substring(8);
-        if (!probe.startsWith("http://")) probe = "http://" + probe;
-        if (probe.endsWith("/")) probe = probe.substring(0, probe.length()-1);
-        String probeUrl = probe + "/ping";
-        try {
-            java.net.URL url = new java.net.URL(probeUrl);
-            java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
-            conn.setConnectTimeout(sc.probeTimeoutMs);
-            conn.setReadTimeout(sc.probeTimeoutMs);
-            conn.setRequestMethod("GET");
-            conn.connect();
-            int code = conn.getResponseCode();
-            out.put("ok", false);
-            out.put("code", code);
-            out.put("message", "origin_reachable");
-            conn.disconnect();
-        } catch (Exception e) {
-            out.put("ok", true);
-            out.put("message", "probe_unreachable_or_timed_out");
-        }
-        return out;
-    }
+    // probe functionality removed
 
     public List<String> getAuditSummary(int lastN) {
         try {

@@ -40,37 +40,7 @@ public final class BridgeServer {
     public synchronized void start() {
         if (server != null) return;
 
-        // perform HTTP self-probe if configured: ensures the origin is not directly reachable
-        com.hungerbridge.common.security.SecurityConfig sc = config.getSecurityConfig();
-        if (sc != null && sc.selfProbe && sc.publicBaseUrl != null && !sc.publicBaseUrl.isBlank()) {
-            String probe = sc.publicBaseUrl.trim();
-            // ensure http
-            if (probe.startsWith("https://")) probe = "http://" + probe.substring(8);
-            if (!probe.startsWith("http://")) probe = "http://" + probe;
-            // strip trailing slash and append /ping
-            if (probe.endsWith("/")) probe = probe.substring(0, probe.length()-1);
-            String probeUrl = probe + "/ping";
-            java.net.HttpURLConnection conn = null;
-            try {
-                java.net.URL url = new java.net.URL(probeUrl);
-                conn = (java.net.HttpURLConnection) url.openConnection();
-                conn.setConnectTimeout(sc.probeTimeoutMs);
-                conn.setReadTimeout(sc.probeTimeoutMs);
-                conn.setRequestMethod("GET");
-                conn.connect();
-                int code = conn.getResponseCode();
-                // if we got any response, the origin is reachable — fail closed
-                if (code >= 0) {
-                    throw new RuntimeException("Origin exposure detected: able to reach " + probeUrl + " over HTTP — aborting startup to avoid proxy bypass.");
-                }
-            } catch (RuntimeException re) {
-                throw re;
-            } catch (Exception e) {
-                // unreachable or timed out — safe to proceed
-            } finally {
-                if (conn != null) conn.disconnect();
-            }
-        }
+        // self-probe functionality removed
 
         try {
             server = HttpServer.create(new InetSocketAddress(config.getPort()), 0);
@@ -123,8 +93,6 @@ public final class BridgeServer {
         endpoints.add("/admin/tokens/rotate");
         server.createContext("/admin/status", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "status"));
         endpoints.add("/admin/status");
-        server.createContext("/admin/probe", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "probe"));
-        endpoints.add("/admin/probe");
         server.createContext("/admin/ip", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "ip"));
         endpoints.add("/admin/ip");
         server.createContext("/admin/audit", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "audit"));

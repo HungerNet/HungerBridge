@@ -36,9 +36,7 @@ public final class CommonCommandHandler {
                 case "status":
                     out.add(admin.getStatus().toString());
                     break;
-                case "probe":
-                    out.add(admin.runProbe().toString());
-                    break;
+                // probe command removed
                 case "audit": {
                     if (args.length >= 2 && args[1].equalsIgnoreCase("help")) {
                         out.add("audit [n]: show audit summary, optional n (default 20)");
