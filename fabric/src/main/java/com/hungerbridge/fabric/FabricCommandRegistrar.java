@@ -17,7 +17,10 @@ public final class FabricCommandRegistrar {
         cmd.then(net.minecraft.commands.Commands.literal("probe").executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"probe"})));
         cmd.then(net.minecraft.commands.Commands.literal("reload").executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"reload"})));
 
-        cmd.then(net.minecraft.commands.Commands.literal("audit").then(
+        // audit (with optional numeric arg)
+        cmd.then(net.minecraft.commands.Commands.literal("audit").executes(ctx -> {
+            return runHandler(bridgeServer, ctx.getSource(), new String[]{"audit"});
+        }).then(
                 net.minecraft.commands.Commands.argument("n", IntegerArgumentType.integer(1)).executes(ctx -> {
                     int n = IntegerArgumentType.getInteger(ctx, "n");
                     return runHandler(bridgeServer, ctx.getSource(), new String[]{"audit", String.valueOf(n)});
@@ -33,6 +36,8 @@ public final class FabricCommandRegistrar {
 
         // tokens
         var tokens = net.minecraft.commands.Commands.literal("tokens");
+        // allow bare 'tokens' to show subcommand help
+        tokens.executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"tokens"}));
         tokens.then(net.minecraft.commands.Commands.literal("list").executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"tokens", "list"})));
         tokens.then(net.minecraft.commands.Commands.literal("help").executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"tokens", "help"})));
 
@@ -75,6 +80,9 @@ public final class FabricCommandRegistrar {
         ));
 
         cmd.then(tokens);
+
+        // ip command
+        cmd.then(net.minecraft.commands.Commands.literal("ip").executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"ip"})));
 
         dispatcher.register(cmd);
     }

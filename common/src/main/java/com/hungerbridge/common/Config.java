@@ -163,7 +163,7 @@ public final class Config {
 
             try {
                 tc = com.hungerbridge.common.TokensConfig.load(configDir);
-                if (logger != null) logger.log("INFO", "Loaded tokens.yaml (allowed_skew_seconds=" + tc.allowedSkewSeconds + ")");
+                if (logger != null) logger.log("INFO", "Loaded token policy (allowed_skew_seconds=" + tc.allowedSkewSeconds + ")");
             } catch (Exception ignored) {}
 
             Map<String, Object> enabledEndpoints = (Map<String, Object>) root.getOrDefault(
@@ -244,7 +244,7 @@ public final class Config {
         java.util.List<String> existed = new java.util.ArrayList<>();
 
         if (autogenRoot != null && Files.exists(autogenRoot)) {
-            for (String fileName : java.util.List.of("config.yaml", "commands.yaml", "security.yaml", "tokens.yaml")) {
+            for (String fileName : java.util.List.of("config.yaml", "commands.yaml", "security.yaml")) {
                 Path source = autogenRoot.resolve(fileName);
                 Path target = runtimeConfigDir.resolve(fileName);
                 if (!Files.exists(source)) continue;
@@ -275,10 +275,9 @@ public final class Config {
     private static void writeFallbackRuntimeConfigs(Path runtimeConfigDir) throws IOException {
         Files.createDirectories(runtimeConfigDir);
 
-        writeIfMissing(runtimeConfigDir.resolve("config.yaml"), "port: 1913\n\nauth:\n  key: \"CHANGE_ME\"\n\nenabled_endpoints:\n  run: true\n  log: true\n  ping: true\n  stream_logs: true\n  info: true\n  status: true\n  tps: true\n  players: true\n\nplayers:\n  max-list: 50\n");
+        writeIfMissing(runtimeConfigDir.resolve("config.yaml"), "port: 1913\n\nlegacy_auth:\n  enabled: false\n  key: \"CHANGE_ME\"\n\n# Token policy (moved from tokens.yaml):\n# tokens:\n#   allowed_skew_seconds: 300\n#   default_token_ttl_seconds: 0\n\nenabled_endpoints:\n  run: true\n  log: true\n  ping: true\n  stream_logs: true\n  info: true\n  status: true\n  tps: true\n  players: true\n\nplayers:\n  max-list: 50\n");
         writeIfMissing(runtimeConfigDir.resolve("security.yaml"), "self_probe: true\npublic_base_url: \"https://my-proxy.example.com\"\nprobe_timeout_ms: 1500\n\nip_whitelist: []\nip_blacklist: []\n\nrate_limits:\n  token_rps: 5.0\n  token_burst: 10.0\n  ip_rps: 20.0\n  ip_burst: 40.0\n\naudit_retention_days: 14\n");
         writeIfMissing(runtimeConfigDir.resolve("commands.yaml"), "enable_commands: true\nenable_admin_http: true\ntoken_defaults:\n  ttl: 3600\n  whitelist: []\n  blacklist: []\nglobal_whitelist: []\nglobal_blacklist: []\n");
-        writeIfMissing(runtimeConfigDir.resolve("tokens.yaml"), "allowed_skew_seconds: 300\ndefault_token_ttl_seconds: 0\n\n# tokens:\n#   - id: exampletokenid\n#     revoked: false\n#     expiry: 0\n#     whitelist:\n#       - run\n#     blacklist: []\n");
     }
 
     private static void writeIfMissing(Path path, String content) throws IOException {

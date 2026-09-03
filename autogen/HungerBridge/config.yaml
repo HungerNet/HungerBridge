@@ -23,8 +23,14 @@
 
 port: 1913
 
-auth:
+legacy_auth:
+  enabled: false
   key: "CHANGE_ME"
+
+# Token policy (moved from tokens.yaml):
+# tokens:
+#   allowed_skew_seconds: 300
+#   default_token_ttl_seconds: 0
 
 enabled_endpoints:
   run: true

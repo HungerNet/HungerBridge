@@ -40,6 +40,10 @@ public final class CommonCommandHandler {
                     out.add(admin.runProbe().toString());
                     break;
                 case "audit": {
+                    if (args.length >= 2 && args[1].equalsIgnoreCase("help")) {
+                        out.add("audit [n]: show audit summary, optional n (default 20)");
+                        break;
+                    }
                     int n = 20;
                     if (args.length >= 2) try { n = Integer.parseInt(args[1]); } catch (NumberFormatException ignored) {}
                     List<String> lines = admin.getAuditSummary(n);
@@ -48,6 +52,11 @@ public final class CommonCommandHandler {
                 }
                 case "tokens": {
                     if (args.length < 2) { out.add("tokens subcommands: list create revoke rotate"); break; }
+                    if (args.length >= 2 && args[1].equalsIgnoreCase("help")) {
+                        out.add("tokens subcommands: list, create <ttl> [whitelist] [blacklist], revoke <id>, rotate <id>");
+                        out.add("Examples: '/hungerbridge tokens create 3600', '/hungerbridge tokens revoke abc123'");
+                        break;
+                    }
                     switch (args[1].toLowerCase()) {
                         case "list":
                             out.add(admin.listTokens().keySet().toString());
@@ -80,6 +89,10 @@ public final class CommonCommandHandler {
                     break;
                 }
                 case "ip":
+                    if (args.length >= 2 && args[1].equalsIgnoreCase("help")) {
+                        out.add("ip: show ip whitelist/blacklist status and probe-related info");
+                        break;
+                    }
                     out.add(admin.getIpStatus().toString());
                     break;
                 case "config":
