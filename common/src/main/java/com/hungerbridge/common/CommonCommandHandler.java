@@ -51,7 +51,7 @@ public final class CommonCommandHandler {
                     break;
                 }
                 case "tokens": {
-                    if (args.length < 2) { out.add("tokens subcommands: list create revoke rotate"); break; }
+                    if (args.length < 2) { out.add("tokens subcommands: list, create, revoke, rotate"); break; }
                     if (args.length >= 2 && args[1].equalsIgnoreCase("help")) {
                         out.add("tokens subcommands: list, create <ttl> [whitelist] [blacklist], revoke <id>, rotate <id>");
                         out.add("Examples: '/hungerbridge tokens create 3600', '/hungerbridge tokens revoke abc123'");

@@ -27,10 +27,22 @@ legacy_auth:
   enabled: false
   key: "CHANGE_ME"
 
-# Token policy (moved from tokens.yaml):
-# tokens:
-#   allowed_skew_seconds: 300
-#   default_token_ttl_seconds: 0
+# Token policy and default preset tokens
+tokens:
+  allowed_skew_seconds: 300
+  default_token_ttl_seconds: 0
+
+# Global token preset defaults used when creating tokens without explicit
+# parameters. `token_presets.whitelist: ['*']` means allow everything
+# except items in `blacklist`.
+token_presets:
+  skew: 300
+  ttl: 0
+  expiry: 0
+  whitelist:
+    - '*'
+  blacklist:
+    - op
 
 enabled_endpoints:
   run: true

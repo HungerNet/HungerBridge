@@ -10,6 +10,8 @@ import java.util.Map;
 public final class TokensConfig {
     public int allowedSkewSeconds = 300;
     public long defaultTokenTtlSeconds = 0;
+    public java.util.List<String> defaultWhitelist = java.util.List.of();
+    public java.util.List<String> defaultBlacklist = java.util.List.of();
 
     @SuppressWarnings("unchecked")
     public static TokensConfig load(Path configDir) {
@@ -30,6 +32,25 @@ public final class TokensConfig {
                             if (as instanceof Number) tc.allowedSkewSeconds = ((Number) as).intValue();
                             Object dt = troot.get("default_token_ttl_seconds");
                             if (dt instanceof Number) tc.defaultTokenTtlSeconds = ((Number) dt).longValue();
+                            // also allow token_presets in the same config file for defaults
+                            Object tp = troot.get("token_presets");
+                            if (tp instanceof Map) {
+                                Map<String, Object> tpm = (Map<String, Object>) tp;
+                                Object skew = tpm.get("skew"); if (skew instanceof Number) tc.allowedSkewSeconds = ((Number) skew).intValue();
+                                Object ttl = tpm.get("ttl"); if (ttl instanceof Number) tc.defaultTokenTtlSeconds = ((Number) ttl).longValue();
+                                Object wl = tpm.get("whitelist");
+                                if (wl instanceof java.util.List) {
+                                    java.util.List<String> l = new java.util.ArrayList<>();
+                                    for (Object o : (java.util.List<Object>) wl) if (o != null) l.add(o.toString());
+                                    tc.defaultWhitelist = java.util.List.copyOf(l);
+                                }
+                                Object bl = tpm.get("blacklist");
+                                if (bl instanceof java.util.List) {
+                                    java.util.List<String> l2 = new java.util.ArrayList<>();
+                                    for (Object o : (java.util.List<Object>) bl) if (o != null) l2.add(o.toString());
+                                    tc.defaultBlacklist = java.util.List.copyOf(l2);
+                                }
+                            }
                             return tc;
                         }
                     }
@@ -47,6 +68,24 @@ public final class TokensConfig {
                 if (as instanceof Number) tc.allowedSkewSeconds = ((Number) as).intValue();
                 Object dt = root.get("default_token_ttl_seconds");
                 if (dt instanceof Number) tc.defaultTokenTtlSeconds = ((Number) dt).longValue();
+                Object tp = root.get("token_presets");
+                if (tp instanceof Map) {
+                    Map<String, Object> tpm = (Map<String, Object>) tp;
+                    Object skew = tpm.get("skew"); if (skew instanceof Number) tc.allowedSkewSeconds = ((Number) skew).intValue();
+                    Object ttl = tpm.get("ttl"); if (ttl instanceof Number) tc.defaultTokenTtlSeconds = ((Number) ttl).longValue();
+                    Object wl = tpm.get("whitelist");
+                    if (wl instanceof java.util.List) {
+                        java.util.List<String> l = new java.util.ArrayList<>();
+                        for (Object o : (java.util.List<Object>) wl) if (o != null) l.add(o.toString());
+                        tc.defaultWhitelist = java.util.List.copyOf(l);
+                    }
+                    Object bl = tpm.get("blacklist");
+                    if (bl instanceof java.util.List) {
+                        java.util.List<String> l2 = new java.util.ArrayList<>();
+                        for (Object o : (java.util.List<Object>) bl) if (o != null) l2.add(o.toString());
+                        tc.defaultBlacklist = java.util.List.copyOf(l2);
+                    }
+                }
             }
         } catch (Exception ignored) {}
         return tc;

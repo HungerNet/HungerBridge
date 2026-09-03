@@ -4,7 +4,7 @@ import java.util.List;
 
 public final class CommandMessages {
 
-    public static final String HEADER = "HungerBridge commands: <reload|status|probe|audit|tokens|ip|config>";
+    public static final String HEADER = "HungerBridge commands: reload, status, probe, audit, tokens, ip, config";
     public static final String USAGE = "Usage: /hungerbridge <subcommand> [args]";
     public static final String SUBCOMMANDS = "Subcommands: reload, status, probe, audit [n], tokens, ip, config";
     public static final String TOKENS_SUB = "Tokens subcommands: list, create <ttl> <whitelist(comma)> <blacklist(comma)>, revoke <id>, rotate <id>";
