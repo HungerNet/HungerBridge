@@ -13,7 +13,7 @@ import java.io.IOException;
 
 /**
  * /tps
- * GET, requires X-Auth-Key
+ * GET, requires a valid HMAC-authenticated token
  * Returns tps metrics and tick_time_ms
  */
 public final class TpsHandler implements HttpHandler {
@@ -35,7 +35,7 @@ public final class TpsHandler implements HttpHandler {
             return;
         }
         if (!HttpUtil.auth(ex, config)) {
-            HttpUtil.error(ex, 401, "unauthorized", "Invalid X-Auth-Key", config);
+            HttpUtil.error(ex, 401, "unauthorized", "Authentication required", config);
             return;
         }
         if (!HttpUtil.checkAcl(ex, config, "tps")) {

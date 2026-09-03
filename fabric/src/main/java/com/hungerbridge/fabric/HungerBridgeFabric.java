@@ -132,8 +132,6 @@ public final class HungerBridgeFabric implements DedicatedServerModInitializer {
         // load optional security config (self-probe, ip lists)
         com.hungerbridge.common.security.SecurityConfig sc = com.hungerbridge.common.security.SecurityConfig.load(configDir);
         config.setSecurityConfig(sc);
-        com.hungerbridge.common.CommandsConfig cc = com.hungerbridge.common.CommandsConfig.load(configDir);
-        config.setCommandsConfig(cc);
         if (sc != null && rl != null) {
             rl.setLimits(sc.tokenRps, sc.tokenBurst, sc.ipRps, sc.ipBurst);
         }

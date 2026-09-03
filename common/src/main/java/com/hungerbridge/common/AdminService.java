@@ -37,10 +37,35 @@ public final class AdminService {
         return tm.listTokens();
     }
 
-    public TokenManager.Token createToken(long ttlSeconds, List<String> whitelist, List<String> blacklist) {
+    public TokenManager.Token createToken(String id, long expirySeconds, List<String> whitelist, List<String> blacklist) {
         TokenManager tm = config.getTokenManager();
         if (tm == null) return null;
-        return tm.createToken(ttlSeconds, whitelist, blacklist);
+        List<String> effectiveWhitelist = whitelist == null ? new ArrayList<>() : new ArrayList<>(whitelist);
+        List<String> effectiveBlacklist = blacklist == null ? new ArrayList<>() : new ArrayList<>(blacklist);
+        TokensConfig tc = config.getTokensConfig();
+        if (tc != null && (effectiveWhitelist.isEmpty() && effectiveBlacklist.isEmpty())) {
+            TokensConfig.TokenPolicy policy = tc.getPolicy(id);
+            if (policy != null) {
+                java.util.LinkedHashSet<String> resolved = new java.util.LinkedHashSet<>();
+                if (policy.endpoints != null) resolved.addAll(policy.endpoints);
+                if (policy.commands != null) resolved.addAll(policy.commands);
+                if (!resolved.isEmpty()) {
+                    if ("whitelist".equalsIgnoreCase(policy.endpointsMode) || "whitelist".equalsIgnoreCase(policy.commandsMode)) {
+                        effectiveWhitelist.addAll(resolved);
+                    } else {
+                        effectiveBlacklist.addAll(resolved);
+                    }
+                }
+                if (expirySeconds <= 0 && policy.defaultExpirySeconds > 0) expirySeconds = policy.defaultExpirySeconds;
+            }
+        }
+        return tm.createToken(id, expirySeconds, effectiveWhitelist.isEmpty() ? null : effectiveWhitelist, effectiveBlacklist.isEmpty() ? null : effectiveBlacklist);
+    }
+
+    public TokenManager.Token createToken(long expirySeconds, List<String> whitelist, List<String> blacklist) {
+        TokenManager tm = config.getTokenManager();
+        if (tm == null) return null;
+        return tm.createToken(null, expirySeconds, whitelist, blacklist);
     }
 
     public boolean revokeToken(String id) {
@@ -71,8 +96,10 @@ public final class AdminService {
             m.put("self_probe", sc.selfProbe);
             m.put("public_base_url", sc.publicBaseUrl);
             m.put("probe_timeout_ms", sc.probeTimeoutMs);
-            m.put("ip_whitelist", sc.ipWhitelist);
-            m.put("ip_blacklist", sc.ipBlacklist);
+            Map<String, Object> ipList = new HashMap<>();
+            ipList.put("mode", sc.ipListMode);
+            ipList.put("list", sc.ipList);
+            m.put("ip_list", ipList);
         }
         RateLimiter rl = config.getRateLimiter();
         if (rl != null) {
@@ -145,8 +172,10 @@ public final class AdminService {
         Map<String, Object> m = new HashMap<>();
         SecurityConfig sc = config.getSecurityConfig();
         if (sc != null) {
-            m.put("ip_whitelist", sc.ipWhitelist);
-            m.put("ip_blacklist", sc.ipBlacklist);
+            Map<String, Object> ipList = new HashMap<>();
+            ipList.put("mode", sc.ipListMode);
+            ipList.put("list", sc.ipList);
+            m.put("ip_list", ipList);
         }
         return m;
     }
@@ -156,7 +185,7 @@ public final class AdminService {
         try {
             Path cfg = configDir.resolve("config.yaml");
             Path sec = configDir.resolve("security.yaml");
-            Path cmd = configDir.resolve("commands.yaml");
+            Path tokensYaml = configDir.resolve("tokens.yaml");
             Path storage = configDir.resolve("storage");
             Path tokens = storage.resolve("tokens.json");
             Path sessions = storage.resolve("sessions.json");
@@ -164,14 +193,14 @@ public final class AdminService {
 
             out.put("config.yaml_exists", Files.exists(cfg));
             out.put("security.yaml_exists", Files.exists(sec));
-            out.put("commands.yaml_exists", Files.exists(cmd));
+            out.put("tokens.yaml_exists", Files.exists(tokensYaml));
             out.put("tokens_json_exists", Files.exists(tokens));
             out.put("sessions_json_exists", Files.exists(sessions));
             out.put("logs_dir_exists", Files.exists(logs));
 
             // validation: attempt to load
             out.put("security_valid", com.hungerbridge.common.security.SecurityConfig.load(configDir) != null);
-            out.put("commands_valid", com.hungerbridge.common.CommandsConfig.load(configDir) != null);
+            out.put("tokens_valid", com.hungerbridge.common.TokensConfig.load(configDir) != null);
         } catch (Exception e) {
             out.put("error", e.getMessage());
         }
@@ -182,8 +211,8 @@ public final class AdminService {
         try {
             SecurityConfig sc = SecurityConfig.load(configDir);
             config.setSecurityConfig(sc);
-            com.hungerbridge.common.CommandsConfig cc = com.hungerbridge.common.CommandsConfig.load(configDir);
-            config.setCommandsConfig(cc);
+            TokensConfig tc = TokensConfig.load(configDir);
+            config.setTokensConfig(tc);
             // reload rate-limits into rate limiter
             com.hungerbridge.common.security.RateLimiter rl = config.getRateLimiter();
             if (rl != null && sc != null) {

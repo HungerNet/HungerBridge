@@ -1,0 +1,9 @@
+tokens:
+  - id: admin
+    default_expiry: 0
+    max_skew: -1
+    endpoints_mode: blacklist
+    endpoints: []
+    commands_mode: blacklist
+    commands: []
+ 

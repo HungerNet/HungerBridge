@@ -34,56 +34,43 @@ public final class FabricCommandRegistrar {
             return runHandler(bridgeServer, ctx.getSource(), new String[]{"help"});
         }));
 
-        // tokens
-        var tokens = net.minecraft.commands.Commands.literal("tokens");
-        // allow bare 'tokens' to show subcommand help
-        tokens.executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"tokens"}));
-        tokens.then(net.minecraft.commands.Commands.literal("list").executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"tokens", "list"})));
-        tokens.then(net.minecraft.commands.Commands.literal("help").executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"tokens", "help"})));
+        // token
+        var token = net.minecraft.commands.Commands.literal("token");
+        token.executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"token"}));
+        token.then(net.minecraft.commands.Commands.literal("list").executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"token", "list"})));
+        token.then(net.minecraft.commands.Commands.literal("help").executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"token", "help"})));
 
         var createLiteral = net.minecraft.commands.Commands.literal("create");
-        // allow bare 'create' to show usage/help rather than failing parse
-        createLiteral.executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"tokens", "create"}));
-        var ttlArg = net.minecraft.commands.Commands.argument("ttl", IntegerArgumentType.integer(0));
-        createLiteral.then(ttlArg.executes(ctx -> {
-            int ttl = IntegerArgumentType.getInteger(ctx, "ttl");
-            return runHandler(bridgeServer, ctx.getSource(), new String[]{"tokens", "create", String.valueOf(ttl)});
+        createLiteral.executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"token", "create"}));
+        var idArg = net.minecraft.commands.Commands.argument("id", StringArgumentType.word());
+        createLiteral.then(idArg.executes(ctx -> {
+            String id = StringArgumentType.getString(ctx, "id");
+            return runHandler(bridgeServer, ctx.getSource(), new String[]{"token", "create", id});
         }));
-
-        var wlArg = net.minecraft.commands.Commands.argument("whitelist", StringArgumentType.word());
-        createLiteral.then(ttlArg.then(wlArg.executes(ctx -> {
-            int ttl = IntegerArgumentType.getInteger(ctx, "ttl");
-            String wl = StringArgumentType.getString(ctx, "whitelist");
-            return runHandler(bridgeServer, ctx.getSource(), new String[]{"tokens", "create", String.valueOf(ttl), wl});
+        var expiryArg = net.minecraft.commands.Commands.argument("expiry", IntegerArgumentType.integer(0));
+        createLiteral.then(idArg.then(expiryArg.executes(ctx -> {
+            String id = StringArgumentType.getString(ctx, "id");
+            int expiry = IntegerArgumentType.getInteger(ctx, "expiry");
+            return runHandler(bridgeServer, ctx.getSource(), new String[]{"token", "create", id, String.valueOf(expiry)});
         })));
 
-        var blArg = net.minecraft.commands.Commands.argument("blacklist", StringArgumentType.word());
-        createLiteral.then(ttlArg.then(wlArg.then(blArg.executes(ctx -> {
-            int ttl = IntegerArgumentType.getInteger(ctx, "ttl");
-            String wl = StringArgumentType.getString(ctx, "whitelist");
-            String bl = StringArgumentType.getString(ctx, "blacklist");
-            return runHandler(bridgeServer, ctx.getSource(), new String[]{"tokens", "create", String.valueOf(ttl), wl, bl});
-        }))));
+        token.then(createLiteral);
 
-        tokens.then(createLiteral);
-
-        // allow 'revoke' to be called without an id to show usage
-        tokens.then(net.minecraft.commands.Commands.literal("revoke").executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"tokens", "revoke"})).then(
+        token.then(net.minecraft.commands.Commands.literal("revoke").executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"token", "revoke"})).then(
             net.minecraft.commands.Commands.argument("id", StringArgumentType.word()).executes(ctx -> {
                 String id = StringArgumentType.getString(ctx, "id");
-                return runHandler(bridgeServer, ctx.getSource(), new String[]{"tokens", "revoke", id});
+                return runHandler(bridgeServer, ctx.getSource(), new String[]{"token", "revoke", id});
             })
         ));
 
-        // allow 'rotate' to be called without an id to show usage
-        tokens.then(net.minecraft.commands.Commands.literal("rotate").executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"tokens", "rotate"})).then(
+        token.then(net.minecraft.commands.Commands.literal("rotate").executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"token", "rotate"})).then(
             net.minecraft.commands.Commands.argument("id", StringArgumentType.word()).executes(ctx -> {
                 String id = StringArgumentType.getString(ctx, "id");
-                return runHandler(bridgeServer, ctx.getSource(), new String[]{"tokens", "rotate", id});
+                return runHandler(bridgeServer, ctx.getSource(), new String[]{"token", "rotate", id});
             })
         ));
 
-        cmd.then(tokens);
+        cmd.then(token);
 
         // ip command
         cmd.then(net.minecraft.commands.Commands.literal("ip").executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"ip"})));

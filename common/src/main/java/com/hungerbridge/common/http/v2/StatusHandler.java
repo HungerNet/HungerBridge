@@ -31,7 +31,7 @@ public final class StatusHandler implements HttpHandler {
             return;
         }
         if (!HttpUtil.auth(ex, config)) {
-            HttpUtil.error(ex, 401, "unauthorized", "Invalid X-Auth-Key", config);
+            HttpUtil.error(ex, 401, "unauthorized", "Authentication required", config);
             return;
         }
         if (!HttpUtil.checkAcl(ex, config, "status")) {

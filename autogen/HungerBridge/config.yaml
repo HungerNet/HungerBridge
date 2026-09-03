@@ -3,9 +3,6 @@
 #
 # port:
 #   TCP port that the HungerBridge HTTP server listens on. Default 1913.
-# auth.key:
-#   Shared secret used for legacy root authentication via X-Auth-Key.
-#   This is the plain root key for the server and should be kept secret.
 # enabled_endpoints:
 #   Boot-time toggles for the public HTTP endpoints. If a flag is false, the
 #   route is not registered and the client should not rely on it existing.
@@ -22,23 +19,6 @@
 #   is a safety bound so very large server populations do not overwhelm clients.
 
 port: 1913
-
-legacy_auth:
-  enabled: false
-  key: "CHANGE_ME"
-
-# Token policy and default preset tokens
-# Global token preset defaults used when creating tokens without explicit
-# parameters. `token_presets.whitelist: ['*']` means allow everything
-# except items in `blacklist`.
-token_presets:
-  skew: 300
-  ttl: 0
-  expiry: 0
-  whitelist:
-    - '*'
-  blacklist:
-    - op
 
 enabled_endpoints:
   run: true

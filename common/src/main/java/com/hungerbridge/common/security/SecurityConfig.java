@@ -13,6 +13,8 @@ public final class SecurityConfig {
     public boolean selfProbe = false;
     public String publicBaseUrl = null;
     public int probeTimeoutMs = 2000;
+    public String ipListMode = "blacklist";
+    public List<String> ipList = new ArrayList<>();
     public List<String> ipWhitelist = new ArrayList<>();
     public List<String> ipBlacklist = new ArrayList<>();
     // rate limit defaults
@@ -34,9 +36,9 @@ public final class SecurityConfig {
                 Object obj = yaml.load(in);
                 if (!(obj instanceof Map)) return sc;
                 Map<String, Object> root = (Map<String, Object>) obj;
+
                 Object sp = root.get("self_probe");
                 if (sp instanceof Boolean) sc.selfProbe = (Boolean) sp;
-                // support both legacy 'public_base_url' and the preferred 'private_base_url'
                 Object pb = root.get("private_base_url");
                 if (pb instanceof String) sc.publicBaseUrl = (String) pb;
                 else {
@@ -45,14 +47,44 @@ public final class SecurityConfig {
                 }
                 Object pt = root.get("probe_timeout_ms");
                 if (pt instanceof Number) sc.probeTimeoutMs = ((Number) pt).intValue();
+
+                Object ipListObj = root.get("ip_list");
+                if (ipListObj instanceof Map) {
+                    Map<String, Object> ipMap = (Map<String, Object>) ipListObj;
+                    Object mode = ipMap.get("mode");
+                    if (mode != null) sc.ipListMode = String.valueOf(mode).toLowerCase();
+                    Object values = ipMap.get("list");
+                    if (values instanceof List) {
+                        for (Object o : (List<Object>) values) if (o != null) {
+                            String v = o.toString();
+                            sc.ipList.add(v);
+                            if ("whitelist".equals(sc.ipListMode)) sc.ipWhitelist.add(v);
+                            else sc.ipBlacklist.add(v);
+                        }
+                    }
+                }
+
                 Object wl = root.get("ip_whitelist");
                 if (wl instanceof List) {
-                    for (Object o : (List<Object>) wl) if (o != null) sc.ipWhitelist.add(o.toString());
+                    for (Object o : (List<Object>) wl) if (o != null) {
+                        String v = o.toString();
+                        sc.ipWhitelist.add(v);
+                        sc.ipList.add(v);
+                    }
                 }
                 Object bl = root.get("ip_blacklist");
                 if (bl instanceof List) {
-                    for (Object o : (List<Object>) bl) if (o != null) sc.ipBlacklist.add(o.toString());
+                    for (Object o : (List<Object>) bl) if (o != null) {
+                        String v = o.toString();
+                        sc.ipBlacklist.add(v);
+                        sc.ipList.add(v);
+                    }
                 }
+                if (sc.ipList.isEmpty() && sc.ipWhitelist.isEmpty() && sc.ipBlacklist.isEmpty()) {
+                    sc.ipListMode = "blacklist";
+                }
+                if (sc.ipListMode == null || sc.ipListMode.isBlank()) sc.ipListMode = "blacklist";
+
                 Object rl = root.get("rate_limits");
                 if (rl instanceof Map) {
                     Map<String, Object> rlm = (Map<String, Object>) rl;
@@ -63,7 +95,6 @@ public final class SecurityConfig {
                 }
                 Object ar = root.get("audit_retention_days");
                 if (ar instanceof Number) sc.auditRetentionDays = ((Number) ar).intValue();
-                // also support nested audit:{ retention_days: N }
                 Object audit = root.get("audit");
                 if (audit instanceof Map) {
                     Map<String, Object> adm = (Map<String, Object>) audit;

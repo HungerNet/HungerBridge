@@ -62,7 +62,6 @@ public final class TokenManager {
     private void loadTokens() {
         try {
             if (!Files.exists(tokensFile)) {
-                // create default root token placeholder (no secret published)
                 Files.write(tokensFile, GSON.toJson(Collections.singletonMap("tokens", Collections.emptyList())).getBytes(StandardCharsets.UTF_8));
                 if (logger != null) logger.log("INFO", "Created tokens file: " + tokensFile);
                 return;
@@ -165,25 +164,31 @@ public final class TokenManager {
         public List<String> blacklist = Collections.emptyList();
     }
 
-    public Token createToken(long ttlSeconds, List<String> whitelist, List<String> blacklist) {
-        String id = java.util.UUID.randomUUID().toString().replaceAll("-", "");
+    public Token createToken(String id, long expirySeconds, List<String> whitelist, List<String> blacklist) {
+        String effectiveId = id != null && !id.isBlank() ? id : java.util.UUID.randomUUID().toString().replaceAll("-", "");
         byte[] rnd = new byte[32];
         new java.security.SecureRandom().nextBytes(rnd);
         String secret = bytesToHex(rnd);
 
         Token t = new Token();
-        t.id = id;
+        t.id = effectiveId;
         t.secret = secret;
         t.revoked = false;
-        if (ttlSeconds > 0) {
-            t.expiry = Instant.now().getEpochSecond() + ttlSeconds;
+        if (expirySeconds > 0) {
+            t.expiry = Instant.now().getEpochSecond() + expirySeconds;
+        } else if (expirySeconds == 0) {
+            t.expiry = 0L;
         }
         if (whitelist != null) t.whitelist = whitelist;
         if (blacklist != null) t.blacklist = blacklist;
 
-        tokens.put(id, t);
+        tokens.put(effectiveId, t);
         persistTokens();
         return t;
+    }
+
+    public Token createToken(long ttlSeconds, List<String> whitelist, List<String> blacklist) {
+        return createToken(null, ttlSeconds, whitelist, blacklist);
     }
 
     public boolean revokeToken(String id) {

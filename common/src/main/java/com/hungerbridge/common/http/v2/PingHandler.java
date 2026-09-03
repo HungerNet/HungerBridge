@@ -12,7 +12,7 @@ import java.io.IOException;
 
 /**
  * /ping
- * GET, requires X-Auth-Key
+ * GET, requires a valid HMAC-authenticated token
  * Responds with server_time (ms)
  */
 public final class PingHandler implements HttpHandler {
@@ -32,7 +32,7 @@ public final class PingHandler implements HttpHandler {
             return;
         }
         if (!HttpUtil.auth(ex, config)) {
-            HttpUtil.error(ex, 401, "unauthorized", "Invalid X-Auth-Key", config);
+            HttpUtil.error(ex, 401, "unauthorized", "Authentication required", config);
             return;
         }
         if (!HttpUtil.checkAcl(ex, config, "ping")) {

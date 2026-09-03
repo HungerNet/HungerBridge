@@ -12,7 +12,7 @@ import java.io.IOException;
 
 /**
  * /log
- * POST, requires X-Auth-Key
+ * POST, requires a valid HMAC-authenticated token
  * Body: { "message": "...", "level": "info" }
  */
 public final class LogHandler implements HttpHandler {
@@ -32,7 +32,7 @@ public final class LogHandler implements HttpHandler {
             return;
         }
         if (!HttpUtil.auth(ex, config)) {
-            HttpUtil.error(ex, 401, "unauthorized", "Invalid X-Auth-Key", config);
+            HttpUtil.error(ex, 401, "unauthorized", "Authentication required", config);
             return;
         }
         if (!HttpUtil.checkAcl(ex, config, "log")) {

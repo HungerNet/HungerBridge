@@ -24,9 +24,6 @@ Generated automatically on first run.
 ```yaml
 port: 1913
 
-auth:
-  key: "CHANGE_ME"
-
 enabled_endpoints:
   run: true
   log: true
@@ -46,7 +43,12 @@ players:
 Use the SSE stream to receive Minecraft log lines in real time:
 
 ```bash
-curl -N -H "X-Auth-Key: CHANGE_ME" http://localhost:1913/stream/logs
+curl -N \
+  -H "X-Auth-Token-Id: admin" \
+  -H "X-Auth-Timestamp: $(date +%s)" \
+  -H "X-Auth-Nonce: $(openssl rand -hex 16)" \
+  -H "X-Auth-Signature: <hmac-signature>" \
+  http://localhost:1913/stream/logs
 ```
 
 The server sends each line as an SSE event:
@@ -58,19 +60,21 @@ data:[00:00:00 INFO]: Server started!
 
 ## Token management (HMAC tokens)
 
-HungerBridge supports per-client HMAC-signed tokens in addition to the
-legacy `X-Auth-Key` root key. Tokens provide ACLs (whitelist/blacklist),
-expiry, and replay protection.
+HungerBridge supports per-client HMAC-signed tokens. Tokens provide ACLs
+(whitelist/blacklist), expiry, and replay protection.
 
 Administration
-- Create a token (requires `X-Auth-Key` root access):
+- Create a token using an admin token:
 
 ```bash
 curl -X POST \
-  -H "X-Auth-Key: CHANGE_ME" \
   -H "Content-Type: application/json" \
-  -d '{"ttl_seconds":3600, "whitelist":["run"]}' \
-  http://localhost:1913/tokens
+  -H "X-Auth-Token-Id: admin" \
+  -H "X-Auth-Timestamp: $(date +%s)" \
+  -H "X-Auth-Nonce: $(openssl rand -hex 16)" \
+  -H "X-Auth-Signature: <hmac-signature>" \
+  -d '{"id":"bridge-client","expiry":3600,"whitelist":["run"]}' \
+  http://localhost:1913/admin/tokens/create
 ```
 
 Sample successful response:
@@ -150,17 +154,17 @@ Core HTTP API endpoints
  - `GET  /players` — players count/list
  - `GET  /stream/logs` — SSE stream of console logs (supports signed headers)
 
-Admin HTTP endpoints (require root `X-Auth-Key` or an admin-capable token)
+Admin HTTP endpoints (require an admin-capable token)
 
  - `GET  /admin/tokens/list` — list tokens (no secrets)
- - `POST /admin/tokens/create` — create token (JSON: `ttl`, `whitelist`, `blacklist`) — returns `id` and `secret`
+ - `POST /admin/tokens/create` — create token (JSON: `id`, optional `expiry`, optional `whitelist`, optional `blacklist`) — returns `id` and `secret`
  - `POST /admin/tokens/revoke` — revoke token (JSON: `id`)
  - `POST /admin/tokens/rotate` — rotate token secret (JSON: `id`) — returns new `id` and `secret`
  - `GET  /admin/status` — rate limits, ACLs, probe status
  - `GET  /admin/probe` — perform manual self-probe and return result
  - `GET  /admin/ip` — show configured IP whitelist/blacklist
  - `GET  /admin/audit?n=<N>` — return last N audit entries
- - `POST /admin/reload` — reload `security.yaml`, `commands.yaml`, and tokens
+ - `POST /admin/reload` — reload `security.yaml` and `tokens.yaml`
 
 Supported platforms
 
@@ -177,9 +181,6 @@ Generated automatically on first run in `config/HungerBridge`.
 
 ```yaml
 port: 1913
-
-auth:
-  key: "CHANGE_ME"
 
 enabled_endpoints:
   run: true
@@ -201,32 +202,30 @@ players:
 self_probe: true
 public_base_url: "https://my-proxy.example.com"
 probe_timeout_ms: 2000
-ip_whitelist:
-  - 10.0.0.0/8
-ip_blacklist:
-  - 203.0.113.0/24
+ip_list:
+  mode: blacklist
+  list:
+    - 10.0.0.0/8
+    - 203.0.113.0/24
 rate_limits:
   token_rps: 5
   token_burst: 10
   ip_rps: 20
   ip_burst: 40
 audit_retention_days: 14
-# or nested:
-# audit:
-#   retention_days: 14
 ```
 
-`commands.yaml` — controls in-game commands and admin HTTP enabling
+`tokens.yaml` — default token policy
 
 ```yaml
-enable_commands: true
-enable_admin_http: true
-token_defaults:
-  ttl: 3600
-  whitelist: []
-  blacklist: []
-global_whitelist: []
-global_blacklist: []
+tokens:
+  - id: admin
+    default_expiry: 0
+    max_skew: -1
+    endpoints_mode: blacklist
+    endpoints: []
+    commands_mode: blacklist
+    commands: []
 ```
 
 `storage/` files (managed by the server)
@@ -241,24 +240,26 @@ provide a header provider callable to sign the SSE connection when using
 HMAC tokens.
 
 ```bash
-curl -N -H "X-Auth-Key: CHANGE_ME" http://localhost:1913/stream/logs
+curl -N -H "X-Auth-Token-Id: admin" -H "X-Auth-Timestamp: $(date +%s)" -H "X-Auth-Nonce: $(openssl rand -hex 16)" -H "X-Auth-Signature: <hmac-signature>" http://localhost:1913/stream/logs
 ```
 
 Each SSE `data:` event contains a single raw console line.
 
 ## Token management (HMAC tokens)
 
-HungerBridge supports per-client HMAC-signed tokens in addition to the
-legacy `X-Auth-Key` root key. Tokens provide ACLs (whitelist/blacklist),
-expiry, and replay protection.
+HungerBridge supports per-client HMAC-signed tokens. Tokens provide ACLs
+(whitelist/blacklist), expiry, and replay protection.
 
-Create a token (requires `X-Auth-Key` root access):
+Create a token using an admin-capable token:
 
 ```bash
 curl -X POST \
-  -H "X-Auth-Key: CHANGE_ME" \
   -H "Content-Type: application/json" \
-  -d '{"ttl":3600, "whitelist":["run"]}' \
+  -H "X-Auth-Token-Id: admin" \
+  -H "X-Auth-Timestamp: $(date +%s)" \
+  -H "X-Auth-Nonce: $(openssl rand -hex 16)" \
+  -H "X-Auth-Signature: <hmac-signature>" \
+  -d '{"id":"bridge-client","expiry":3600,"whitelist":["run"]}' \
   http://localhost:1913/admin/tokens/create
 ```
 
@@ -277,7 +278,14 @@ Sample successful response (admin responses use a uniform schema):
 Rotate a token (invalidates the old secret and returns a new secret):
 
 ```bash
-curl -X POST -H "X-Auth-Key: CHANGE_ME" -H "Content-Type: application/json" -d '{"id":"abcd1234"}' http://localhost:1913/admin/tokens/rotate
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "X-Auth-Token-Id: admin" \
+  -H "X-Auth-Timestamp: $(date +%s)" \
+  -H "X-Auth-Nonce: $(openssl rand -hex 16)" \
+  -H "X-Auth-Signature: <hmac-signature>" \
+  -d '{"id":"abcd1234"}' \
+  http://localhost:1913/admin/tokens/rotate
 ```
 
 Store returned secrets securely — they are only shown once.
@@ -295,17 +303,16 @@ prune old audit files according to `audit_retention_days` in
 
 ## In-game admin command `/hungerbridge`
 
-When enabled in `commands.yaml`, HungerBridge exposes `/hungerbridge` inside the
-server (the short alias `/hb` is also available). Available subcommands:
+HungerBridge exposes `/hungerbridge` inside the server (the short alias `/hb` is also available). Available subcommands:
 
 - `/hungerbridge reload` — reload config files
 - `/hungerbridge status` — show rate limits and probe status
 - `/hungerbridge probe` — run the self-probe
 - `/hungerbridge audit [N]` — print last N audit lines (default 20)
-- `/hungerbridge tokens list` — list token ids
-- `/hungerbridge tokens create <ttl>` — create a token with ttl (seconds)
-- `/hungerbridge tokens revoke <id>` — revoke token
-- `/hungerbridge tokens rotate <id>` — rotate token secret
+- `/hungerbridge token list` — list token ids
+- `/hungerbridge token create <id> [expiry]` — create a token with an explicit id and optional expiry in seconds
+- `/hungerbridge token revoke <id>` — revoke token
+- `/hungerbridge token rotate <id>` — rotate token secret
 - `/hungerbridge ip` — show IP whitelist/blacklist
 - `/hungerbridge config` — show basic config/status
 
@@ -326,14 +333,14 @@ Example usage:
 ```python
 from hungerlib.bridgeclient import BridgeClient
 
-# token may be legacy X-Auth-Key or new id:secret
+# token is id:secret
 client = BridgeClient('http://localhost:1913', 'abcd1234:<secret>')
 
 # run a command
 print(client.runCommand('say hello'))
 
-# admin: create token (requires root key or admin token)
-resp = client.create_token(ttl=3600, whitelist=['run'])
+# admin: create token (requires an admin-capable token)
+resp = client.create_token(token_id='bridge-client', expiry=3600, whitelist=['run'])
 print(resp)
 
 # list tokens

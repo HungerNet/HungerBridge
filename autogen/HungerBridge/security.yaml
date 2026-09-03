@@ -2,21 +2,11 @@
 # This file configures reverse-proxy self-protection, IP allow/block lists, rate
 # limiting, and retention of audit logs.
 #
-# self_probe:
-#   If true, HungerBridge will probe the configured public_base_url. This helps
-#   detect whether the backend origin is mistakenly exposed directly to the
-#   internet. If the probe succeeds, startup is aborted to fail closed.
-# public_base_url:
-#   The externally visible base URL of the reverse proxy or load balancer in
-#   front of HungerBridge. Example: "https://bridge.example.com"
-# probe_timeout_ms:
-#   Timeout in milliseconds for the self-probe HTTP request.
-# ip_whitelist:
-#   Optional explicit allowlist of source IPs or CIDR ranges. If the list is not
-#   empty, requests that do not match any entry are rejected after auth checks.
-# ip_blacklist:
-#   Explicit denylist of source IPs or CIDR ranges. Any request from a blocked IP
-#   is rejected even if the token itself would otherwise be valid.
+# ip_list.mode:
+#   Mode for IP filtering. Supported values: blacklist and whitelist.
+#   An empty list in blacklist mode means allow everything.
+# ip_list.list:
+#   Source IPs or CIDR ranges to filter.
 # rate_limits:
 #   Default per-token and per-IP request limits. These values are enforced by the
 #   runtime rate limiter and are used to mitigate brute force or abuse.
@@ -24,16 +14,10 @@
 #   ip_rps/ip_burst: limit requests per source IP.
 # audit_retention_days:
 #   Number of days to keep JSON audit logs before pruning old files.
-# audit:
-#   Alternate nested form for audit retention. If both forms are provided, the
-#   nested value wins.
 
-self_probe: true
-public_base_url: "https://my-proxy.example.com"
-probe_timeout_ms: 1500
-
-ip_whitelist: []
-ip_blacklist: []
+ip_list:
+  mode: blacklist
+  list: []
 
 rate_limits:
   token_rps: 5.0
@@ -42,5 +26,3 @@ rate_limits:
   ip_burst: 40.0
 
 audit_retention_days: 14
-# audit:
-#   retention_days: 14

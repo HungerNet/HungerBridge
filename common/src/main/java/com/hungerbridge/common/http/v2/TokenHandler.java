@@ -17,9 +17,9 @@ import java.util.Map;
 
 /**
  * /tokens
- * - GET: list tokens (requires root X-Auth-Key)
- * - POST: create token (requires root X-Auth-Key)
- * - DELETE /tokens/{id}: revoke token (requires root X-Auth-Key)
+ * - GET: list tokens (requires authenticated admin token)
+ * - POST: create token (requires authenticated admin token)
+ * - DELETE /tokens/{id}: revoke token (requires authenticated admin token)
  */
 public final class TokenHandler implements HttpHandler {
 
@@ -33,10 +33,12 @@ public final class TokenHandler implements HttpHandler {
 
     @Override
     public void handle(HttpExchange ex) throws IOException {
-        // Require root X-Auth-Key for management operations
-        String rootKey = ex.getRequestHeaders().getFirst("X-Auth-Key");
-        if (rootKey == null || !rootKey.equals(config.getAuthKey())) {
-            HttpUtil.error(ex, 401, "unauthorized", "Management endpoints require root X-Auth-Key", config);
+        if (!HttpUtil.auth(ex, config)) {
+            HttpUtil.error(ex, 401, "unauthorized", "Authentication required", config);
+            return;
+        }
+        if (!HttpUtil.checkAcl(ex, config, "admin")) {
+            HttpUtil.error(ex, 403, "forbidden", "Admin rights required", config);
             return;
         }
 
@@ -56,11 +58,12 @@ public final class TokenHandler implements HttpHandler {
 
         if ("POST".equalsIgnoreCase(method)) {
             JsonObject body = HttpUtil.readJson(ex);
-            long ttl = 0;
+            String id = body != null && body.has("id") ? body.get("id").getAsString() : null;
+            long expiry = 0L;
             List<String> whitelist = null;
             List<String> blacklist = null;
             if (body != null) {
-                if (body.has("ttl_seconds")) ttl = body.get("ttl_seconds").getAsLong();
+                if (body.has("expiry")) expiry = body.get("expiry").getAsLong();
                 if (body.has("whitelist")) {
                     whitelist = new ArrayList<>();
                     for (var el : body.getAsJsonArray("whitelist")) whitelist.add(el.getAsString());
@@ -70,8 +73,12 @@ public final class TokenHandler implements HttpHandler {
                     for (var el : body.getAsJsonArray("blacklist")) blacklist.add(el.getAsString());
                 }
             }
+            if (id == null || id.isBlank()) {
+                HttpUtil.error(ex, 400, "bad_request", "Token id required", config);
+                return;
+            }
 
-            TokenManager.Token tk = tm.createToken(ttl, whitelist, blacklist);
+            TokenManager.Token tk = tm.createToken(id, expiry, whitelist, blacklist);
             JsonObject resp = Json.obj(
                     "ok", true,
                     "id", tk.id,

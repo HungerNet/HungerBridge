@@ -22,14 +22,6 @@ public final class HttpUtil {
     private HttpUtil() {}
 
     public static boolean auth(HttpExchange ex, Config config) {
-        // Legacy header support
-        String key = ex.getRequestHeaders().getFirst("X-Auth-Key");
-        if (key != null && key.equals(config.getAuthKey())) {
-            ex.setAttribute("hb.auth.legacy", Boolean.TRUE);
-            return true;
-        }
-
-        // HMAC token support
         TokenManager tm = config.getTokenManager();
         if (tm == null) return false;
 
@@ -54,7 +46,12 @@ public final class HttpUtil {
         int allowedSkew = 300;
         try {
             com.hungerbridge.common.TokensConfig tc = config.getTokensConfig();
-            if (tc != null) allowedSkew = tc.allowedSkewSeconds;
+            if (tc != null) {
+                com.hungerbridge.common.TokensConfig.TokenPolicy policy = tc.getPolicy(tokenId);
+                if (policy != null) allowedSkew = policy.maxSkewSeconds;
+                else allowedSkew = tc.maxSkewSeconds;
+                if (allowedSkew < 0) allowedSkew = Integer.MAX_VALUE;
+            }
         } catch (Exception ignored) {}
         boolean ok = tm.verifyHmac(tokenId, ts, nonce, sig, ex.getRequestMethod(), ex.getRequestURI().getPath(), bodyStr, allowedSkew);
         if (!ok) return false;
@@ -67,27 +64,7 @@ public final class HttpUtil {
     }
 
     public static boolean checkAcl(HttpExchange ex, Config config, String action) {
-        // root legacy key bypasses per-token ACLs
-        Boolean legacy = (Boolean) ex.getAttribute("hb.auth.legacy");
-        if (legacy != null && legacy) return true;
-
-        // global whitelist/blacklist from commands config (applied before per-token rules)
-        com.hungerbridge.common.CommandsConfig cc = config.getCommandsConfig();
         String ip = ex.getRemoteAddress() != null ? ex.getRemoteAddress().getAddress().getHostAddress() : null;
-        if (cc != null) {
-            if (cc.globalWhitelist != null && !cc.globalWhitelist.isEmpty()) {
-                boolean ok = false;
-                for (String pat : cc.globalWhitelist) {
-                    if (com.hungerbridge.common.security.IpMatcher.matches(pat, ip)) { ok = true; break; }
-                }
-                if (!ok) return false;
-            }
-            if (cc.globalBlacklist != null && !cc.globalBlacklist.isEmpty()) {
-                for (String pat : cc.globalBlacklist) {
-                    if (com.hungerbridge.common.security.IpMatcher.matches(pat, ip)) return false;
-                }
-            }
-        }
 
         Object tokObj = ex.getAttribute("hb.auth.token");
         if (!(tokObj instanceof TokenManager.Token)) {
@@ -109,17 +86,32 @@ public final class HttpUtil {
         // IP whitelist/blacklist enforcement (enforced after authentication)
         com.hungerbridge.common.security.SecurityConfig sc = config.getSecurityConfig();
         if (sc != null) {
-            if (sc.ipWhitelist != null && !sc.ipWhitelist.isEmpty()) {
-                boolean ok = false;
-                for (String pat : sc.ipWhitelist) {
-                    if (com.hungerbridge.common.security.IpMatcher.matches(pat, ip)) { ok = true; break; }
+            java.util.List<String> ipEntries = sc.ipList != null && !sc.ipList.isEmpty() ? sc.ipList : java.util.List.of();
+            if (ipEntries.isEmpty() && (sc.ipWhitelist != null && !sc.ipWhitelist.isEmpty())) {
+                ipEntries = sc.ipWhitelist;
+            }
+            if (!ipEntries.isEmpty()) {
+                boolean matched = false;
+                for (String pat : ipEntries) {
+                    if (com.hungerbridge.common.security.IpMatcher.matches(pat, ip)) { matched = true; break; }
                 }
-                if (!ok) return false;
+                if ("whitelist".equalsIgnoreCase(sc.ipListMode)) {
+                    if (!matched) return false;
+                } else if (matched) {
+                    return false;
+                }
             }
             if (sc.ipBlacklist != null && !sc.ipBlacklist.isEmpty()) {
                 for (String pat : sc.ipBlacklist) {
                     if (com.hungerbridge.common.security.IpMatcher.matches(pat, ip)) return false;
                 }
+            }
+            if (sc.ipWhitelist != null && !sc.ipWhitelist.isEmpty() && "whitelist".equalsIgnoreCase(sc.ipListMode)) {
+                boolean ok = false;
+                for (String pat : sc.ipWhitelist) {
+                    if (com.hungerbridge.common.security.IpMatcher.matches(pat, ip)) { ok = true; break; }
+                }
+                if (!ok) return false;
             }
         }
         return true;

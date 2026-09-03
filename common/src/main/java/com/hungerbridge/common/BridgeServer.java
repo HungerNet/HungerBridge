@@ -107,33 +107,30 @@ public final class BridgeServer {
             server.createContext("/stream/logs", new StreamLogsHandler(config));
             endpoints.add("/stream/logs");
         }
-        // token management endpoint (requires root X-Auth-Key)
+        // token management endpoint (requires an authenticated admin token)
         server.createContext("/tokens", new com.hungerbridge.common.http.v2.TokenHandler(config, logger));
         endpoints.add("/tokens");
-        // admin endpoints (require admin privileges / root key)
-        com.hungerbridge.common.CommandsConfig cc = config.getCommandsConfig();
-            if (cc == null || cc.enableAdminHttp) {
-            AdminService admin = new AdminService(configDir, config, logger, this);
-            this.adminService = admin;
-            server.createContext("/admin/tokens/list", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_list"));
-            endpoints.add("/admin/tokens/list");
-            server.createContext("/admin/tokens/create", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_create"));
-            endpoints.add("/admin/tokens/create");
-            server.createContext("/admin/tokens/revoke", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_revoke"));
-            endpoints.add("/admin/tokens/revoke");
-            server.createContext("/admin/tokens/rotate", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_rotate"));
-            endpoints.add("/admin/tokens/rotate");
-            server.createContext("/admin/status", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "status"));
-            endpoints.add("/admin/status");
-            server.createContext("/admin/probe", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "probe"));
-            endpoints.add("/admin/probe");
-            server.createContext("/admin/ip", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "ip"));
-            endpoints.add("/admin/ip");
-            server.createContext("/admin/audit", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "audit"));
-            endpoints.add("/admin/audit");
-            server.createContext("/admin/reload", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "reload"));
-            endpoints.add("/admin/reload");
-        }
+        // admin endpoints (require admin privileges from a token ACL)
+        AdminService admin = new AdminService(configDir, config, logger, this);
+        this.adminService = admin;
+        server.createContext("/admin/tokens/list", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_list"));
+        endpoints.add("/admin/tokens/list");
+        server.createContext("/admin/tokens/create", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_create"));
+        endpoints.add("/admin/tokens/create");
+        server.createContext("/admin/tokens/revoke", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_revoke"));
+        endpoints.add("/admin/tokens/revoke");
+        server.createContext("/admin/tokens/rotate", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_rotate"));
+        endpoints.add("/admin/tokens/rotate");
+        server.createContext("/admin/status", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "status"));
+        endpoints.add("/admin/status");
+        server.createContext("/admin/probe", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "probe"));
+        endpoints.add("/admin/probe");
+        server.createContext("/admin/ip", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "ip"));
+        endpoints.add("/admin/ip");
+        server.createContext("/admin/audit", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "audit"));
+        endpoints.add("/admin/audit");
+        server.createContext("/admin/reload", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "reload"));
+        endpoints.add("/admin/reload");
         if (config.isTpsEnabled()) {
             server.createContext("/tps", new TpsHandler(config, logger, executor));
             endpoints.add("/tps");

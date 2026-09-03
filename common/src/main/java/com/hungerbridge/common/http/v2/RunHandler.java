@@ -14,7 +14,7 @@ import java.util.List;
 
 /**
  * /run
- * POST, requires X-Auth-Key
+ * POST, requires valid HMAC-authenticated token
  * Body: { "command": "...", "silent": bool, "show_console": bool }
  */
 public final class RunHandler implements HttpHandler {
@@ -36,7 +36,7 @@ public final class RunHandler implements HttpHandler {
             return;
         }
         if (!HttpUtil.auth(ex, config)) {
-            HttpUtil.error(ex, 401, "unauthorized", "Invalid X-Auth-Key", config);
+            HttpUtil.error(ex, 401, "unauthorized", "Authentication required", config);
             return;
         }
         if (!HttpUtil.checkAcl(ex, config, "run")) {

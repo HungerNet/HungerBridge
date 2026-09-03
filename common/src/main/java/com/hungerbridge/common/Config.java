@@ -20,7 +20,6 @@ import java.util.UUID;
 public final class Config {
 
     private final int port;
-    private final String authKey;
 
     // endpoint toggles
     private final boolean runEnabled;
@@ -44,11 +43,9 @@ public final class Config {
     private com.hungerbridge.common.log.AuditLogger auditLogger;
     private com.hungerbridge.common.security.SecurityConfig securityConfig;
     private com.hungerbridge.common.TokensConfig tokensConfig;
-    private com.hungerbridge.common.CommandsConfig commandsConfig;
 
     public Config(
             int port,
-            String authKey,
             boolean runEnabled,
             boolean logEnabled,
             boolean pingEnabled,
@@ -61,7 +58,6 @@ public final class Config {
             String bridgeVersion
     ) {
         this.port = port;
-        this.authKey = authKey;
 
         this.runEnabled = runEnabled;
         this.logEnabled = logEnabled;
@@ -77,7 +73,6 @@ public final class Config {
     }
 
     public int getPort() { return port; }
-    public String getAuthKey() { return authKey; }
 
     public boolean isRunEnabled() { return runEnabled; }
     public boolean isLogEnabled() { return logEnabled; }
@@ -141,29 +136,19 @@ public final class Config {
 
             int port = ((Number) root.getOrDefault("port", 1913)).intValue();
 
-            Map<String, Object> auth = (Map<String, Object>) root.getOrDefault("auth", new LinkedHashMap<>());
-            String authKey = (String) auth.getOrDefault("key", "");
-
             // validate auxiliary configs and log status
             com.hungerbridge.common.security.SecurityConfig sc = null;
-            com.hungerbridge.common.CommandsConfig cc = null;
             com.hungerbridge.common.TokensConfig tc = null;
             try {
                 sc = com.hungerbridge.common.security.SecurityConfig.load(configDir);
-                if (logger != null) logger.log("INFO", "Loaded security.yaml (self_probe=" + sc.selfProbe + ")");
+                if (logger != null) logger.log("INFO", "Loaded security.yaml (mode=" + (sc != null ? sc.ipListMode : "unknown") + ")");
             } catch (Exception e) {
                 if (logger != null) logger.log("WARN", "Failed to parse security.yaml: " + e.getMessage());
-            }
-            try {
-                cc = com.hungerbridge.common.CommandsConfig.load(configDir);
-                if (logger != null) logger.log("INFO", "Loaded commands.yaml (enable_commands=" + cc.enableCommands + ")");
-            } catch (Exception e) {
-                if (logger != null) logger.log("WARN", "Failed to parse commands.yaml: " + e.getMessage());
             }
 
             try {
                 tc = com.hungerbridge.common.TokensConfig.load(configDir);
-                if (logger != null) logger.log("INFO", "Loaded token policy (allowed_skew_seconds=" + tc.allowedSkewSeconds + ")");
+                if (logger != null) logger.log("INFO", "Loaded token policy (max_skew=" + tc.maxSkewSeconds + ")");
             } catch (Exception ignored) {}
 
             Map<String, Object> enabledEndpoints = (Map<String, Object>) root.getOrDefault(
@@ -185,7 +170,6 @@ public final class Config {
 
                 Config cfg = new Config(
                     port,
-                    authKey,
                     run,
                     log,
                     ping,
@@ -200,20 +184,7 @@ public final class Config {
 
                 // attach parsed auxiliary configs
                 if (sc != null) cfg.setSecurityConfig(sc);
-                if (cc != null) cfg.setCommandsConfig(cc);
-
-                // Merge token policy: commands.yaml (cc) takes precedence, then tokens.yaml (tc), then defaults.
-                int finalAllowedSkew = 300;
-                long finalDefaultTtl = 0L;
-                if (tc != null) {
-                    finalAllowedSkew = tc.allowedSkewSeconds;
-                    finalDefaultTtl = tc.defaultTokenTtlSeconds;
-                }
-                if (cc != null) {
-                    if (cc.allowedSkewSeconds >= 0) finalAllowedSkew = cc.allowedSkewSeconds;
-                    if (cc.defaultTokenTtlSeconds >= 0) finalDefaultTtl = cc.defaultTokenTtlSeconds;
-                }
-                cfg.setTokensConfig(com.hungerbridge.common.TokensConfig.fromValues(finalAllowedSkew, finalDefaultTtl));
+                cfg.setTokensConfig(tc != null ? tc : com.hungerbridge.common.TokensConfig.defaults());
 
                 return cfg;
 
@@ -234,9 +205,6 @@ public final class Config {
     public void setTokensConfig(com.hungerbridge.common.TokensConfig tc) { this.tokensConfig = tc; }
     public com.hungerbridge.common.TokensConfig getTokensConfig() { return tokensConfig; }
 
-    public void setCommandsConfig(com.hungerbridge.common.CommandsConfig cc) { this.commandsConfig = cc; }
-    public com.hungerbridge.common.CommandsConfig getCommandsConfig() { return commandsConfig; }
-
     private static void seedRuntimeConfigFromAutogen(Path runtimeConfigDir, Logger logger) throws IOException {
         Path autogenRoot = findAutogenTemplateDir();
         boolean copiedAny = false;
@@ -244,7 +212,7 @@ public final class Config {
         java.util.List<String> existed = new java.util.ArrayList<>();
 
         if (autogenRoot != null && Files.exists(autogenRoot)) {
-            for (String fileName : java.util.List.of("config.yaml", "commands.yaml", "security.yaml")) {
+            for (String fileName : java.util.List.of("config.yaml", "security.yaml", "tokens.yaml")) {
                 Path source = autogenRoot.resolve(fileName);
                 Path target = runtimeConfigDir.resolve(fileName);
                 if (!Files.exists(source)) continue;
@@ -275,9 +243,9 @@ public final class Config {
     private static void writeFallbackRuntimeConfigs(Path runtimeConfigDir) throws IOException {
         Files.createDirectories(runtimeConfigDir);
 
-        writeIfMissing(runtimeConfigDir.resolve("config.yaml"), "port: 1913\n\nlegacy_auth:\n  enabled: false\n  key: \"CHANGE_ME\"\n\n# Global token preset defaults used when creating tokens without explicit\n# parameters. `token_presets.whitelist: ['*']` means allow everything\n# except items in `blacklist`.\ntoken_presets:\n  skew: 300\n  ttl: 0\n  expiry: 0\n  whitelist:\n    - '*'\n  blacklist:\n    - op\n\nenabled_endpoints:\n  run: true\n  log: true\n  ping: true\n  stream_logs: true\n  info: true\n  status: true\n  tps: true\n  players: true\n\nplayers:\n  max-list: 50\n");
-        writeIfMissing(runtimeConfigDir.resolve("security.yaml"), "self_probe: true\npublic_base_url: \"https://my-proxy.example.com\"\nprobe_timeout_ms: 1500\n\nip_whitelist: []\nip_blacklist: []\n\nrate_limits:\n  token_rps: 5.0\n  token_burst: 10.0\n  ip_rps: 20.0\n  ip_burst: 40.0\n\naudit_retention_days: 14\n");
-        writeIfMissing(runtimeConfigDir.resolve("commands.yaml"), "enable_commands: true\nenable_admin_http: true\ntoken_defaults:\n  ttl: 3600\n  whitelist: []\n  blacklist: []\nglobal_whitelist: []\nglobal_blacklist: []\n");
+        writeIfMissing(runtimeConfigDir.resolve("config.yaml"), "port: 1913\n\nenabled_endpoints:\n  run: true\n  log: true\n  ping: true\n  stream_logs: true\n  info: true\n  status: true\n  tps: true\n  players: true\n\nplayers:\n  max-list: 50\n");
+        writeIfMissing(runtimeConfigDir.resolve("security.yaml"), "ip_list:\n  mode: blacklist\n  list: []\n\nrate_limits:\n  token_rps: 5.0\n  token_burst: 10.0\n  ip_rps: 20.0\n  ip_burst: 40.0\n\naudit_retention_days: 14\n");
+        writeIfMissing(runtimeConfigDir.resolve("tokens.yaml"), "tokens:\n  - id: admin\n    default_expiry: 0\n    max_skew: -1\n\n    endpoints_mode: blacklist\n    endpoints: []\n\n    commands_mode: blacklist\n    commands: []\n");
     }
 
     private static void writeIfMissing(Path path, String content) throws IOException {

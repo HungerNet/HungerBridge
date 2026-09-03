@@ -32,8 +32,6 @@ public final class AdminHandler implements HttpHandler {
             HttpUtil.error(ex, 401, "unauthenticated", "authentication required", config);
             return false;
         }
-        Boolean legacy = (Boolean) ex.getAttribute("hb.auth.legacy");
-        if (legacy != null && legacy) return true;
         Object tok = ex.getAttribute("hb.auth.token");
         if (tok instanceof com.hungerbridge.common.security.TokenManager.Token) {
             com.hungerbridge.common.security.TokenManager.Token t = (com.hungerbridge.common.security.TokenManager.Token) tok;
@@ -67,17 +65,24 @@ public final class AdminHandler implements HttpHandler {
                 }
                 case "tokens_create": {
                     JsonObject body = HttpUtil.readJson(ex);
-                        long ttl;
-                        if (body != null && body.has("ttl")) ttl = body.get("ttl").getAsLong();
-                        else if (config.getCommandsConfig() != null) ttl = config.getCommandsConfig().tokenDefaultTtl;
-                        else if (config.getTokensConfig() != null) ttl = config.getTokensConfig().defaultTokenTtlSeconds;
-                        else ttl = 0L;
+                    String id = body != null && body.has("id") ? body.get("id").getAsString() : null;
+                    long expiry = 0L;
+                    if (body != null && body.has("expiry")) expiry = body.get("expiry").getAsLong();
+                    else if (config.getTokensConfig() != null) expiry = config.getTokensConfig().defaultExpirySeconds;
 
-                        List<String> wl = body != null && body.has("whitelist") ? com.hungerbridge.common.Json.GSON.fromJson(body.get("whitelist"), List.class) :
-                            (config.getCommandsConfig() != null ? config.getCommandsConfig().tokenDefaultWhitelist : (config.getTokensConfig() != null ? config.getTokensConfig().defaultWhitelist : java.util.List.of()));
-                        List<String> bl = body != null && body.has("blacklist") ? com.hungerbridge.common.Json.GSON.fromJson(body.get("blacklist"), List.class) :
-                            (config.getCommandsConfig() != null ? config.getCommandsConfig().tokenDefaultBlacklist : (config.getTokensConfig() != null ? config.getTokensConfig().defaultBlacklist : java.util.List.of()));
-                    com.hungerbridge.common.security.TokenManager.Token t = admin.createToken(ttl, wl, bl);
+                    List<String> wl = java.util.List.of();
+                    List<String> bl = java.util.List.of();
+                    if (body != null && body.has("whitelist")) {
+                        wl = com.hungerbridge.common.Json.GSON.fromJson(body.get("whitelist"), List.class);
+                    }
+                    if (body != null && body.has("blacklist")) {
+                        bl = com.hungerbridge.common.Json.GSON.fromJson(body.get("blacklist"), List.class);
+                    }
+                    if (id == null || id.isBlank()) {
+                        HttpUtil.error(ex, 400, "missing_id", "token id required", config);
+                        break;
+                    }
+                    com.hungerbridge.common.security.TokenManager.Token t = admin.createToken(id, expiry, wl, bl);
                     if (t == null) { HttpUtil.error(ex, 500, "create_failed", "failed to create token", config); break; }
                     JsonObject out = new JsonObject();
                     out.addProperty("id", t.id);

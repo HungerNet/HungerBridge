@@ -12,7 +12,7 @@ import java.io.IOException;
 
 /**
  * /info
- * GET, requires X-Auth-Key
+ * GET, requires a valid HMAC-authenticated token
  * Returns bridge metadata
  */
 public final class InfoHandler implements HttpHandler {
@@ -32,7 +32,7 @@ public final class InfoHandler implements HttpHandler {
             return;
         }
         if (!HttpUtil.auth(ex, config)) {
-            HttpUtil.error(ex, 401, "unauthorized", "Invalid X-Auth-Key", config);
+            HttpUtil.error(ex, 401, "unauthorized", "Authentication required", config);
             return;
         }
         if (!HttpUtil.checkAcl(ex, config, "info")) {
