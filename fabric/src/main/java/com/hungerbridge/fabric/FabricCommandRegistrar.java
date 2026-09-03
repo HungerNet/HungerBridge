@@ -51,8 +51,8 @@ public final class FabricCommandRegistrar {
         var nameArg = net.minecraft.commands.Commands.argument("name", StringArgumentType.word());
         createLiteral.then(idArg.then(nameArg.executes(ctx -> {
             String id = StringArgumentType.getString(ctx, "id");
-            String name = StringArgumentType.getString(ctx, "name");
-            return runHandler(bridgeServer, ctx.getSource(), new String[]{"token", "create", id, name});
+            String nameVal1 = StringArgumentType.getString(ctx, "name");
+            return runHandler(bridgeServer, ctx.getSource(), new String[]{"token", "create", id, nameVal1});
         })));
         // support: id expiry
         var expiryArg = net.minecraft.commands.Commands.argument("expiry", IntegerArgumentType.integer(0));
@@ -64,9 +64,9 @@ public final class FabricCommandRegistrar {
         // support: id name expiry
         createLiteral.then(idArg.then(nameArg.then(expiryArg.executes(ctx -> {
             String id = StringArgumentType.getString(ctx, "id");
-            String name = StringArgumentType.getString(ctx, "name");
+            String nameVal2 = StringArgumentType.getString(ctx, "name");
             int expiry = IntegerArgumentType.getInteger(ctx, "expiry");
-            return runHandler(bridgeServer, ctx.getSource(), new String[]{"token", "create", id, name, String.valueOf(expiry)});
+            return runHandler(bridgeServer, ctx.getSource(), new String[]{"token", "create", id, nameVal2, String.valueOf(expiry)});
         }))));
 
         token.then(createLiteral);
