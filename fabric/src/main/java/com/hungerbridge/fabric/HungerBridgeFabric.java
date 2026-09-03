@@ -161,7 +161,7 @@ public final class HungerBridgeFabric implements DedicatedServerModInitializer {
         SLF4J_LOGGER.info("HungerBridge started on port {}", config.getPort());
     }
 
-    private static void registerCommands(net.minecraft.commands.CommandDispatcher<net.minecraft.commands.CommandSourceStack> dispatcher, String name) {
+    private static void registerCommands(com.mojang.brigadier.CommandDispatcher<net.minecraft.commands.CommandSourceStack> dispatcher, String name) {
         var cmd = net.minecraft.commands.Commands.literal(name);
 
         cmd.executes(ctx -> {
