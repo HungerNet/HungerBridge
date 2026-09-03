@@ -47,7 +47,11 @@ public final class CommonCommandHandler {
                     int n = 20;
                     if (args.length >= 2) try { n = Integer.parseInt(args[1]); } catch (NumberFormatException ignored) {}
                     List<String> lines = admin.getAuditSummary(n);
-                    out.addAll(lines);
+                    if (lines == null || lines.isEmpty()) {
+                        out.add("no audit entries");
+                    } else {
+                        out.addAll(lines);
+                    }
                     break;
                 }
                 case "tokens": {

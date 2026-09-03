@@ -36,8 +36,13 @@ public final class SecurityConfig {
                 Map<String, Object> root = (Map<String, Object>) obj;
                 Object sp = root.get("self_probe");
                 if (sp instanceof Boolean) sc.selfProbe = (Boolean) sp;
-                Object pb = root.get("public_base_url");
+                // support both legacy 'public_base_url' and the preferred 'private_base_url'
+                Object pb = root.get("private_base_url");
                 if (pb instanceof String) sc.publicBaseUrl = (String) pb;
+                else {
+                    Object pb2 = root.get("public_base_url");
+                    if (pb2 instanceof String) sc.publicBaseUrl = (String) pb2;
+                }
                 Object pt = root.get("probe_timeout_ms");
                 if (pt instanceof Number) sc.probeTimeoutMs = ((Number) pt).intValue();
                 Object wl = root.get("ip_whitelist");
