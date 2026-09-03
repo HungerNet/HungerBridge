@@ -1,4 +1,4 @@
-version = "hungerbridge-${stonecutter.current.minecraftVersion}-${stonecutter.current.loader}+${stonecutter.current.version}"
+version = "hb-${stonecutter.current.loader}-${stonecutter.current.minecraftVersion}+${stonecutter.current.version}"
 
 plugins {
     id("java")
