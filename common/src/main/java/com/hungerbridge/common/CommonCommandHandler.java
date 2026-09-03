@@ -62,6 +62,12 @@ public final class CommonCommandHandler {
                             out.add(admin.listTokens().keySet().toString());
                             break;
                         case "create": {
+                            if (args.length == 2 || (args.length >= 3 && args[2].equalsIgnoreCase("help"))) {
+                                out.add("usage: /hungerbridge tokens create <ttl> [whitelist] [blacklist]");
+                                out.add("example: /hungerbridge tokens create 3600 run,info status");
+                                break;
+                            }
+
                             long ttl = 3600L;
                             try { if (args.length >= 3) ttl = Long.parseLong(args[2]); } catch (NumberFormatException ignored) {}
                             List<String> wl = List.of();
