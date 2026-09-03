@@ -155,16 +155,14 @@ public final class HungerBridgeFabric implements DedicatedServerModInitializer {
         // register brigadier command names (always enabled) using fabric registrar
         try {
             var dispatcher = server.getCommands().getDispatcher();
-            com.hungerbridge.fabric.FabricCommandRegistrar.register(dispatcher, bridgeServer, "hungerbridge");
-            com.hungerbridge.fabric.FabricCommandRegistrar.register(dispatcher, bridgeServer, "hb");
+            com.hungerbridge.fabric.FabricCommandRegistrar.register(dispatcher, bridgeServer, com.hungerbridge.common.CommandConstants.ROOT);
+            com.hungerbridge.fabric.FabricCommandRegistrar.register(dispatcher, bridgeServer, com.hungerbridge.common.CommandConstants.ALIAS);
         } catch (Exception ignored) {}
 
         SLF4J_LOGGER.info("HungerBridge started on port {}", config.getPort());
     }
 
-    private static void registerCommands(com.mojang.brigadier.CommandDispatcher<net.minecraft.commands.CommandSourceStack> dispatcher, String name) {
-        com.hungerbridge.common.BrigadierCommandRegistrar.register(dispatcher, bridgeServer, name);
-    }
+    
 
     // Called by mixin on server shutdown
     public static void onServerStopping() {
