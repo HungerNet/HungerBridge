@@ -1,10 +1,12 @@
-package com.hungerbridge.common;
+package com.hungerbridge.fabric;
 
+import com.hungerbridge.common.BridgeServer;
+import com.hungerbridge.common.CommonCommandHandler;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 
-public final class BrigadierCommandRegistrar {
+public final class FabricCommandRegistrar {
 
     public static void register(CommandDispatcher<net.minecraft.commands.CommandSourceStack> dispatcher, BridgeServer bridgeServer, String name) {
         var cmd = net.minecraft.commands.Commands.literal(name);
@@ -83,5 +85,5 @@ public final class BrigadierCommandRegistrar {
         return 1;
     }
 
-    private BrigadierCommandRegistrar() {}
+    private FabricCommandRegistrar() {}
 }

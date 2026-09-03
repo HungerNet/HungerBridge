@@ -152,11 +152,11 @@ public final class HungerBridgeFabric implements DedicatedServerModInitializer {
         bridgeServer = new BridgeServer(configDir, config, logger, executor);
         bridgeServer.start();
 
-        // register brigadier command names (always enabled) using common registrar
+        // register brigadier command names (always enabled) using fabric registrar
         try {
             var dispatcher = server.getCommands().getDispatcher();
-            com.hungerbridge.common.BrigadierCommandRegistrar.register(dispatcher, bridgeServer, "hungerbridge");
-            com.hungerbridge.common.BrigadierCommandRegistrar.register(dispatcher, bridgeServer, "hb");
+            com.hungerbridge.fabric.FabricCommandRegistrar.register(dispatcher, bridgeServer, "hungerbridge");
+            com.hungerbridge.fabric.FabricCommandRegistrar.register(dispatcher, bridgeServer, "hb");
         } catch (Exception ignored) {}
 
         SLF4J_LOGGER.info("HungerBridge started on port {}", config.getPort());

@@ -26,7 +26,6 @@ sourceSets {
 dependencies {
     implementation 'org.yaml:snakeyaml:2.3'
     implementation 'com.google.code.gson:gson:2.10.1'
-    implementation 'com.mojang:brigadier:1.0.18'
 
     testImplementation platform('org.junit:junit-bom:5.10.2')
     testImplementation 'org.junit.jupiter:junit-jupiter'
