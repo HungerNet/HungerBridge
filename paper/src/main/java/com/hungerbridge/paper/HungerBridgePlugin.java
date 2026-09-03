@@ -67,10 +67,9 @@ public final class HungerBridgePlugin extends JavaPlugin {
         bridgeServer = new BridgeServer(configDir, config, logger, executor);
         bridgeServer.start();
 
-        // register in-game admin command (always enabled)
+        // register in-game admin command (always enabled) via common adapter
         try {
-            HbCommand exec = new HbCommand(bridgeServer);
-            if (this.getCommand("hungerbridge") != null) this.getCommand("hungerbridge").setExecutor(exec);
+            PaperCommandRegistrar.register(this, bridgeServer);
         } catch (Exception ignored) {}
 
         getLogger().info("HungerBridge enabled.");
