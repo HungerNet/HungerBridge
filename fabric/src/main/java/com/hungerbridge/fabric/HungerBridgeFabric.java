@@ -205,39 +205,44 @@ public final class HungerBridgeFabric implements DedicatedServerModInitializer {
 
         // tokens subcommands
         var tokens = net.minecraft.commands.Commands.literal("tokens");
+
         tokens.then(net.minecraft.commands.Commands.literal("list").executes(ctx -> {
             java.util.List<String> lines = com.hungerbridge.common.CommonCommandHandler.handle(bridgeServer, new String[]{"tokens", "list"});
             for (String l : lines) ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(l), false);
             return 1;
         }));
-        tokens.then(net.minecraft.commands.Commands.literal("create").then(
-                net.minecraft.commands.Commands.argument("ttl", com.mojang.brigadier.arguments.IntegerArgumentType.integer(0))
-                                .executes(ctx -> {
-                                    int ttl = com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(ctx, "ttl");
-                                    java.util.List<String> lines = com.hungerbridge.common.CommonCommandHandler.handle(bridgeServer, new String[]{"tokens", "create", String.valueOf(ttl)});
-                                    for (String l : lines) ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(l), false);
-                                    return 1;
-                                })
-                        .then(net.minecraft.commands.Commands.argument("whitelist", com.mojang.brigadier.arguments.StringArgumentType.word())
-                                .executes(ctx -> {
-                                    int ttl = com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(ctx, "ttl");
-                                    String wl = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "whitelist");
-                                    java.util.List<String> wll = java.util.Arrays.stream(wl.split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList();
-                                    java.util.List<String> lines = com.hungerbridge.common.CommonCommandHandler.handle(bridgeServer, new String[]{"tokens", "create", String.valueOf(ttl), wl});
-                                    for (String l : lines) ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(l), false);
-                                    return 1;
-                                })
-                                .then(net.minecraft.commands.Commands.argument("blacklist", com.mojang.brigadier.arguments.StringArgumentType.word())
-                                        .executes(ctx -> {
-                                            int ttl = com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(ctx, "ttl");
-                                            String wl = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "whitelist");
-                                            String bl = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "blacklist");
-                                            java.util.List<String> lines = com.hungerbridge.common.CommonCommandHandler.handle(bridgeServer, new String[]{"tokens", "create", String.valueOf(ttl), wl, bl});
-                                            for (String l : lines) ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(l), false);
-                                            return 1;
-                                        })
-                                )
-        ));
+
+        // create command with variations: ttl, ttl+whitelist, ttl+whitelist+blacklist
+        var createLiteral = net.minecraft.commands.Commands.literal("create");
+        var ttlArg = net.minecraft.commands.Commands.argument("ttl", com.mojang.brigadier.arguments.IntegerArgumentType.integer(0));
+        createLiteral.then(ttlArg.executes(ctx -> {
+            int ttl = com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(ctx, "ttl");
+            java.util.List<String> lines = com.hungerbridge.common.CommonCommandHandler.handle(bridgeServer, new String[]{"tokens", "create", String.valueOf(ttl)});
+            for (String l : lines) ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(l), false);
+            return 1;
+        }));
+
+        var wlArg = net.minecraft.commands.Commands.argument("whitelist", com.mojang.brigadier.arguments.StringArgumentType.word());
+        createLiteral.then(ttlArg.then(wlArg.executes(ctx -> {
+            int ttl = com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(ctx, "ttl");
+            String wl = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "whitelist");
+            java.util.List<String> wll = java.util.Arrays.stream(wl.split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList();
+            java.util.List<String> lines = com.hungerbridge.common.CommonCommandHandler.handle(bridgeServer, new String[]{"tokens", "create", String.valueOf(ttl), wl});
+            for (String l : lines) ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(l), false);
+            return 1;
+        })));
+
+        var blArg = net.minecraft.commands.Commands.argument("blacklist", com.mojang.brigadier.arguments.StringArgumentType.word());
+        createLiteral.then(ttlArg.then(wlArg.then(blArg.executes(ctx -> {
+            int ttl = com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(ctx, "ttl");
+            String wl = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "whitelist");
+            String bl = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "blacklist");
+            java.util.List<String> lines = com.hungerbridge.common.CommonCommandHandler.handle(bridgeServer, new String[]{"tokens", "create", String.valueOf(ttl), wl, bl});
+            for (String l : lines) ctx.getSource().sendSuccess(() -> net.minecraft.network.chat.Component.literal(l), false);
+            return 1;
+        }))));
+
+        tokens.then(createLiteral);
         tokens.then(net.minecraft.commands.Commands.literal("revoke").then(
             net.minecraft.commands.Commands.argument("id", com.mojang.brigadier.arguments.StringArgumentType.word()).executes(ctx -> {
                 String id = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "id");
