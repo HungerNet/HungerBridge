@@ -37,7 +37,7 @@ public final class AdminService {
         return tm.listTokens();
     }
 
-    public TokenManager.Token createToken(String id, long expirySeconds, List<String> whitelist, List<String> blacklist) {
+    public TokenManager.Token createToken(String id, String name, long expirySeconds, List<String> whitelist, List<String> blacklist) {
         TokenManager tm = config.getTokenManager();
         if (tm == null) return null;
         TokensConfig tc = config.getTokensConfig();
@@ -46,6 +46,13 @@ public final class AdminService {
         }
         List<String> effectiveWhitelist = whitelist == null ? new ArrayList<>() : new ArrayList<>(whitelist);
         List<String> effectiveBlacklist = blacklist == null ? new ArrayList<>() : new ArrayList<>(blacklist);
+        // ensure name uniqueness
+        if (name != null && !name.isBlank()) {
+            for (Map.Entry<String, TokenManager.Token> e : tm.listTokens().entrySet()) {
+                TokenManager.Token existing = e.getValue();
+                if (existing.name != null && existing.name.equals(name)) return null;
+            }
+        }
         if (tc != null && (effectiveWhitelist.isEmpty() && effectiveBlacklist.isEmpty())) {
             TokensConfig.TokenPolicy policy = tc.getPolicy(id);
             if (policy != null) {
@@ -64,8 +71,9 @@ public final class AdminService {
         }
         // Create a runtime token with a generated id (do not use the policy id as the runtime token id).
         TokenManager.Token t = tm.createToken(null, expirySeconds, effectiveWhitelist.isEmpty() ? null : effectiveWhitelist, effectiveBlacklist.isEmpty() ? null : effectiveBlacklist);
-        if (t != null && id != null && !id.isBlank()) {
-            tm.setTokenPolicyId(t.id, id);
+        if (t != null) {
+            if (id != null && !id.isBlank()) tm.setTokenPolicyId(t.id, id);
+            if (name != null && !name.isBlank()) tm.setTokenName(t.id, name);
         }
         return t;
     }
@@ -79,20 +87,41 @@ public final class AdminService {
     public boolean revokeToken(String id) {
         TokenManager tm = config.getTokenManager();
         if (tm == null) return false;
-        return tm.revokeToken(id);
+        boolean ok = tm.revokeToken(id);
+        if (ok) return true;
+        // try by name
+        for (Map.Entry<String, TokenManager.Token> e : tm.listTokens().entrySet()) {
+            TokenManager.Token t = e.getValue();
+            if (t.name != null && t.name.equals(id)) {
+                return tm.revokeToken(t.id);
+            }
+        }
+        return false;
     }
 
     public TokenManager.Token rotateToken(String id) {
         TokenManager tm = config.getTokenManager();
         if (tm == null) return null;
         TokenManager.Token t = tm.rotateToken(id);
+        String usedId = id;
+        if (t == null) {
+            // try by name
+            for (Map.Entry<String, TokenManager.Token> e : tm.listTokens().entrySet()) {
+                TokenManager.Token cand = e.getValue();
+                if (cand.name != null && cand.name.equals(id)) {
+                    t = tm.rotateToken(cand.id);
+                    usedId = cand.id;
+                    break;
+                }
+            }
+        }
         // log rotation
         com.hungerbridge.common.log.AuditLogger al = config.getAuditLogger();
         if (al != null && t != null) {
             Map<String, Object> extra = new HashMap<>();
             extra.put("action", "rotate");
-            extra.put("token", id);
-            al.logEvent(id, "local", "token.rotate", "rotated", extra);
+            extra.put("token", usedId);
+            al.logEvent(usedId, "local", "token.rotate", "rotated", extra);
         }
         return t;
     }

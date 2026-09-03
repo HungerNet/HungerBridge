@@ -67,8 +67,11 @@ public final class AdminHandler implements HttpHandler {
                     JsonObject body = HttpUtil.readJson(ex);
                     String id = body != null && body.has("id") ? body.get("id").getAsString() : null;
                     long expiry = 0L;
+                    String name = null;
                     if (body != null && body.has("expiry")) expiry = body.get("expiry").getAsLong();
                     else if (config.getTokensConfig() != null) expiry = config.getTokensConfig().defaultExpirySeconds;
+
+                    if (body != null && body.has("name")) name = body.get("name").getAsString();
 
                     // If a policy id is provided, ensure it exists in tokens.yaml
                     com.hungerbridge.common.TokensConfig tccheck = config.getTokensConfig();
@@ -89,7 +92,7 @@ public final class AdminHandler implements HttpHandler {
                         HttpUtil.error(ex, 400, "missing_id", "token id required", config);
                         break;
                     }
-                    com.hungerbridge.common.security.TokenManager.Token t = admin.createToken(id, expiry, wl, bl);
+                    com.hungerbridge.common.security.TokenManager.Token t = admin.createToken(id, name, expiry, wl, bl);
                     if (t == null) { HttpUtil.error(ex, 500, "create_failed", "failed to create token", config); break; }
                     JsonObject out = new JsonObject();
                     out.addProperty("id", t.id);

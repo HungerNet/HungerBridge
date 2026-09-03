@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.hungerbridge.common.ConfigTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-09-03T18:31:14.674Z" hostname="bdce08eb-e372-4c24-8232-f7728e03ea13" time="0.115">
+<testsuite name="com.hungerbridge.common.ConfigTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-09-03T19:27:06.320Z" hostname="bdce08eb-e372-4c24-8232-f7728e03ea13" time="0.122">
   <properties/>
-  <testcase name="reloadConfigLoadsNamedTokenPolicies()" classname="com.hungerbridge.common.ConfigTest" time="0.091"/>
-  <testcase name="readsEnabledEndpointsAndNewSecuritySchema()" classname="com.hungerbridge.common.ConfigTest" time="0.006"/>
+  <testcase name="reloadConfigLoadsNamedTokenPolicies()" classname="com.hungerbridge.common.ConfigTest" time="0.093"/>
+  <testcase name="readsEnabledEndpointsAndNewSecuritySchema()" classname="com.hungerbridge.common.ConfigTest" time="0.01"/>
   <testcase name="rejectsUnknownTokenPolicyIdOnCreate()" classname="com.hungerbridge.common.ConfigTest" time="0.005"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>

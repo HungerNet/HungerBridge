@@ -305,7 +305,7 @@ HungerBridge exposes `/hungerbridge` inside the server (the short alias `/hb` is
 - `/hungerbridge status` — show rate limits and ACL status
 - `/hungerbridge audit [N]` — print last N audit lines (default 20)
 - `/hungerbridge token list` — list token ids
-- `/hungerbridge token create <id> [expiry]` — create a token with an explicit id and optional expiry in seconds
+- `/hungerbridge token create <id> [name] [expiry]` — create a token with an explicit id, optional unique name, and optional expiry in seconds
 - `/hungerbridge token revoke <id>` — revoke token
 - `/hungerbridge token rotate <id>` — rotate token secret
 - `/hungerbridge ip` — show IP whitelist/blacklist

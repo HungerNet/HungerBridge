@@ -158,6 +158,8 @@ public final class TokenManager {
     public static final class Token {
         public String id;
         public String secret;
+        // human-friendly unique name (optional)
+        public String name = null;
         // policyId links this runtime token to a named policy in tokens.yaml
         public String policyId = null;
         public boolean revoked = false;
@@ -200,6 +202,13 @@ public final class TokenManager {
         Token t = tokens.get(tokenId);
         if (t == null) return;
         t.policyId = policyId;
+        persistTokens();
+    }
+
+    public void setTokenName(String tokenId, String name) {
+        Token t = tokens.get(tokenId);
+        if (t == null) return;
+        t.name = name;
         persistTokens();
     }
 

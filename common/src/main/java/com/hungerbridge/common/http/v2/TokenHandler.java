@@ -59,6 +59,7 @@ public final class TokenHandler implements HttpHandler {
         if ("POST".equalsIgnoreCase(method)) {
             JsonObject body = HttpUtil.readJson(ex);
             String id = body != null && body.has("id") ? body.get("id").getAsString() : null;
+            String name = body != null && body.has("name") ? body.get("name").getAsString() : null;
             long expiry = 0L;
             List<String> whitelist = null;
             List<String> blacklist = null;
@@ -78,7 +79,20 @@ public final class TokenHandler implements HttpHandler {
                 return;
             }
 
+            // enforce name uniqueness at runtime
+            if (name != null && !name.isBlank()) {
+                for (TokenManager.Token existing : tm.listTokens().values()) {
+                    if (existing.name != null && existing.name.equals(name)) {
+                        HttpUtil.error(ex, 400, "duplicate_name", "token name already exists", config);
+                        return;
+                    }
+                }
+            }
+
+            // create token with optional name via TokenManager and attach name
             TokenManager.Token tk = tm.createToken(id, expiry, whitelist, blacklist);
+            if (tk == null) { HttpUtil.error(ex, 500, "create_failed", "failed to create token", config); return; }
+            if (name != null && !name.isBlank()) tm.setTokenName(tk.id, name);
             JsonObject resp = Json.obj(
                     "ok", true,
                     "id", tk.id,

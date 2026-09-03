@@ -55,28 +55,40 @@ public final class CommonCommandHandler {
                 case "tokens": {
                     if (args.length < 2) { out.add("token subcommands: list, create, revoke, rotate"); break; }
                     if (args.length >= 2 && args[1].equalsIgnoreCase("help")) {
-                        out.add("token subcommands: list, create <id> [expiry], revoke <id>, rotate <id>");
-                        out.add("Examples: '/hungerbridge token create admin', '/hungerbridge token create admin 3600'");
+                        out.add("token subcommands: list, create <id> [name] [expiry], revoke <id|name>, rotate <id|name>");
+                        out.add("Examples: '/hungerbridge token create admin mytoken', '/hungerbridge token create admin mytoken 3600'");
                         break;
                     }
                     switch (args[1].toLowerCase()) {
                         case "list":
-                            out.add(admin.listTokens().keySet().toString());
+                            Map<String, TokenManager.Token> toks = admin.listTokens();
+                            if (toks.isEmpty()) {
+                                out.add("no tokens");
+                            } else {
+                                for (TokenManager.Token t : toks.values()) {
+                                    if (t.name != null && !t.name.isBlank()) out.add(t.name + " -> " + t.id);
+                                    else out.add(t.id);
+                                }
+                            }
                             break;
                         case "create": {
                             if (args.length < 3 || (args.length >= 3 && args[2].equalsIgnoreCase("help"))) {
-                                out.add("usage: /hungerbridge token create <id> [expiry]");
-                                out.add("example: /hungerbridge token create admin 3600");
+                                out.add("usage: /hungerbridge token create <id> [name] [expiry]");
+                                out.add("example: /hungerbridge token create admin mytoken 3600");
                                 break;
                             }
 
                             String id = args[2];
+                            String name = null;
                             long expiry = 0L;
                             if (args.length >= 4) {
-                                try { expiry = Long.parseLong(args[3]); } catch (NumberFormatException ignored) {}
+                                try { expiry = Long.parseLong(args[3]); } catch (NumberFormatException ignored) { name = args[3]; }
                             }
-                            TokenManager.Token t = admin.createToken(id, expiry, List.of(), List.of());
-                            if (t == null) out.add("error: unknown token id or policy: " + id); else out.add(CommandMessages.createdToken(t.id, t.secret));
+                            if (args.length >= 5) {
+                                try { expiry = Long.parseLong(args[4]); } catch (NumberFormatException ignored) {}
+                            }
+                            TokenManager.Token t = admin.createToken(id, name, expiry, List.of(), List.of());
+                            if (t == null) out.add("error: unknown token id/policy or duplicate name: " + id); else out.add(CommandMessages.createdToken(t.id, t.secret));
                             break;
                         }
                         case "revoke": {

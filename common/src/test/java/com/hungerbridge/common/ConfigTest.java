@@ -172,6 +172,6 @@ public final class ConfigTest {
         config.setTokenManager(new TokenManager(dir, null));
         AdminService admin = new AdminService(dir, config, null, null);
 
-        assertNull(admin.createToken("unknown-policy", 0L, java.util.List.of(), java.util.List.of()));
+        assertNull(admin.createToken("unknown-policy", null, 0L, java.util.List.of(), java.util.List.of()));
     }
 }
