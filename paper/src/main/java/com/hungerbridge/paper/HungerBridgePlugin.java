@@ -7,6 +7,8 @@ import com.hungerbridge.common.Logger;
 import com.hungerbridge.common.security.TokenManager;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.nio.file.Path;
 
@@ -14,6 +16,8 @@ public final class HungerBridgePlugin extends JavaPlugin {
 
     private BridgeServer bridgeServer;
     private PaperLogAppender logAppender;
+    private static final Logger HB_LOGGER = LogManager.getLogger("HungerBridge");
+    private Thread bridgeThread;
 
     @Override
     public void onEnable() {
@@ -67,14 +71,23 @@ public final class HungerBridgePlugin extends JavaPlugin {
         PaperServerInfoProvider infoProvider = new PaperServerInfoProvider(getServer());
 
         bridgeServer = new BridgeServer(configDir, config, logger, executor);
-        bridgeServer.start();
+        // Start the bridge server on a dedicated thread named "HungerBridge"
+        bridgeThread = new Thread(() -> {
+            try {
+                bridgeServer.start();
+            } catch (Throwable t) {
+                HB_LOGGER.error("Bridge server thread terminated with error", t);
+            }
+        }, "HungerBridge");
+        bridgeThread.setDaemon(false);
+        bridgeThread.start();
 
         // register in-game admin command (always enabled) via common adapter
         try {
             PaperCommandRegistrar.register(this, bridgeServer);
         } catch (Exception ignored) {}
 
-        getLogger().info("HungerBridge enabled.");
+        HB_LOGGER.info("HungerBridge enabled.");
     }
 
     @Override
@@ -82,6 +95,10 @@ public final class HungerBridgePlugin extends JavaPlugin {
         if (bridgeServer != null) {
             bridgeServer.stop();
             bridgeServer = null;
+            if (bridgeThread != null) {
+                try { bridgeThread.interrupt(); bridgeThread.join(2000); } catch (InterruptedException ignored) {}
+                bridgeThread = null;
+            }
         }
         if (logAppender != null) {
             org.apache.logging.log4j.core.Logger root =
@@ -90,6 +107,6 @@ public final class HungerBridgePlugin extends JavaPlugin {
             logAppender.stop();
             logAppender = null;
         }
-        getLogger().info("HungerBridge disabled.");
+        HB_LOGGER.info("HungerBridge disabled.");
     }
 }

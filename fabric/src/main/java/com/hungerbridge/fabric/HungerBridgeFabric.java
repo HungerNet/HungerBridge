@@ -8,16 +8,17 @@ import com.hungerbridge.common.security.TokenManager;
 import net.fabricmc.api.DedicatedServerModInitializer;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.server.MinecraftServer;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.nio.file.Path;
 
 public final class HungerBridgeFabric implements DedicatedServerModInitializer {
 
-    private static final org.slf4j.Logger SLF4J_LOGGER =
-            LoggerFactory.getLogger("HungerBridge");
+        private static final Logger HB_LOGGER = LogManager.getLogger("HungerBridge");
 
-    private static BridgeServer bridgeServer;
+        private static BridgeServer bridgeServer;
+        private static Thread bridgeThread;
     private static MinecraftServer mcServer;
     private static FabricLogAppender logAppender;
 
@@ -100,12 +101,12 @@ public final class HungerBridgeFabric implements DedicatedServerModInitializer {
 
     @Override
     public void onInitializeServer() {
-        SLF4J_LOGGER.info("HungerBridge initializing.");
+        HB_LOGGER.info("HungerBridge initializing.");
     }
 
     // Called by mixin on first server tick
     public static void onServerStarted(MinecraftServer server) {
-        SLF4J_LOGGER.info("HungerBridge starting...");
+        HB_LOGGER.info("HungerBridge starting...");
 
         mcServer = server;
 
@@ -148,7 +149,16 @@ public final class HungerBridgeFabric implements DedicatedServerModInitializer {
         CommandExecutor executor = new FabricCommandExecutor(server);
 
         bridgeServer = new BridgeServer(configDir, config, logger, executor);
-        bridgeServer.start();
+        // Start the bridge server on a dedicated thread named "HungerBridge"
+        bridgeThread = new Thread(() -> {
+            try {
+                bridgeServer.start();
+            } catch (Throwable t) {
+                HB_LOGGER.error("Bridge server thread terminated with error", t);
+            }
+        }, "HungerBridge");
+        bridgeThread.setDaemon(false);
+        bridgeThread.start();
 
         // register brigadier command names (always enabled) using fabric registrar
         try {
@@ -157,7 +167,7 @@ public final class HungerBridgeFabric implements DedicatedServerModInitializer {
             com.hungerbridge.fabric.FabricCommandRegistrar.register(dispatcher, bridgeServer, com.hungerbridge.common.CommandConstants.ALIAS);
         } catch (Exception ignored) {}
 
-        SLF4J_LOGGER.info("HungerBridge started on port {}", config.getPort());
+        HB_LOGGER.info("HungerBridge started on port {}", config.getPort());
     }
 
     
@@ -165,7 +175,7 @@ public final class HungerBridgeFabric implements DedicatedServerModInitializer {
     // Called by mixin on server shutdown
     public static void onServerStopping() {
         if (bridgeServer != null) {
-            SLF4J_LOGGER.info("HungerBridge stopping...");
+            HB_LOGGER.info("HungerBridge stopping...");
             bridgeServer.stop();
             bridgeServer = null;
         }
