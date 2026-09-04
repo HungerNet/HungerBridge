@@ -17,19 +17,25 @@ public final class FabricLoggerAdapter implements Logger {
 
     @Override
     public void log(String level, String message) {
-        switch (level.toUpperCase()) {
-            case "WARN":
-                logger.warn(message);
-                break;
-            case "ERROR":
-                logger.error(message);
-                break;
-            case "DEBUG":
-                logger.debug(message);
-                break;
-            default:
-                logger.info(message);
-                break;
+        String prev = Thread.currentThread().getName();
+        try {
+            Thread.currentThread().setName("HungerBridge");
+            switch (level.toUpperCase()) {
+                case "WARN":
+                    logger.warn(message);
+                    break;
+                case "ERROR":
+                    logger.error(message);
+                    break;
+                case "DEBUG":
+                    logger.debug(message);
+                    break;
+                default:
+                    logger.info(message);
+                    break;
+            }
+        } finally {
+            try { Thread.currentThread().setName(prev); } catch (Exception ignored) {}
         }
     }
 }

@@ -18,20 +18,24 @@ public final class HungerBridgePlugin extends JavaPlugin {
     @Override
     public void onEnable() {
         org.apache.logging.log4j.core.Logger root =
-                (org.apache.logging.log4j.core.Logger) org.apache.logging.log4j.LogManager.getRootLogger();
+            (org.apache.logging.log4j.core.Logger) org.apache.logging.log4j.LogManager.getRootLogger();
         logAppender = new PaperLogAppender();
         logAppender.start();
         root.addAppender(logAppender);
 
         Logger logger = (level, message) -> {
-            org.apache.logging.log4j.Logger raw =
-                    org.apache.logging.log4j.LogManager.getLogger("");
-
-            switch (level.toUpperCase()) {
-                case "WARN": raw.warn(message); break;
-                case "ERROR": raw.error(message); break;
-                case "DEBUG": raw.debug(message); break;
-                default: raw.info(message); break;
+            String prev = Thread.currentThread().getName();
+            try {
+                Thread.currentThread().setName("HungerBridge");
+                org.apache.logging.log4j.Logger raw = org.apache.logging.log4j.LogManager.getLogger("HungerBridge");
+                switch (level.toUpperCase()) {
+                    case "WARN": raw.warn(message); break;
+                    case "ERROR": raw.error(message); break;
+                    case "DEBUG": raw.debug(message); break;
+                    default: raw.info(message); break;
+                }
+            } finally {
+                try { Thread.currentThread().setName(prev); } catch (Exception ignored) {}
             }
         };
 
