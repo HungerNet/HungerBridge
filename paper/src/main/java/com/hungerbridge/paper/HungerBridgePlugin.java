@@ -8,7 +8,6 @@ import com.hungerbridge.common.security.TokenManager;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 import java.nio.file.Path;
 
@@ -16,8 +15,9 @@ public final class HungerBridgePlugin extends JavaPlugin {
 
     private BridgeServer bridgeServer;
     private PaperLogAppender logAppender;
-    private static final Logger HB_LOGGER = LogManager.getLogger("HungerBridge");
+    private static final org.apache.logging.log4j.Logger HB_LOGGER = LogManager.getLogger("HungerBridge");
     private Thread bridgeThread;
+    private Logger hbAdapter;
 
     @Override
     public void onEnable() {
@@ -71,12 +71,18 @@ public final class HungerBridgePlugin extends JavaPlugin {
         PaperServerInfoProvider infoProvider = new PaperServerInfoProvider(getServer());
 
         bridgeServer = new BridgeServer(configDir, config, logger, executor);
+        hbAdapter = logger;
         // Start the bridge server on a dedicated thread named "HungerBridge"
         bridgeThread = new Thread(() -> {
             try {
                 bridgeServer.start();
             } catch (Throwable t) {
-                HB_LOGGER.error("Bridge server thread terminated with error", t);
+                if (hbAdapter != null) {
+                    hbAdapter.log("ERROR", "Bridge server thread terminated with error: " + t.toString());
+                } else {
+                    HB_LOGGER.error("Bridge server thread terminated with error", t);
+                }
+                t.printStackTrace();
             }
         }, "HungerBridge");
         bridgeThread.setDaemon(false);
@@ -87,7 +93,7 @@ public final class HungerBridgePlugin extends JavaPlugin {
             PaperCommandRegistrar.register(this, bridgeServer);
         } catch (Exception ignored) {}
 
-        HB_LOGGER.info("HungerBridge enabled.");
+        if (hbAdapter != null) hbAdapter.log("INFO", "HungerBridge enabled."); else HB_LOGGER.info("HungerBridge enabled.");
     }
 
     @Override
@@ -107,6 +113,6 @@ public final class HungerBridgePlugin extends JavaPlugin {
             logAppender.stop();
             logAppender = null;
         }
-        HB_LOGGER.info("HungerBridge disabled.");
+        if (hbAdapter != null) hbAdapter.log("INFO", "HungerBridge disabled."); else HB_LOGGER.info("HungerBridge disabled.");
     }
 }
