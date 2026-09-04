@@ -90,7 +90,6 @@ public final class CommonCommandHandler {
                             if (res == null) addError(out, bridgeServer, "Unknown policy id or duplicate token: " + policyId);
                             else {
                                 out.add("Token created. Retrieve it at: /tokens/pickup/" + res.pickupId);
-                                try { if (bridgeServer != null && bridgeServer.getLogger() != null) bridgeServer.getLogger().log("INFO", "Created token: " + res.tokenId); } catch (Exception ignored) {}
                             }
                             break;
                         }
@@ -106,7 +105,6 @@ public final class CommonCommandHandler {
                             if (rres == null) addError(out, bridgeServer, "Rotate failed for token: " + args[2]);
                             else {
                                 out.add("Token rotated. Retrieve it at: /tokens/pickup/" + rres.pickupId);
-                                try { if (bridgeServer != null && bridgeServer.getLogger() != null) bridgeServer.getLogger().log("INFO", "Rotated token: " + rres.tokenId); } catch (Exception ignored) {}
                             }
                             break;
                         }
@@ -156,7 +154,6 @@ public final class CommonCommandHandler {
 
     private static void addSuccess(List<String> out, BridgeServer bridgeServer, String message) {
         out.add(CommandMessages.success(message));
-        try { if (bridgeServer != null && bridgeServer.getLogger() != null) bridgeServer.getLogger().log("INFO", message); } catch (Exception ignored) {}
     }
 
     private CommonCommandHandler() {}

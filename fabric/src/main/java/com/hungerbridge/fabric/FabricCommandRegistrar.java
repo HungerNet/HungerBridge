@@ -99,7 +99,13 @@ public final class FabricCommandRegistrar {
         java.util.List<String> lines = CommonCommandHandler.handle(bridgeServer, args);
         for (String line : lines) {
             ChatFormatting style = styleFor(line);
-            source.sendSuccess(() -> Component.literal(line).withStyle(style), false);
+            String prev = Thread.currentThread().getName();
+            try {
+                Thread.currentThread().setName("HungerBridge");
+                source.sendSuccess(() -> Component.literal(line).withStyle(style), false);
+            } finally {
+                try { Thread.currentThread().setName(prev); } catch (Exception ignored) {}
+            }
         }
         return 1;
     }

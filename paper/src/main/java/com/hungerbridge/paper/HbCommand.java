@@ -20,7 +20,13 @@ public final class HbCommand implements CommandExecutor {
     }
 
     private void send(CommandSender sender, String msg) {
-        sender.sendMessage(style(msg));
+        String prev = Thread.currentThread().getName();
+        try {
+            Thread.currentThread().setName("HungerBridge");
+            sender.sendMessage(style(msg));
+        } finally {
+            try { Thread.currentThread().setName(prev); } catch (Exception ignored) {}
+        }
     }
 
     private String style(String msg) {
