@@ -18,6 +18,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -47,17 +50,18 @@ public final class TokenManager {
 
     private static final Gson GSON = new Gson();
 
+    private final ScheduledExecutorService sweepExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread t = new Thread(r, "hb-pickup-sweeper");
+        t.setDaemon(true);
+        return t;
+    });
+
     public TokenManager(Path configDir, Logger logger) {
         this.logger = logger;
         this.storageDir = configDir.resolve("storage");
         this.tokensFile = storageDir.resolve("tokens.json");
         this.sessionsFile = storageDir.resolve("sessions.json");
         this.pickupsFile = storageDir.resolve("pickups.json");
-    private final ScheduledExecutorService sweepExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
-        Thread t = new Thread(r, "hb-pickup-sweeper");
-        t.setDaemon(true);
-        return t;
-    });
 
         try {
             if (!Files.exists(storageDir)) {
@@ -72,6 +76,13 @@ public final class TokenManager {
         loadTokens();
         loadSessions();
         loadPickups();
+
+        // start periodic sweep to remove expired pickups every 5 minutes
+        try {
+            sweepExecutor.scheduleAtFixedRate(() -> {
+                try { sweepExpiredPickups(); } catch (Exception e) { if (logger != null) logger.log("WARN", "Pickup sweep failed: " + e.getMessage()); }
+            }, 300, 300, TimeUnit.SECONDS);
+        } catch (Exception ignored) {}
     }
 
     private byte[] loadOrCreateMasterKey() {
@@ -79,12 +90,6 @@ public final class TokenManager {
         try {
             if (Files.exists(mk)) {
                 byte[] b = Files.readAllBytes(mk);
-        // start periodic sweep to remove expired pickups every 5 minutes
-        try {
-            sweepExecutor.scheduleAtFixedRate(() -> {
-                try { sweepExpiredPickups(); } catch (Exception e) { if (logger != null) logger.log("WARN", "Pickup sweep failed: " + e.getMessage()); }
-            }, 300, 300, TimeUnit.SECONDS);
-        } catch (Exception ignored) {}
                 return b;
             }
             byte[] b = new byte[32];
@@ -133,28 +138,6 @@ public final class TokenManager {
             } else if (logger != null) logger.log("INFO", "Using sessions file: " + sessionsFile);
             String txt = Files.readString(sessionsFile, StandardCharsets.UTF_8);
             Type t = new TypeToken<Map<String, Long>>(){}.getType();
-
-    public void shutdown() {
-        try { sweepExecutor.shutdownNow(); } catch (Exception ignored) {}
-    }
-
-    private synchronized void sweepExpiredPickups() {
-        long now = Instant.now().getEpochSecond();
-        boolean removedAny = false;
-        Iterator<Map.Entry<String, PickupRecord>> it = pickups.entrySet().iterator();
-        while (it.hasNext()) {
-            Map.Entry<String, PickupRecord> e = it.next();
-            PickupRecord pr = e.getValue();
-            if (pr.expiresAt < now) {
-                it.remove();
-                removedAny = true;
-            }
-        }
-        if (removedAny) {
-            persistPickups();
-            if (logger != null) logger.log("INFO", "Swept expired pickup records");
-        }
-    }
             Map<String, Long> sess = GSON.fromJson(txt, t);
             if (sess != null) nonceCache.putAll(sess);
         } catch (Exception e) {
@@ -193,6 +176,28 @@ public final class TokenManager {
             }
         } catch (Exception e) {
             if (logger != null) logger.log("WARN", "Failed to load pickups: " + e.getMessage());
+        }
+    }
+
+    public void shutdown() {
+        try { sweepExecutor.shutdownNow(); } catch (Exception ignored) {}
+    }
+
+    private synchronized void sweepExpiredPickups() {
+        long now = Instant.now().getEpochSecond();
+        boolean removedAny = false;
+        Iterator<Map.Entry<String, PickupRecord>> it = pickups.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<String, PickupRecord> e = it.next();
+            PickupRecord pr = e.getValue();
+            if (pr.expiresAt < now) {
+                it.remove();
+                removedAny = true;
+            }
+        }
+        if (removedAny) {
+            persistPickups();
+            if (logger != null) logger.log("INFO", "Swept expired pickup records");
         }
     }
 
