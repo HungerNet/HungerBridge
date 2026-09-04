@@ -127,4 +127,8 @@ public final class BridgeServer {
     public AdminService getAdminService() {
         return adminService;
     }
+
+    public Logger getLogger() {
+        return logger;
+    }
 }

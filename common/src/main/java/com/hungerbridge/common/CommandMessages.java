@@ -25,11 +25,11 @@ public final class CommandMessages {
     }
 
     public static String createdToken(String id, String secret) {
-        return ANSI_GREEN + "Created token: " + id + " -> " + secret + ANSI_RESET;
+        return ANSI_GREEN + "Created token: " + id + ":" + secret + ANSI_RESET;
     }
 
     public static String rotatedToken(String id, String secret) {
-        return ANSI_GREEN + "Rotated token: " + id + " -> " + secret + ANSI_RESET;
+        return ANSI_GREEN + "Rotated token: " + id + ":" + secret + ANSI_RESET;
     }
 
     public static String info(String message) {

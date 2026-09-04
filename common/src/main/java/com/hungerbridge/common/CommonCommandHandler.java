@@ -124,7 +124,15 @@ public final class CommonCommandHandler {
                     out.add(CommandMessages.error("Unknown subcommand."));
             }
         } catch (Exception e) {
-            out.add(CommandMessages.error(e.getMessage() == null ? "An unexpected error occurred." : e.getMessage()));
+            String msg = e.getMessage() == null ? "An unexpected error occurred." : e.getMessage();
+            out.add(CommandMessages.error(msg));
+            try {
+                if (bridgeServer != null) {
+                    com.hungerbridge.common.Logger l = bridgeServer.getLogger();
+                    if (l != null) l.log("ERROR", "Command handler exception: " + msg);
+                }
+            } catch (Exception ignored) {
+            }
         }
 
         return out;

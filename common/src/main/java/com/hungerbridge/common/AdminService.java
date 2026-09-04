@@ -96,6 +96,7 @@ public final class AdminService {
                 return tm.revokeToken(t.id);
             }
         }
+        if (logger != null) logger.log("WARN", "Revoke token not found: " + id);
         return false;
     }
 
@@ -122,6 +123,9 @@ public final class AdminService {
             extra.put("action", "rotate");
             extra.put("token", usedId);
             al.logEvent(usedId, "local", "token.rotate", "rotated", extra);
+        }
+        if (t == null && logger != null) {
+            logger.log("WARN", "Rotate failed for token: " + id);
         }
         return t;
     }
@@ -166,6 +170,7 @@ public final class AdminService {
             int start = Math.max(0, collected.size() - lastN);
             return new ArrayList<>(collected.subList(start, collected.size()));
         } catch (IOException e) {
+            if (logger != null) logger.log("WARN", "Failed to read audit logs: " + e.getMessage());
             return Collections.emptyList();
         }
     }
@@ -205,6 +210,7 @@ public final class AdminService {
             out.put("tokens_valid", com.hungerbridge.common.TokensConfig.load(configDir) != null);
         } catch (Exception e) {
             out.put("error", e.getMessage());
+            if (logger != null) logger.log("ERROR", "Failed to compute config status: " + e.getMessage());
         }
         return out;
     }
@@ -227,6 +233,7 @@ public final class AdminService {
             }
             return true;
         } catch (Exception e) {
+            if (logger != null) logger.log("ERROR", "Failed to reload config: " + e.getMessage());
             return false;
         }
     }
