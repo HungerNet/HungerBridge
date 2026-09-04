@@ -4,6 +4,7 @@ import com.hungerbridge.common.BridgeServer;
 import com.hungerbridge.common.CommandExecutor;
 import com.hungerbridge.common.Config;
 import com.hungerbridge.common.Logger;
+import com.hungerbridge.common.log.PlatformLogAppender;
 import com.hungerbridge.common.security.TokenManager;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -23,7 +24,7 @@ public final class HungerBridgePlugin extends JavaPlugin {
     public void onEnable() {
         org.apache.logging.log4j.core.Logger root =
             (org.apache.logging.log4j.core.Logger) org.apache.logging.log4j.LogManager.getRootLogger();
-        logAppender = new PaperLogAppender();
+        logAppender = new PlatformLogAppender("HungerBridgePaperLogAppender");
         logAppender.start();
         root.addAppender(logAppender);
 

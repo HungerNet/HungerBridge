@@ -155,4 +155,17 @@ public final class ConfigTest {
         assertTrue(CommandMessages.createdToken("admin", "secret").startsWith("Created token"));
         assertTrue(CommandMessages.rotatedToken("admin", "secret").startsWith("Rotated token"));
     }
+
+    @Test
+    public void rateLimiterRefillsAcrossMilliseconds() throws InterruptedException {
+        Path dir = Files.createTempDirectory("hungerbridge-rate-limit");
+        com.hungerbridge.common.security.RateLimiter limiter = new com.hungerbridge.common.security.RateLimiter(dir, (level, message) -> {});
+        limiter.setLimits(1000.0, 1.0, 1000.0, 1.0);
+
+        assertTrue(limiter.allowRequestForToken("ms-test"));
+        assertTrue(!limiter.allowRequestForToken("ms-test"));
+
+        Thread.sleep(120L);
+        assertTrue(limiter.allowRequestForToken("ms-test"));
+    }
 }

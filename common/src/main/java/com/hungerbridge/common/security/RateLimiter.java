@@ -37,7 +37,7 @@ public final class RateLimiter {
         double tokens;
         double capacity;
         double refillRate; // tokens per second
-        long lastRefillEpochSec;
+        long lastRefillEpochMs;
     }
 
     private Bucket getBucket(String key, boolean isIp) {
@@ -52,7 +52,7 @@ public final class RateLimiter {
                 b.refillRate = defaultRatePerSecond;
                 b.tokens = b.capacity;
             }
-            b.lastRefillEpochSec = Instant.now().getEpochSecond();
+            b.lastRefillEpochMs = System.currentTimeMillis();
             return b;
         });
     }
@@ -92,11 +92,11 @@ public final class RateLimiter {
     }
 
     private void refill(Bucket b) {
-        long now = Instant.now().getEpochSecond();
-        long delta = now - b.lastRefillEpochSec;
-        if (delta <= 0) return;
-        double add = delta * b.refillRate;
+        long nowMs = System.currentTimeMillis();
+        long deltaMs = nowMs - b.lastRefillEpochMs;
+        if (deltaMs <= 0) return;
+        double add = (deltaMs / 1000.0) * b.refillRate;
         b.tokens = Math.min(b.capacity, b.tokens + add);
-        b.lastRefillEpochSec = now;
+        b.lastRefillEpochMs = nowMs;
     }
 }

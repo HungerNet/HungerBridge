@@ -46,7 +46,7 @@ public final class CommonCommandHandler {
                     List<String> lines = admin.getAuditSummary(n);
                     if (lines == null || lines.isEmpty()) {
                         addWarning(out, bridgeServer, "No audit entries found.");
-                    } else {D
+                    } else {
                         out.addAll(CommandMessages.formatList(lines, false));
                     }
                     break;

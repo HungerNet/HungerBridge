@@ -220,12 +220,12 @@ public final class TokenManager {
         }
     }
 
-    private void persistSessions() {
+    private synchronized void persistSessions() {
         try {
             String txt = GSON.toJson(nonceCache);
             Files.writeString(sessionsFile, txt, StandardCharsets.UTF_8);
         } catch (IOException e) {
-            logger.log("WARN", "Failed to persist sessions: " + e.getMessage());
+            if (logger != null) logger.log("WARN", "Failed to persist sessions: " + e.getMessage());
         }
     }
 
@@ -243,14 +243,16 @@ public final class TokenManager {
         Long existing = nonceCache.putIfAbsent(nonce, ts + allowedSkewSeconds);
         if (existing != null) return false;
 
-        // cleanup old nonces occasionally
+        // cleanup old nonces occasionally and persist the cache so replay protection survives restarts.
         if (nonceCache.size() > 1000) {
             long cutoff = now - (allowedSkewSeconds * 2);
             Iterator<Map.Entry<String, Long>> it = nonceCache.entrySet().iterator();
             while (it.hasNext()) {
                 Map.Entry<String, Long> e = it.next();
-                if (e.getValue() < now) it.remove();
+                if (e.getValue() < now || e.getValue() < cutoff) it.remove();
             }
+            persistSessions();
+        } else {
             persistSessions();
         }
 
@@ -483,3 +485,4 @@ public final class TokenManager {
         return pr;
     }
 }
+

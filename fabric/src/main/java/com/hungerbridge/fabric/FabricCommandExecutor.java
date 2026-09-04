@@ -1,21 +1,14 @@
 package com.hungerbridge.fabric;
 
 import com.hungerbridge.common.CommandExecutor;
+import com.hungerbridge.common.platform.CommandCapture;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.network.chat.Component;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.core.Appender;
-import org.apache.logging.log4j.core.LogEvent;
-import org.apache.logging.log4j.core.Logger;
-import org.apache.logging.log4j.core.appender.AbstractAppender;
-import org.apache.logging.log4j.core.layout.PatternLayout;
-
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 public final class FabricCommandExecutor implements CommandExecutor {
@@ -40,57 +33,8 @@ public final class FabricCommandExecutor implements CommandExecutor {
     @Override
     public List<String> executeWithOutput(String command, boolean showConsole) {
         CompletableFuture<List<String>> future = new CompletableFuture<>();
-
-        server.execute(() -> {
-            List<String> lines = new ArrayList<>();
-
-            Logger root = (Logger) LogManager.getRootLogger();
-            Map<String, Appender> original = root.getAppenders();
-
-            Appender capture = new AbstractAppender(
-                    "HungerBridgeFabricCapture",
-                    null,
-                    PatternLayout.newBuilder().withPattern("%msg").build(),
-                    false,
-                    null
-            ) {
-                @Override
-                public void append(LogEvent event) {
-                    if (event.getMessage() == null) return;
-                    String msg = event.getMessage().getFormattedMessage();
-                    if (msg == null) return;
-                    String trimmed = msg.trim();
-                    if (!trimmed.isEmpty()) {
-                        lines.add(trimmed);
-                    }
-                }
-            };
-
-            capture.start();
-
-            if (!showConsole) {
-                for (Appender a : original.values()) {
-                    root.removeAppender(a);
-                }
-            }
-
-            root.addAppender(capture);
-
-            try {
-                server.getCommands().performPrefixedCommand(console(), command);
-            } finally {
-                root.removeAppender(capture);
-                capture.stop();
-
-                if (!showConsole) {
-                    for (Appender a : original.values()) {
-                        root.addAppender(a);
-                    }
-                }
-            }
-
-            future.complete(List.copyOf(lines));
-        });
+        server.execute(() -> future.complete(CommandCapture.capture(() ->
+                server.getCommands().performPrefixedCommand(console(), command), showConsole)));
 
         try {
             return future.get();
