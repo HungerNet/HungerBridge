@@ -59,6 +59,9 @@ public final class BridgeServer {
             server.createContext("/info", new InfoHandler(config, logger));
             endpoints.add("/info");
         }
+        // auth check endpoint is always enabled
+        server.createContext("/auth/check", new com.hungerbridge.common.http.v2.AuthCheckHandler(config));
+        endpoints.add("/auth/check");
         if (config.isStatusEnabled()) {
             server.createContext("/status", new StatusHandler(config, logger));
             endpoints.add("/status");
@@ -72,8 +75,8 @@ public final class BridgeServer {
             endpoints.add("/log");
         }
         // one-time token pickup endpoint (no auth)
-        server.createContext("/hb/tokens/pickup", new com.hungerbridge.common.http.v2.PickupHandler(config));
-        endpoints.add("/hb/tokens/pickup/{id}");
+        server.createContext("/tokens/pickup", new com.hungerbridge.common.http.v2.PickupHandler(config));
+        endpoints.add("/tokens/pickup/{id}");
         if (config.isStreamLogsEnabled()) {
             server.createContext("/stream/logs", new StreamLogsHandler(config));
             endpoints.add("/stream/logs");
@@ -84,14 +87,14 @@ public final class BridgeServer {
         // admin endpoints (require admin privileges from a token ACL)
         AdminService admin = new AdminService(configDir, config, logger, this);
         this.adminService = admin;
-        server.createContext("/admin/tokens/list", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_list"));
-        endpoints.add("/admin/tokens/list");
-        server.createContext("/admin/tokens/create", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_create"));
-        endpoints.add("/admin/tokens/create");
-        server.createContext("/admin/tokens/revoke", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_revoke"));
-        endpoints.add("/admin/tokens/revoke");
-        server.createContext("/admin/tokens/rotate", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_rotate"));
-        endpoints.add("/admin/tokens/rotate");
+        server.createContext("/admin/token/list", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_list"));
+        endpoints.add("/admin/token/list");
+        server.createContext("/admin/token/create", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_create"));
+        endpoints.add("/admin/token/create");
+        server.createContext("/admin/token/revoke", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_revoke"));
+        endpoints.add("/admin/token/revoke");
+        server.createContext("/admin/token/rotate", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_rotate"));
+        endpoints.add("/admin/token/rotate");
         server.createContext("/admin/status", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "status"));
         endpoints.add("/admin/status");
         server.createContext("/admin/ip", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "ip"));

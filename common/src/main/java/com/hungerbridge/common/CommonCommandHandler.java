@@ -89,7 +89,7 @@ public final class CommonCommandHandler {
                             TokenManager.IssueResult res = admin.createTokenWithPickup(policyId, tokenId, expiry, List.of(), List.of(), 300);
                             if (res == null) addError(out, bridgeServer, "Unknown policy id or duplicate token: " + policyId);
                             else {
-                                out.add("Token created. Retrieve it at: /hb/tokens/pickup/" + res.pickupId);
+                                out.add("Token created. Retrieve it at: /tokens/pickup/" + res.pickupId);
                                 try { if (bridgeServer != null && bridgeServer.getLogger() != null) bridgeServer.getLogger().log("INFO", "Created token: " + res.tokenId); } catch (Exception ignored) {}
                             }
                             break;
@@ -105,7 +105,7 @@ public final class CommonCommandHandler {
                             TokenManager.IssueResult rres = admin.rotateTokenWithPickup(args[2], 300);
                             if (rres == null) addError(out, bridgeServer, "Rotate failed for token: " + args[2]);
                             else {
-                                out.add("Token rotated. Retrieve it at: /hb/tokens/pickup/" + rres.pickupId);
+                                out.add("Token rotated. Retrieve it at: /tokens/pickup/" + rres.pickupId);
                                 try { if (bridgeServer != null && bridgeServer.getLogger() != null) bridgeServer.getLogger().log("INFO", "Rotated token: " + rres.tokenId); } catch (Exception ignored) {}
                             }
                             break;

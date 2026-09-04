@@ -87,17 +87,19 @@ public final class TokenHandler implements HttpHandler {
                 return;
             }
 
-            // create token and return one-time pickup id (do not return plaintext secret in API)
-            TokenManager.IssueResult res = tm.issueTokenWithPickup(tokenId, expiry, whitelist, blacklist, 300);
-            if (res == null) { HttpUtil.error(ex, 500, "create_failed", "failed to create token", config); return; }
-            if (policyId != null && !policyId.isBlank()) tm.setTokenPolicyId(res.tokenId, policyId);
-            JsonObject resp = Json.obj(
+                // create token and return its id and plaintext secret
+                TokenManager.IssueResult res = tm.issueTokenWithPickup(tokenId, expiry, whitelist, blacklist, 300);
+                if (res == null) { HttpUtil.error(ex, 500, "create_failed", "failed to create token", config); return; }
+                // consume the pickup immediately to obtain the secret
+                TokenManager.PickupRecord pr = tm.consumePickup(res.pickupId);
+                if (pr == null) { HttpUtil.error(ex, 500, "create_failed", "failed to retrieve token secret", config); return; }
+                if (policyId != null && !policyId.isBlank()) tm.setTokenPolicyId(res.tokenId, policyId);
+                JsonObject resp = Json.obj(
                     "ok", true,
                     "id", res.tokenId,
-                    "pickup_id", res.pickupId,
-                    "pickup_url", "/hb/tokens/pickup/" + res.pickupId,
+                    "secret", pr.secret,
                     "expiry", expiry
-            );
+                );
                 HttpUtil.writeJson(ex, 200, resp);
             return;
         }

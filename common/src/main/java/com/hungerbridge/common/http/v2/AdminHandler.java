@@ -93,10 +93,14 @@ public final class AdminHandler implements HttpHandler {
                     }
                     com.hungerbridge.common.security.TokenManager.IssueResult res = admin.createTokenWithPickup(policyId, tokenId, expiry, wl, bl, 300);
                     if (res == null) { HttpUtil.error(ex, 500, "create_failed", "failed to create token", config); break; }
+                    // consume pickup immediately to return secret
+                    com.hungerbridge.common.security.TokenManager tm = config.getTokenManager();
+                    com.hungerbridge.common.security.TokenManager.PickupRecord pr = null;
+                    if (tm != null) pr = tm.consumePickup(res.pickupId);
+                    if (pr == null) { HttpUtil.error(ex, 500, "create_failed", "failed to retrieve token secret", config); break; }
                     JsonObject out = new JsonObject();
                     out.addProperty("id", res.tokenId);
-                    out.addProperty("pickup_id", res.pickupId);
-                    out.addProperty("pickup_url", "/hb/tokens/pickup/" + res.pickupId);
+                    out.addProperty("secret", pr.secret);
                     HttpUtil.writeJson(ex, 200, Response.ok(out));
                     break;
                 }
@@ -115,7 +119,11 @@ public final class AdminHandler implements HttpHandler {
                     String id = body.get("id").getAsString();
                     com.hungerbridge.common.security.TokenManager.IssueResult rres = admin.rotateTokenWithPickup(id, 300);
                     if (rres == null) { HttpUtil.error(ex, 404, "not_found", "token not found or revoked", config); break; }
-                    JsonObject out = new JsonObject(); out.addProperty("id", rres.tokenId); out.addProperty("pickup_id", rres.pickupId); out.addProperty("pickup_url", "/hb/tokens/pickup/" + rres.pickupId);
+                    com.hungerbridge.common.security.TokenManager tm2 = config.getTokenManager();
+                    com.hungerbridge.common.security.TokenManager.PickupRecord pr2 = null;
+                    if (tm2 != null) pr2 = tm2.consumePickup(rres.pickupId);
+                    if (pr2 == null) { HttpUtil.error(ex, 500, "rotate_failed", "failed to retrieve rotated token secret", config); break; }
+                    JsonObject out = new JsonObject(); out.addProperty("id", rres.tokenId); out.addProperty("secret", pr2.secret);
                     HttpUtil.writeJson(ex, 200, Response.ok(out));
                     break;
                 }

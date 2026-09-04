@@ -27,7 +27,7 @@ public final class PickupHandler implements HttpHandler {
 
         String path = ex.getRequestURI().getPath();
         String[] parts = path.split("/");
-        if (parts.length < 5) {
+        if (parts.length < 4) {
             HttpUtil.error(ex, 404, "not_found", "Pickup id missing", config);
             return;
         }

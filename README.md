@@ -74,7 +74,7 @@ curl -X POST \
   -H "X-Auth-Nonce: $(openssl rand -hex 16)" \
   -H "X-Auth-Signature: <hmac-signature>" \
   -d '{"id":"bridge-client","expiry":3600,"whitelist":["run"]}' \
-  http://localhost:1913/admin/tokens/create
+  http://localhost:1913/admin/token/create
 ```
 
 Sample successful response:
@@ -156,10 +156,10 @@ Core HTTP API endpoints
 
 Admin HTTP endpoints (require an admin-capable token)
 
- - `GET  /admin/tokens/list` — list tokens (no secrets)
- - `POST /admin/tokens/create` — create token (JSON: `id`, optional `expiry`, optional `whitelist`, optional `blacklist`) — returns `id` and `secret`
- - `POST /admin/tokens/revoke` — revoke token (JSON: `id`)
- - `POST /admin/tokens/rotate` — rotate token secret (JSON: `id`) — returns new `id` and `secret`
+ - `GET  /admin/token/list` — list tokens (no secrets)
+ - `POST /admin/token/create` — create token (JSON: `id`, optional `expiry`, optional `whitelist`, optional `blacklist`) — returns `id` and `secret`
+ - `POST /admin/token/revoke` — revoke token (JSON: `id`)
+ - `POST /admin/token/rotate` — rotate token secret (JSON: `id`) — returns new `id` and `secret`
  - `GET  /admin/status` — rate limits and ACLs
  - `GET  /admin/ip` — show configured IP whitelist/blacklist
  - `GET  /admin/audit?n=<N>` — return last N audit entries
@@ -256,7 +256,7 @@ curl -X POST \
   -H "X-Auth-Nonce: $(openssl rand -hex 16)" \
   -H "X-Auth-Signature: <hmac-signature>" \
   -d '{"id":"bridge-client","expiry":3600,"whitelist":["run"]}' \
-  http://localhost:1913/admin/tokens/create
+  http://localhost:1913/admin/token/create
 ```
 
 Sample successful response (admin responses use a uniform schema):
@@ -281,7 +281,7 @@ curl -X POST \
   -H "X-Auth-Nonce: $(openssl rand -hex 16)" \
   -H "X-Auth-Signature: <hmac-signature>" \
   -d '{"id":"abcd1234"}' \
-  http://localhost:1913/admin/tokens/rotate
+  http://localhost:1913/admin/token/rotate
 ```
 
 Store returned secrets securely — they are only shown once.
