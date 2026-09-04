@@ -34,7 +34,7 @@ public final class CommonCommandHandler {
                     out.add(ok ? CommandMessages.success("Config reloaded.") : CommandMessages.error("Reload failed."));
                     break;
                 case "status":
-                    out.add(admin.getStatus().toString());
+                    out.addAll(CommandMessages.formatKeyValues(admin.getStatus()));
                     break;
                 case "audit": {
                     if (args.length >= 2 && args[1].equalsIgnoreCase("help")) {
@@ -47,7 +47,7 @@ public final class CommonCommandHandler {
                     if (lines == null || lines.isEmpty()) {
                         out.add(CommandMessages.warning("No audit entries found."));
                     } else {
-                        out.addAll(lines);
+                        out.addAll(CommandMessages.formatList(lines, false));
                     }
                     break;
                 }
@@ -65,10 +65,12 @@ public final class CommonCommandHandler {
                             if (toks.isEmpty()) {
                                 out.add(CommandMessages.warning("No tokens found."));
                             } else {
+                                List<String> tokenLines = new ArrayList<>();
                                 for (TokenManager.Token t : toks.values()) {
-                                    if (t.name != null && !t.name.isBlank()) out.add(t.name + " -> " + t.id);
-                                    else out.add(t.id);
+                                    if (t.name != null && !t.name.isBlank()) tokenLines.add(t.name + " -> " + t.id);
+                                    else tokenLines.add(t.id);
                                 }
+                                out.addAll(CommandMessages.formatList(tokenLines, false));
                             }
                             break;
                         case "create": {
@@ -112,11 +114,11 @@ public final class CommonCommandHandler {
                         out.add("IP: show the whitelist/blacklist status.");
                         break;
                     }
-                    out.add(admin.getIpStatus().toString());
+                    out.addAll(CommandMessages.formatKeyValues(admin.getIpStatus()));
                     break;
                 case "config":
                     Map<String, Object> cs = admin.getConfigStatus();
-                    for (Map.Entry<String, Object> e : cs.entrySet()) out.add(e.getKey() + ": " + String.valueOf(e.getValue()));
+                    out.addAll(CommandMessages.formatKeyValues(cs));
                     break;
                 default:
                     out.add(CommandMessages.error("Unknown subcommand."));
