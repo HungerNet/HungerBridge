@@ -68,7 +68,7 @@ public final class TokenManager {
                 Files.createDirectories(storageDir);
                 if (logger != null) logger.log("INFO", "Created storage directory: " + storageDir);
             } else if (logger != null) logger.log("INFO", "Using storage directory: " + storageDir);
-            setOwnerOnlyPerms(storageDir);
+            ensureDirectoryPermissions(storageDir, logger);
         } catch (IOException e) {
             throw new RuntimeException("Failed to create storage directory", e);
         }
@@ -90,14 +90,14 @@ public final class TokenManager {
         Path mk = storageDir.resolve("master.key");
         try {
             if (Files.exists(mk)) {
-                setOwnerOnlyPerms(mk);
+                ensureFilePermissions(mk, logger);
                 byte[] b = Files.readAllBytes(mk);
                 return b;
             }
             byte[] b = new byte[32];
             new java.security.SecureRandom().nextBytes(b);
             Files.write(mk, b);
-            setOwnerOnlyPerms(mk);
+            ensureFilePermissions(mk, logger);
             if (logger != null) logger.log("INFO", "Generated master key: " + mk);
             return b;
         } catch (IOException e) {
@@ -115,6 +115,45 @@ public final class TokenManager {
             // Filesystem does not support POSIX permissions; rely on the containing directory and OS-level controls.
         } catch (IOException e) {
             if (logger != null) logger.log("WARN", "Failed to tighten permissions on " + path + ": " + e.getMessage());
+        }
+    }
+
+    private static void ensureDirectoryPermissions(Path dir, Logger logger) {
+        if (!Files.isDirectory(dir)) {
+            if (logger != null) logger.log("WARN", "Path is not a directory: " + dir);
+            return;
+        }
+        try {
+            if (!Files.isReadable(dir) || !Files.isWritable(dir) || !Files.isExecutable(dir)) {
+                if (logger != null) logger.log("WARN", "Storage directory has incorrect permissions; correcting: " + dir);
+                java.nio.file.attribute.PosixFilePermission ownerRead = java.nio.file.attribute.PosixFilePermission.OWNER_READ;
+                java.nio.file.attribute.PosixFilePermission ownerWrite = java.nio.file.attribute.PosixFilePermission.OWNER_WRITE;
+                java.nio.file.attribute.PosixFilePermission ownerExecute = java.nio.file.attribute.PosixFilePermission.OWNER_EXECUTE;
+                java.util.Set<java.nio.file.attribute.PosixFilePermission> perms = java.util.EnumSet.of(ownerRead, ownerWrite, ownerExecute);
+                Files.setPosixFilePermissions(dir, perms);
+                if (logger != null) logger.log("INFO", "Corrected storage directory permissions to rwx------");
+            }
+        } catch (UnsupportedOperationException ignored) {
+            // Filesystem does not support POSIX permissions.
+        } catch (IOException e) {
+            if (logger != null) logger.log("ERROR", "Failed to correct storage directory permissions on " + dir + ": " + e.getMessage());
+        }
+    }
+
+    private static void ensureFilePermissions(Path file, Logger logger) {
+        if (!Files.isRegularFile(file)) {
+            if (logger != null) logger.log("WARN", "Path is not a regular file: " + file);
+            return;
+        }
+        try {
+            java.nio.file.attribute.PosixFilePermission ownerRead = java.nio.file.attribute.PosixFilePermission.OWNER_READ;
+            java.nio.file.attribute.PosixFilePermission ownerWrite = java.nio.file.attribute.PosixFilePermission.OWNER_WRITE;
+            java.util.Set<java.nio.file.attribute.PosixFilePermission> perms = java.util.EnumSet.of(ownerRead, ownerWrite);
+            Files.setPosixFilePermissions(file, perms);
+        } catch (UnsupportedOperationException ignored) {
+            // Filesystem does not support POSIX permissions.
+        } catch (IOException e) {
+            if (logger != null) logger.log("WARN", "Failed to set file permissions on " + file + ": " + e.getMessage());
         }
     }
 
