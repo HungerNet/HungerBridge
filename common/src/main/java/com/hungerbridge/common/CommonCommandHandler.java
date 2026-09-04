@@ -89,11 +89,11 @@ public final class CommonCommandHandler {
                             if (args.length >= 5) {
                                 try { expiry = Long.parseLong(args[4]); } catch (NumberFormatException ignored) {}
                             }
-                            TokenManager.Token t = admin.createToken(id, name, expiry, List.of(), List.of());
-                            if (t == null) addError(out, bridgeServer, "Unknown token id/policy or duplicate name: " + id);
+                            TokenManager.IssueResult res = admin.createTokenWithPickup(id, name, expiry, List.of(), List.of(), 300);
+                            if (res == null) addError(out, bridgeServer, "Unknown token id/policy or duplicate name: " + id);
                             else {
-                                out.add(CommandMessages.createdToken(t.id, t.secret));
-                                try { if (bridgeServer != null && bridgeServer.getLogger() != null) bridgeServer.getLogger().log("INFO", "Created token: " + t.id); } catch (Exception ignored) {}
+                                out.add("Token created. Retrieve it at: /hb/tokens/pickup/" + res.pickupId);
+                                try { if (bridgeServer != null && bridgeServer.getLogger() != null) bridgeServer.getLogger().log("INFO", "Created token: " + res.tokenId); } catch (Exception ignored) {}
                             }
                             break;
                         }
@@ -105,11 +105,11 @@ public final class CommonCommandHandler {
                         }
                         case "rotate": {
                             if (args.length < 3) { out.add("Usage: /hungerbridge token rotate <id>"); break; }
-                            TokenManager.Token t = admin.rotateToken(args[2]);
-                            if (t == null) addError(out, bridgeServer, "Rotate failed for token: " + args[2]);
+                            TokenManager.IssueResult rres = admin.rotateTokenWithPickup(args[2], 300);
+                            if (rres == null) addError(out, bridgeServer, "Rotate failed for token: " + args[2]);
                             else {
-                                out.add(CommandMessages.rotatedToken(t.id, t.secret));
-                                try { if (bridgeServer != null && bridgeServer.getLogger() != null) bridgeServer.getLogger().log("INFO", "Rotated token: " + t.id); } catch (Exception ignored) {}
+                                out.add("Token rotated. Retrieve it at: /hb/tokens/pickup/" + rres.pickupId);
+                                try { if (bridgeServer != null && bridgeServer.getLogger() != null) bridgeServer.getLogger().log("INFO", "Rotated token: " + rres.tokenId); } catch (Exception ignored) {}
                             }
                             break;
                         }

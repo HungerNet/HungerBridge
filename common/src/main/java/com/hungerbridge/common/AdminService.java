@@ -78,6 +78,51 @@ public final class AdminService {
         return t;
     }
 
+    /**
+     * Create a token and issue a one-time pickup record. Returns the IssueResult containing pickup and token id.
+     */
+    public TokenManager.IssueResult createTokenWithPickup(String id, String name, long expirySeconds, List<String> whitelist, List<String> blacklist, int pickupTtlSeconds) {
+        TokenManager tm = config.getTokenManager();
+        if (tm == null) return null;
+        TokensConfig tc = config.getTokensConfig();
+        if (tc != null && id != null && !id.isBlank() && !tc.hasPolicy(id)) {
+            return null;
+        }
+
+        List<String> effectiveWhitelist = whitelist == null ? new ArrayList<>() : new ArrayList<>(whitelist);
+        List<String> effectiveBlacklist = blacklist == null ? new ArrayList<>() : new ArrayList<>(blacklist);
+        // ensure name uniqueness
+        if (name != null && !name.isBlank()) {
+            for (Map.Entry<String, TokenManager.Token> e : tm.listTokens().entrySet()) {
+                TokenManager.Token existing = e.getValue();
+                if (existing.name != null && existing.name.equals(name)) return null;
+            }
+        }
+        if (tc != null && (effectiveWhitelist.isEmpty() && effectiveBlacklist.isEmpty())) {
+            TokensConfig.TokenPolicy policy = tc.getPolicy(id);
+            if (policy != null) {
+                java.util.LinkedHashSet<String> resolved = new java.util.LinkedHashSet<>();
+                if (policy.endpoints != null) resolved.addAll(policy.endpoints);
+                if (policy.commands != null) resolved.addAll(policy.commands);
+                if (!resolved.isEmpty()) {
+                    if ("whitelist".equalsIgnoreCase(policy.endpointsMode) || "whitelist".equalsIgnoreCase(policy.commandsMode)) {
+                        effectiveWhitelist.addAll(resolved);
+                    } else {
+                        effectiveBlacklist.addAll(resolved);
+                    }
+                }
+                if (expirySeconds <= 0 && policy.defaultExpirySeconds > 0) expirySeconds = policy.defaultExpirySeconds;
+            }
+        }
+
+        TokenManager.IssueResult res = tm.issueTokenWithPickup(id, expirySeconds, effectiveWhitelist.isEmpty() ? null : effectiveWhitelist, effectiveBlacklist.isEmpty() ? null : effectiveBlacklist, pickupTtlSeconds);
+        if (res != null) {
+            if (id != null && !id.isBlank()) tm.setTokenPolicyId(res.tokenId, id);
+            if (name != null && !name.isBlank()) tm.setTokenName(res.tokenId, name);
+        }
+        return res;
+    }
+
     public TokenManager.Token createToken(long expirySeconds, List<String> whitelist, List<String> blacklist) {
         TokenManager tm = config.getTokenManager();
         if (tm == null) return null;
@@ -128,6 +173,14 @@ public final class AdminService {
             logger.log("WARN", "Rotate failed for token: " + id);
         }
         return t;
+    }
+
+    public TokenManager.IssueResult rotateTokenWithPickup(String id, int pickupTtlSeconds) {
+        TokenManager tm = config.getTokenManager();
+        if (tm == null) return null;
+        TokenManager.IssueResult res = tm.rotateTokenWithPickup(id, pickupTtlSeconds);
+        if (res == null && logger != null) logger.log("WARN", "Rotate failed for token: " + id);
+        return res;
     }
 
     public Map<String, Object> getStatus() {

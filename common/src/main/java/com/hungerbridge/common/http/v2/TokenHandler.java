@@ -89,17 +89,18 @@ public final class TokenHandler implements HttpHandler {
                 }
             }
 
-            // create token with optional name via TokenManager and attach name
-            TokenManager.Token tk = tm.createToken(id, expiry, whitelist, blacklist);
-            if (tk == null) { HttpUtil.error(ex, 500, "create_failed", "failed to create token", config); return; }
-            if (name != null && !name.isBlank()) tm.setTokenName(tk.id, name);
-            JsonObject resp = Json.obj(
-                    "ok", true,
-                    "id", tk.id,
-                    "secret", tk.secret,
-                    "expiry", tk.expiry
-            );
-            HttpUtil.writeJson(ex, 200, resp);
+                // create token and return one-time pickup id (do not return plaintext secret in API)
+                    TokenManager.IssueResult res = tm.issueTokenWithPickup(id, expiry, whitelist, blacklist, 300);
+                    if (res == null) { HttpUtil.error(ex, 500, "create_failed", "failed to create token", config); return; }
+                    if (name != null && !name.isBlank()) tm.setTokenName(res.tokenId, name);
+                    JsonObject resp = Json.obj(
+                        "ok", true,
+                        "id", res.tokenId,
+                        "pickup_id", res.pickupId,
+                        "pickup_url", "/hb/tokens/pickup/" + res.pickupId,
+                        "expiry", expiry
+                    );
+                HttpUtil.writeJson(ex, 200, resp);
             return;
         }
 

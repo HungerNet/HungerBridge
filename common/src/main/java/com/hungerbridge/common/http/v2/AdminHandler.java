@@ -92,11 +92,12 @@ public final class AdminHandler implements HttpHandler {
                         HttpUtil.error(ex, 400, "missing_id", "token id required", config);
                         break;
                     }
-                    com.hungerbridge.common.security.TokenManager.Token t = admin.createToken(id, name, expiry, wl, bl);
-                    if (t == null) { HttpUtil.error(ex, 500, "create_failed", "failed to create token", config); break; }
+                    com.hungerbridge.common.security.TokenManager.IssueResult res = admin.createTokenWithPickup(id, name, expiry, wl, bl, 300);
+                    if (res == null) { HttpUtil.error(ex, 500, "create_failed", "failed to create token", config); break; }
                     JsonObject out = new JsonObject();
-                    out.addProperty("id", t.id);
-                    out.addProperty("secret", t.secret);
+                    out.addProperty("id", res.tokenId);
+                    out.addProperty("pickup_id", res.pickupId);
+                    out.addProperty("pickup_url", "/hb/tokens/pickup/" + res.pickupId);
                     HttpUtil.writeJson(ex, 200, Response.ok(out));
                     break;
                 }
@@ -113,9 +114,9 @@ public final class AdminHandler implements HttpHandler {
                     JsonObject body = HttpUtil.readJson(ex);
                     if (body == null || !body.has("id")) { HttpUtil.error(ex, 400, "missing_id", "token id required", config); break; }
                     String id = body.get("id").getAsString();
-                    com.hungerbridge.common.security.TokenManager.Token t = admin.rotateToken(id);
-                    if (t == null) { HttpUtil.error(ex, 404, "not_found", "token not found or revoked", config); break; }
-                    JsonObject out = new JsonObject(); out.addProperty("id", t.id); out.addProperty("secret", t.secret);
+                    com.hungerbridge.common.security.TokenManager.IssueResult rres = admin.rotateTokenWithPickup(id, 300);
+                    if (rres == null) { HttpUtil.error(ex, 404, "not_found", "token not found or revoked", config); break; }
+                    JsonObject out = new JsonObject(); out.addProperty("id", rres.tokenId); out.addProperty("pickup_id", rres.pickupId); out.addProperty("pickup_url", "/hb/tokens/pickup/" + rres.pickupId);
                     HttpUtil.writeJson(ex, 200, Response.ok(out));
                     break;
                 }

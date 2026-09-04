@@ -71,6 +71,9 @@ public final class BridgeServer {
             server.createContext("/log", new LogHandler(config, logger));
             endpoints.add("/log");
         }
+        // one-time token pickup endpoint (no auth)
+        server.createContext("/hb/tokens/pickup", new com.hungerbridge.common.http.v2.PickupHandler(config));
+        endpoints.add("/hb/tokens/pickup/{id}");
         if (config.isStreamLogsEnabled()) {
             server.createContext("/stream/logs", new StreamLogsHandler(config));
             endpoints.add("/stream/logs");
