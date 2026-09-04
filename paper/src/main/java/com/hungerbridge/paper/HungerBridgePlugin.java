@@ -15,7 +15,7 @@ import java.nio.file.Path;
 public final class HungerBridgePlugin extends JavaPlugin {
 
     private BridgeServer bridgeServer;
-    private PaperLogAppender logAppender;
+    private PlatformLogAppender logAppender;
     private static final org.apache.logging.log4j.Logger HB_LOGGER = LogManager.getLogger("HungerBridge");
     private Thread bridgeThread;
     private Logger hbAdapter;
