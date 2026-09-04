@@ -6,9 +6,9 @@ without using RCON.
 
 It exposes a small, secure HTTP API:
 
-- `POST /run` — execute a command as console (with optional silent mode)
-- `POST /log` — write raw text to the server console
-- `GET /ping` — health check
+ - `POST /server/run` — execute a command as console (with optional silent mode)
+ - `POST /server/log` — write raw text to the server console
+ - `GET /server/ping` — health check
 
 HungerBridge works identically on:
 
@@ -24,16 +24,6 @@ Generated automatically on first run.
 ```yaml
 port: 1913
 
-enabled_endpoints:
-  run: true
-  log: true
-  ping: true
-  stream_logs: true
-  info: true
-  status: true
-  tps: true
-  players: true
-
 players:
   max-list: 50
 ```
@@ -48,7 +38,7 @@ curl -N \
   -H "X-Auth-Timestamp: $(date +%s)" \
   -H "X-Auth-Nonce: $(openssl rand -hex 16)" \
   -H "X-Auth-Signature: <hmac-signature>" \
-  http://localhost:1913/stream/logs
+  http://localhost:1913/server/stream/logs
 ```
 
 The server sends each line as an SSE event:
@@ -134,7 +124,7 @@ Each line contains fields such as `timestamp`, `token_id`, `ip`, `action`, and `
 Sample audit line:
 
 ```json
-{"timestamp":"2026-09-02T12:34:56Z","token_id":"abcd1234","ip":"192.0.2.1","action":"run","result":"allowed","path":"/run","method":"POST"}
+{"timestamp":"2026-09-02T12:34:56Z","token_id":"abcd1234","ip":"192.0.2.1","action":"run","result":"allowed","path":"/server/run","method":"POST"}
 ```
 
 HungerBridge is a unified **Fabric + Paper/Purpur** backend used by
@@ -147,19 +137,20 @@ Core HTTP API endpoints
 
  - `POST /run` — execute a command as console (JSON `{command, silent, show_console}`)
  - `POST /log` — write raw text to the server console (JSON `{level, message}`)
- - `GET  /ping` — health check
- - `GET  /info` — server and bridge metadata
- - `GET  /status` — runtime status (ok)
- - `GET  /tps` — TPS and tick time metrics
- - `GET  /players` — players count/list
- - `GET  /stream/logs` — SSE stream of console logs (supports signed headers)
+`GET  /server/ping` — health check
+ - `GET  /server/info` — server and bridge metadata
+ - `GET  /server/status` — runtime status (ok)
+ - `GET  /server/tps` — TPS and tick time metrics
+ - `GET  /server/players` — players count/list
+ - `GET  /server/stream/logs` — SSE stream of console logs (supports signed headers)
 
 Admin HTTP endpoints (require an admin-capable token)
 
- - `GET  /admin/token/list` — list tokens (no secrets)
- - `POST /admin/token/create` — create token (JSON: `id`, optional `expiry`, optional `whitelist`, optional `blacklist`) — returns `id` and `secret`
- - `POST /admin/token/revoke` — revoke token (JSON: `id`)
- - `POST /admin/token/rotate` — rotate token secret (JSON: `id`) — returns new `id` and `secret`
+  - `GET  /admin/token/list` — list tokens (no secrets)
+  - `POST /admin/token/create` — create token (JSON: `id`, optional `expiry`, optional `whitelist`, optional `blacklist`) — returns `id` and `secret`
+  - `POST /admin/token/revoke` — revoke token (JSON: `id`)
+  - `POST /admin/token/remove` — remove token from storage (irreversible)
+  - `POST /admin/token/rotate` — rotate token secret (JSON: `id`) — returns new `id` and `secret`
  - `GET  /admin/status` — rate limits and ACLs
  - `GET  /admin/ip` — show configured IP whitelist/blacklist
  - `GET  /admin/audit?n=<N>` — return last N audit entries
@@ -180,16 +171,6 @@ Generated automatically on first run in `config/HungerBridge`.
 
 ```yaml
 port: 1913
-
-enabled_endpoints:
-  run: true
-  log: true
-  ping: true
-  stream_logs: true
-  info: true
-  status: true
-  tps: true
-  players: true
 
 players:
   max-list: 50
@@ -236,7 +217,7 @@ provide a header provider callable to sign the SSE connection when using
 HMAC tokens.
 
 ```bash
-curl -N -H "X-Auth-Token-Id: admin" -H "X-Auth-Timestamp: $(date +%s)" -H "X-Auth-Nonce: $(openssl rand -hex 16)" -H "X-Auth-Signature: <hmac-signature>" http://localhost:1913/stream/logs
+curl -N -H "X-Auth-Token-Id: admin" -H "X-Auth-Timestamp: $(date +%s)" -H "X-Auth-Nonce: $(openssl rand -hex 16)" -H "X-Auth-Signature: <hmac-signature>" http://localhost:1913/server/stream/logs
 ```
 
 Each SSE `data:` event contains a single raw console line.
@@ -294,7 +275,7 @@ prune old audit files according to `audit_retention_days` in
 `security.yaml` (default 14 days). Example entry:
 
 ```json
-{"timestamp":"2026-09-02T12:34:56Z","token_id":"abcd1234","ip":"192.0.2.1","action":"run","result":"allowed","path":"/run","method":"POST"}
+{"timestamp":"2026-09-02T12:34:56Z","token_id":"abcd1234","ip":"192.0.2.1","action":"run","result":"allowed","path":"/server/run","method":"POST"}
 ```
 
 ## In-game admin command `/hungerbridge`
@@ -351,8 +332,3 @@ print(client.get_audit(50))
 stream = client.stream
 stream.connect(history=50)
 ```
-
----
-
-If you want me to also generate example administration scripts or unit tests
-for the new modules, say which you prefer and I will add them next.

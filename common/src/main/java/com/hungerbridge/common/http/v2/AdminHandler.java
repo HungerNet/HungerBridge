@@ -113,6 +113,15 @@ public final class AdminHandler implements HttpHandler {
                     HttpUtil.writeJson(ex, 200, Response.ok());
                     break;
                 }
+                case "tokens_remove": {
+                    JsonObject body = HttpUtil.readJson(ex);
+                    if (body == null || !body.has("id")) { HttpUtil.error(ex, 400, "missing_id", "token id required", config); break; }
+                    String id = body.get("id").getAsString();
+                    boolean ok = admin.removeToken(id);
+                    if (!ok) { HttpUtil.error(ex, 404, "not_found", "token not found", config); break; }
+                    HttpUtil.writeJson(ex, 200, Response.ok());
+                    break;
+                }
                 case "tokens_rotate": {
                     JsonObject body = HttpUtil.readJson(ex);
                     if (body == null || !body.has("id")) { HttpUtil.error(ex, 400, "missing_id", "token id required", config); break; }

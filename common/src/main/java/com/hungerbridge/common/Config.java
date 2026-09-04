@@ -21,16 +21,6 @@ public final class Config {
 
     private final int port;
 
-    // endpoint toggles
-    private final boolean runEnabled;
-    private final boolean logEnabled;
-    private final boolean pingEnabled;
-    private final boolean streamLogsEnabled;
-    private final boolean infoEnabled;
-    private final boolean statusEnabled;
-    private final boolean tpsEnabled;
-    private final boolean playersEnabled;
-
     // Players config
     private final int playersMaxList;
 
@@ -46,42 +36,15 @@ public final class Config {
 
     public Config(
             int port,
-            boolean runEnabled,
-            boolean logEnabled,
-            boolean pingEnabled,
-            boolean streamLogsEnabled,
-            boolean infoEnabled,
-            boolean statusEnabled,
-            boolean tpsEnabled,
-            boolean playersEnabled,
             int playersMaxList,
             String bridgeVersion
     ) {
         this.port = port;
-
-        this.runEnabled = runEnabled;
-        this.logEnabled = logEnabled;
-        this.pingEnabled = pingEnabled;
-        this.streamLogsEnabled = streamLogsEnabled;
-        this.infoEnabled = infoEnabled;
-        this.statusEnabled = statusEnabled;
-        this.tpsEnabled = tpsEnabled;
-        this.playersEnabled = playersEnabled;
-
         this.playersMaxList = playersMaxList;
         this.bridgeVersion = bridgeVersion;
     }
 
     public int getPort() { return port; }
-
-    public boolean isRunEnabled() { return runEnabled; }
-    public boolean isLogEnabled() { return logEnabled; }
-    public boolean isPingEnabled() { return pingEnabled; }
-    public boolean isStreamLogsEnabled() { return streamLogsEnabled; }
-    public boolean isInfoEnabled() { return infoEnabled; }
-    public boolean isStatusEnabled() { return statusEnabled; }
-    public boolean isTpsEnabled() { return tpsEnabled; }
-    public boolean isPlayersEnabled() { return playersEnabled; }
 
     public int getPlayersMaxList() { return playersMaxList; }
 
@@ -151,33 +114,12 @@ public final class Config {
                 if (logger != null) logger.log("INFO", "Loaded token policy (max_skew=" + tc.maxSkewSeconds + ")");
             } catch (Exception ignored) {}
 
-            Map<String, Object> enabledEndpoints = (Map<String, Object>) root.getOrDefault(
-                    "enabled_endpoints",
-                    root.getOrDefault("endpoints", new LinkedHashMap<>())
-            );
             Map<String, Object> players = (Map<String, Object>) root.getOrDefault("players", new LinkedHashMap<>());
-
-            boolean run = coerceBoolean(enabledEndpoints.getOrDefault("run", true));
-            boolean log = coerceBoolean(enabledEndpoints.getOrDefault("log", true));
-            boolean ping = coerceBoolean(enabledEndpoints.getOrDefault("ping", true));
-            boolean streamLogs = coerceBoolean(enabledEndpoints.getOrDefault("stream_logs", true));
-            boolean info = coerceBoolean(enabledEndpoints.getOrDefault("info", true));
-            boolean status = coerceBoolean(enabledEndpoints.getOrDefault("status", true));
-            boolean tps = coerceBoolean(enabledEndpoints.getOrDefault("tps", true));
-            boolean playersEnabled = coerceBoolean(enabledEndpoints.getOrDefault("players", true));
 
             int playersMaxList = ((Number) players.getOrDefault("max-list", 50)).intValue();
 
                 Config cfg = new Config(
                     port,
-                    run,
-                    log,
-                    ping,
-                    streamLogs,
-                    info,
-                    status,
-                    tps,
-                    playersEnabled,
                     playersMaxList,
                     bridgeVersion
                 );
@@ -243,7 +185,7 @@ public final class Config {
     private static void writeFallbackRuntimeConfigs(Path runtimeConfigDir) throws IOException {
         Files.createDirectories(runtimeConfigDir);
 
-        writeIfMissing(runtimeConfigDir.resolve("config.yaml"), "port: 1913\n\nenabled_endpoints:\n  run: true\n  log: true\n  ping: true\n  stream_logs: true\n  info: true\n  status: true\n  tps: true\n  players: true\n\nplayers:\n  max-list: 50\n");
+        writeIfMissing(runtimeConfigDir.resolve("config.yaml"), "port: 1913\n\nplayers:\n  max-list: 50\n");
         writeIfMissing(runtimeConfigDir.resolve("security.yaml"), "ip_list:\n  mode: blacklist\n  list: []\n\nrate_limits:\n  token_rps: 5.0\n  token_burst: 10.0\n  ip_rps: 20.0\n  ip_burst: 40.0\n\naudit_retention_days: 14\n");
         writeIfMissing(runtimeConfigDir.resolve("tokens.yaml"), "tokens:\n  - id: admin\n    default_expiry: 0\n    max_skew: -1\n\n    endpoints_mode: blacklist\n    endpoints: []\n\n    commands_mode: blacklist\n    commands: []\n");
     }
@@ -275,13 +217,4 @@ public final class Config {
         return null;
     }
 
-    private static boolean coerceBoolean(Object value) {
-        if (value instanceof Boolean) {
-            return (Boolean) value;
-        }
-        if (value instanceof Number) {
-            return ((Number) value).intValue() != 0;
-        }
-        return Boolean.parseBoolean(String.valueOf(value));
-    }
 }

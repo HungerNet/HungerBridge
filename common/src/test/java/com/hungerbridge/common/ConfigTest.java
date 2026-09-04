@@ -19,15 +19,6 @@ public final class ConfigTest {
         Path configFile = dir.resolve("config.yaml");
         Files.writeString(configFile, """
                 port: 1913
-                enabled_endpoints:
-                  run: true
-                  log: true
-                  ping: true
-                  stream_logs: true
-                  info: true
-                  status: true
-                  tps: true
-                  players: true
                 players:
                   max-list: 10
                 """);
@@ -48,7 +39,7 @@ public final class ConfigTest {
         Config config = Config.load(dir, (level, message) -> {
         });
 
-        assertTrue(config.isStreamLogsEnabled());
+        assertTrue(config.getPlayersMaxList() == 10);
         assertTrue(config.getSecurityConfig() != null);
         assertTrue(config.getSecurityConfig().ipBlacklist.contains("10.0.0.0/8"));
     }
@@ -58,15 +49,6 @@ public final class ConfigTest {
         Path dir = Files.createTempDirectory("hungerbridge-reload");
         Files.writeString(dir.resolve("config.yaml"), """
                 port: 1913
-                enabled_endpoints:
-                  run: true
-                  log: true
-                  ping: true
-                  stream_logs: true
-                  info: true
-                  status: true
-                  tps: true
-                  players: true
                 players:
                   max-list: 10
                 """);
@@ -134,15 +116,6 @@ public final class ConfigTest {
         Path dir = Files.createTempDirectory("hungerbridge-unknown-token");
         Files.writeString(dir.resolve("config.yaml"), """
                 port: 1913
-                enabled_endpoints:
-                  run: true
-                  log: true
-                  ping: true
-                  stream_logs: true
-                  info: true
-                  status: true
-                  tps: true
-                  players: true
                 players:
                   max-list: 10
                 """);

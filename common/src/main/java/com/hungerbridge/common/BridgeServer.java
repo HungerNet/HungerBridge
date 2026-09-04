@@ -51,36 +51,24 @@ public final class BridgeServer {
 
         // endpoints (root-level API)
         java.util.List<String> endpoints = new java.util.ArrayList<>();
-        if (config.isPingEnabled()) {
-            server.createContext("/ping", new PingHandler(config, logger));
-            endpoints.add("/ping");
-        }
-        if (config.isInfoEnabled()) {
-            server.createContext("/info", new InfoHandler(config, logger));
-            endpoints.add("/info");
-        }
+        server.createContext("/server/ping", new PingHandler(config, logger));
+        endpoints.add("/server/ping");
+        server.createContext("/server/info", new InfoHandler(config, logger));
+        endpoints.add("/server/info");
         // auth check endpoint is always enabled
         server.createContext("/auth/check", new com.hungerbridge.common.http.v2.AuthCheckHandler(config));
         endpoints.add("/auth/check");
-        if (config.isStatusEnabled()) {
-            server.createContext("/status", new StatusHandler(config, logger));
-            endpoints.add("/status");
-        }
-        if (config.isRunEnabled()) {
-            server.createContext("/run", new RunHandler(config, logger, executor));
-            endpoints.add("/run");
-        }
-        if (config.isLogEnabled()) {
-            server.createContext("/log", new LogHandler(config, logger));
-            endpoints.add("/log");
-        }
+        server.createContext("/server/status", new StatusHandler(config, logger));
+        endpoints.add("/server/status");
+        server.createContext("/server/run", new RunHandler(config, logger, executor));
+        endpoints.add("/server/run");
+        server.createContext("/server/log", new LogHandler(config, logger));
+        endpoints.add("/server/log");
         // one-time token pickup endpoint (no auth)
         server.createContext("/tokens/pickup", new com.hungerbridge.common.http.v2.PickupHandler(config));
         endpoints.add("/tokens/pickup/{id}");
-        if (config.isStreamLogsEnabled()) {
-            server.createContext("/stream/logs", new StreamLogsHandler(config));
-            endpoints.add("/stream/logs");
-        }
+        server.createContext("/server/stream/logs", new StreamLogsHandler(config));
+        endpoints.add("/server/stream/logs");
         // token management endpoint (requires an authenticated admin token)
         server.createContext("/tokens", new com.hungerbridge.common.http.v2.TokenHandler(config, logger));
         endpoints.add("/tokens");
@@ -93,6 +81,8 @@ public final class BridgeServer {
         endpoints.add("/admin/token/create");
         server.createContext("/admin/token/revoke", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_revoke"));
         endpoints.add("/admin/token/revoke");
+        server.createContext("/admin/token/remove", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_remove"));
+        endpoints.add("/admin/token/remove");
         server.createContext("/admin/token/rotate", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_rotate"));
         endpoints.add("/admin/token/rotate");
         server.createContext("/admin/status", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "status"));
@@ -103,14 +93,10 @@ public final class BridgeServer {
         endpoints.add("/admin/audit");
         server.createContext("/admin/reload", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "reload"));
         endpoints.add("/admin/reload");
-        if (config.isTpsEnabled()) {
-            server.createContext("/tps", new TpsHandler(config, logger, executor));
-            endpoints.add("/tps");
-        }
-        if (config.isPlayersEnabled()) {
-            server.createContext("/players", new PlayersHandler(config, logger, executor));
-            endpoints.add("/players");
-        }
+        server.createContext("/tps", new TpsHandler(config, logger, executor));
+        endpoints.add("/tps");
+        server.createContext("/players", new PlayersHandler(config, logger, executor));
+        endpoints.add("/players");
 
         server.start();
         if (logger != null) logger.log("INFO", "HungerBridge HTTP server started on port " + config.getPort());

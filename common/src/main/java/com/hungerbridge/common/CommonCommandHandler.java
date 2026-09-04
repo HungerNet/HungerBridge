@@ -46,7 +46,7 @@ public final class CommonCommandHandler {
                     List<String> lines = admin.getAuditSummary(n);
                     if (lines == null || lines.isEmpty()) {
                         addWarning(out, bridgeServer, "No audit entries found.");
-                    } else {
+                    } else {D
                         out.addAll(CommandMessages.formatList(lines, false));
                     }
                     break;
@@ -89,7 +89,8 @@ public final class CommonCommandHandler {
                             TokenManager.IssueResult res = admin.createTokenWithPickup(policyId, tokenId, expiry, List.of(), List.of(), 300);
                             if (res == null) addError(out, bridgeServer, "Unknown policy id or duplicate token: " + policyId);
                             else {
-                                out.add("Token created. Retrieve it at: /tokens/pickup/" + res.pickupId);
+                                out.add("Token created with ID \"" + tokenId + "\". Retrieve it at: /tokens/pickup/" + res.pickupId);
+                                out.add("Token pickup will expire in 5 minutes.");
                             }
                             break;
                         }
@@ -142,13 +143,10 @@ public final class CommonCommandHandler {
     }
 
     private static void addError(List<String> out, BridgeServer bridgeServer, String message) {
-        // Do not add the user-facing error text to `out` to avoid duplicate console/chat lines.
-        // Only log at ERROR level so the server log shows the issue once.
         try { if (bridgeServer != null && bridgeServer.getLogger() != null) bridgeServer.getLogger().log("ERROR", message); } catch (Exception ignored) {}
     }
 
     private static void addWarning(List<String> out, BridgeServer bridgeServer, String message) {
-        // Only log the warning at WARN level to avoid duplicate user-facing messages.
         try { if (bridgeServer != null && bridgeServer.getLogger() != null) bridgeServer.getLogger().log("WARN", message); } catch (Exception ignored) {}
     }
 

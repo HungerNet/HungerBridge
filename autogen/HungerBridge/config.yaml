@@ -1,34 +1,12 @@
 # HungerBridge core configuration.
-# This file defines the runtime HTTP server and which endpoints are enabled.
 #
 # port:
 #   TCP port that the HungerBridge HTTP server listens on. Default 1913.
-# enabled_endpoints:
-#   Boot-time toggles for the public HTTP endpoints. If a flag is false, the
-#   route is not registered and the client should not rely on it existing.
-#   - run: console command execution endpoint
-#   - log: raw log injection endpoint
-#   - ping: health-check endpoint
-#   - stream_logs: SSE log stream endpoint
-#   - info: bridge metadata endpoint
-#   - status: runtime status endpoint
-#   - tps: TPS metrics endpoint
-#   - players: player count/list endpoint
 # players.max-list:
 #   Maximum number of player entries returned by the /players endpoint. This
 #   is a safety bound so very large server populations do not overwhelm clients.
 
 port: 1913
-
-enabled_endpoints:
-  run: true
-  log: true
-  ping: true
-  stream_logs: true
-  info: true
-  status: true
-  tps: true
-  players: true
 
 players:
   max-list: 50

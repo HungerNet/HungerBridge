@@ -68,6 +68,7 @@ public final class TokenManager {
                 Files.createDirectories(storageDir);
                 if (logger != null) logger.log("INFO", "Created storage directory: " + storageDir);
             } else if (logger != null) logger.log("INFO", "Using storage directory: " + storageDir);
+            setOwnerOnlyPerms(storageDir);
         } catch (IOException e) {
             throw new RuntimeException("Failed to create storage directory", e);
         }
@@ -89,22 +90,31 @@ public final class TokenManager {
         Path mk = storageDir.resolve("master.key");
         try {
             if (Files.exists(mk)) {
+                setOwnerOnlyPerms(mk);
                 byte[] b = Files.readAllBytes(mk);
                 return b;
             }
             byte[] b = new byte[32];
             new java.security.SecureRandom().nextBytes(b);
             Files.write(mk, b);
-            try {
-                java.nio.file.attribute.PosixFilePermission p1 = java.nio.file.attribute.PosixFilePermission.OWNER_READ;
-                java.nio.file.attribute.PosixFilePermission p2 = java.nio.file.attribute.PosixFilePermission.OWNER_WRITE;
-                java.util.Set<java.nio.file.attribute.PosixFilePermission> perms = java.util.Set.of(p1, p2);
-                Files.setPosixFilePermissions(mk, perms);
-            } catch (UnsupportedOperationException ignored) {}
+            setOwnerOnlyPerms(mk);
             if (logger != null) logger.log("INFO", "Generated master key: " + mk);
             return b;
         } catch (IOException e) {
             throw new RuntimeException("Failed to load/create master key", e);
+        }
+    }
+
+    private void setOwnerOnlyPerms(Path path) {
+        try {
+            java.nio.file.attribute.PosixFilePermission ownerRead = java.nio.file.attribute.PosixFilePermission.OWNER_READ;
+            java.nio.file.attribute.PosixFilePermission ownerWrite = java.nio.file.attribute.PosixFilePermission.OWNER_WRITE;
+            java.util.Set<java.nio.file.attribute.PosixFilePermission> perms = java.util.EnumSet.of(ownerRead, ownerWrite);
+            Files.setPosixFilePermissions(path, perms);
+        } catch (UnsupportedOperationException ignored) {
+            // Filesystem does not support POSIX permissions; rely on the containing directory and OS-level controls.
+        } catch (IOException e) {
+            if (logger != null) logger.log("WARN", "Failed to tighten permissions on " + path + ": " + e.getMessage());
         }
     }
 
@@ -325,6 +335,13 @@ public final class TokenManager {
         Token t = tokens.get(id);
         if (t == null) return false;
         t.revoked = true;
+        persistTokens();
+        return true;
+    }
+
+    public boolean removeToken(String id) {
+        Token t = tokens.remove(id);
+        if (t == null) return false;
         persistTokens();
         return true;
     }

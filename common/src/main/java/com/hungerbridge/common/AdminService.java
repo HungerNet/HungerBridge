@@ -124,6 +124,15 @@ public final class AdminService {
         return false;
     }
 
+    public boolean removeToken(String id) {
+        TokenManager tm = config.getTokenManager();
+        if (tm == null) return false;
+        boolean ok = tm.removeToken(id);
+        if (ok) return true;
+        if (logger != null) logger.log("WARN", "Remove token not found: " + id);
+        return false;
+    }
+
     public TokenManager.Token rotateToken(String id) {
         TokenManager tm = config.getTokenManager();
         if (tm == null) return null;
