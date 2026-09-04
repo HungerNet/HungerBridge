@@ -174,4 +174,12 @@ public final class ConfigTest {
 
         assertNull(admin.createToken("unknown-policy", null, 0L, java.util.List.of(), java.util.List.of()));
     }
+
+    @Test
+    public void commandMessagesUseConsistentCapitalization() {
+        assertTrue(CommandMessages.HEADER.startsWith("HungerBridge Commands"));
+        assertTrue(CommandMessages.helpLines().getFirst().startsWith("Usage:"));
+        assertTrue(CommandMessages.createdToken("admin", "secret").startsWith("Created token"));
+        assertTrue(CommandMessages.rotatedToken("admin", "secret").startsWith("Rotated token"));
+    }
 }

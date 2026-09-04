@@ -5,6 +5,8 @@ import com.hungerbridge.common.CommonCommandHandler;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
 
 public final class FabricCommandRegistrar {
 
@@ -95,8 +97,19 @@ public final class FabricCommandRegistrar {
 
     private static int runHandler(BridgeServer bridgeServer, net.minecraft.commands.CommandSourceStack source, String[] args) {
         java.util.List<String> lines = CommonCommandHandler.handle(bridgeServer, args);
-        for (String l : lines) source.sendSuccess(() -> net.minecraft.network.chat.Component.literal(l), false);
+        for (String line : lines) {
+            ChatFormatting style = styleFor(line);
+            source.sendSuccess(() -> Component.literal(line).withStyle(style), false);
+        }
         return 1;
+    }
+
+    private static ChatFormatting styleFor(String line) {
+        if (line.startsWith("Error:")) return ChatFormatting.RED;
+        if (line.startsWith("Warning:")) return ChatFormatting.GOLD;
+        if (line.startsWith("Success:")) return ChatFormatting.GREEN;
+        if (line.startsWith("Usage:") || line.startsWith("Subcommands:") || line.startsWith("Tokens Subcommands:")) return ChatFormatting.AQUA;
+        return ChatFormatting.GRAY;
     }
 
     private FabricCommandRegistrar() {}
