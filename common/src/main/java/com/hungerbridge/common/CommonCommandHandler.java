@@ -147,7 +147,8 @@ public final class CommonCommandHandler {
     }
 
     private static void addError(List<String> out, BridgeServer bridgeServer, String message) {
-        out.add(CommandMessages.error(message));
+        // Do not add the user-facing error text to `out` to avoid duplicate console/chat lines.
+        // Only log at ERROR level so the server log shows the issue once.
         try { if (bridgeServer != null && bridgeServer.getLogger() != null) bridgeServer.getLogger().log("ERROR", message); } catch (Exception ignored) {}
     }
 
