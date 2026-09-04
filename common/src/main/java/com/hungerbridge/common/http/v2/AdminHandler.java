@@ -54,6 +54,7 @@ public final class AdminHandler implements HttpHandler {
                         com.hungerbridge.common.security.TokenManager.Token t = e.getValue();
                         JsonObject o = new JsonObject();
                         o.addProperty("id", t.id);
+                                o.addProperty("policyId", t.policyId);
                         o.addProperty("revoked", t.revoked);
                         o.addProperty("expiry", t.expiry);
                         o.add("whitelist", com.hungerbridge.common.Json.GSON.toJsonTree(t.whitelist));
@@ -65,17 +66,15 @@ public final class AdminHandler implements HttpHandler {
                 }
                 case "tokens_create": {
                     JsonObject body = HttpUtil.readJson(ex);
-                    String id = body != null && body.has("id") ? body.get("id").getAsString() : null;
+                    String policyId = body != null && body.has("policyId") ? body.get("policyId").getAsString() : null;
+                    String tokenId = body != null && body.has("tokenId") ? body.get("tokenId").getAsString() : null;
                     long expiry = 0L;
-                    String name = null;
                     if (body != null && body.has("expiry")) expiry = body.get("expiry").getAsLong();
                     else if (config.getTokensConfig() != null) expiry = config.getTokensConfig().defaultExpirySeconds;
 
-                    if (body != null && body.has("name")) name = body.get("name").getAsString();
-
                     // If a policy id is provided, ensure it exists in tokens.yaml
                     com.hungerbridge.common.TokensConfig tccheck = config.getTokensConfig();
-                    if (id != null && tccheck != null && !tccheck.policies.containsKey(id)) {
+                    if (policyId != null && tccheck != null && !tccheck.policies.containsKey(policyId)) {
                         HttpUtil.error(ex, 400, "unknown_policy", "token policy id not found", config);
                         break;
                     }
@@ -88,11 +87,11 @@ public final class AdminHandler implements HttpHandler {
                     if (body != null && body.has("blacklist")) {
                         bl = com.hungerbridge.common.Json.GSON.fromJson(body.get("blacklist"), List.class);
                     }
-                    if (id == null || id.isBlank()) {
-                        HttpUtil.error(ex, 400, "missing_id", "token id required", config);
+                    if (policyId == null || policyId.isBlank() || tokenId == null || tokenId.isBlank()) {
+                        HttpUtil.error(ex, 400, "missing_fields", "policyId and tokenId required", config);
                         break;
                     }
-                    com.hungerbridge.common.security.TokenManager.IssueResult res = admin.createTokenWithPickup(id, name, expiry, wl, bl, 300);
+                    com.hungerbridge.common.security.TokenManager.IssueResult res = admin.createTokenWithPickup(policyId, tokenId, expiry, wl, bl, 300);
                     if (res == null) { HttpUtil.error(ex, 500, "create_failed", "failed to create token", config); break; }
                     JsonObject out = new JsonObject();
                     out.addProperty("id", res.tokenId);

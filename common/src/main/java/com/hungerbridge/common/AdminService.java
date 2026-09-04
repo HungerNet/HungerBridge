@@ -37,22 +37,16 @@ public final class AdminService {
         return tm.listTokens();
     }
 
-    public TokenManager.Token createToken(String id, String name, long expirySeconds, List<String> whitelist, List<String> blacklist) {
+    public TokenManager.Token createToken(String policyId, String tokenId, long expirySeconds, List<String> whitelist, List<String> blacklist) {
         TokenManager tm = config.getTokenManager();
         if (tm == null) return null;
         TokensConfig tc = config.getTokensConfig();
-        if (tc != null && id != null && !id.isBlank() && !tc.hasPolicy(id)) {
+        if (tc != null && policyId != null && !policyId.isBlank() && !tc.hasPolicy(policyId)) {
             return null;
         }
         List<String> effectiveWhitelist = whitelist == null ? new ArrayList<>() : new ArrayList<>(whitelist);
         List<String> effectiveBlacklist = blacklist == null ? new ArrayList<>() : new ArrayList<>(blacklist);
-        // ensure name uniqueness
-        if (name != null && !name.isBlank()) {
-            for (Map.Entry<String, TokenManager.Token> e : tm.listTokens().entrySet()) {
-                TokenManager.Token existing = e.getValue();
-                if (existing.name != null && existing.name.equals(name)) return null;
-            }
-        }
+        // (name removed — no uniqueness checks)
         if (tc != null && (effectiveWhitelist.isEmpty() && effectiveBlacklist.isEmpty())) {
             TokensConfig.TokenPolicy policy = tc.getPolicy(id);
             if (policy != null) {
@@ -69,11 +63,10 @@ public final class AdminService {
                 if (expirySeconds <= 0 && policy.defaultExpirySeconds > 0) expirySeconds = policy.defaultExpirySeconds;
             }
         }
-        // Create a runtime token with a generated id (do not use the policy id as the runtime token id).
-        TokenManager.Token t = tm.createToken(null, expirySeconds, effectiveWhitelist.isEmpty() ? null : effectiveWhitelist, effectiveBlacklist.isEmpty() ? null : effectiveBlacklist);
+        // Create a runtime token with the requested tokenId (if provided) or generated id.
+        TokenManager.Token t = tm.createToken(tokenId, expirySeconds, effectiveWhitelist.isEmpty() ? null : effectiveWhitelist, effectiveBlacklist.isEmpty() ? null : effectiveBlacklist);
         if (t != null) {
-            if (id != null && !id.isBlank()) tm.setTokenPolicyId(t.id, id);
-            if (name != null && !name.isBlank()) tm.setTokenName(t.id, name);
+            if (policyId != null && !policyId.isBlank()) tm.setTokenPolicyId(t.id, policyId);
         }
         return t;
     }
@@ -81,23 +74,17 @@ public final class AdminService {
     /**
      * Create a token and issue a one-time pickup record. Returns the IssueResult containing pickup and token id.
      */
-    public TokenManager.IssueResult createTokenWithPickup(String id, String name, long expirySeconds, List<String> whitelist, List<String> blacklist, int pickupTtlSeconds) {
+    public TokenManager.IssueResult createTokenWithPickup(String policyId, String tokenId, long expirySeconds, List<String> whitelist, List<String> blacklist, int pickupTtlSeconds) {
         TokenManager tm = config.getTokenManager();
         if (tm == null) return null;
         TokensConfig tc = config.getTokensConfig();
-        if (tc != null && id != null && !id.isBlank() && !tc.hasPolicy(id)) {
+        if (tc != null && policyId != null && !policyId.isBlank() && !tc.hasPolicy(policyId)) {
             return null;
         }
 
         List<String> effectiveWhitelist = whitelist == null ? new ArrayList<>() : new ArrayList<>(whitelist);
         List<String> effectiveBlacklist = blacklist == null ? new ArrayList<>() : new ArrayList<>(blacklist);
-        // ensure name uniqueness
-        if (name != null && !name.isBlank()) {
-            for (Map.Entry<String, TokenManager.Token> e : tm.listTokens().entrySet()) {
-                TokenManager.Token existing = e.getValue();
-                if (existing.name != null && existing.name.equals(name)) return null;
-            }
-        }
+        // (name removed — no uniqueness checks)
         if (tc != null && (effectiveWhitelist.isEmpty() && effectiveBlacklist.isEmpty())) {
             TokensConfig.TokenPolicy policy = tc.getPolicy(id);
             if (policy != null) {
@@ -115,10 +102,9 @@ public final class AdminService {
             }
         }
 
-        TokenManager.IssueResult res = tm.issueTokenWithPickup(id, expirySeconds, effectiveWhitelist.isEmpty() ? null : effectiveWhitelist, effectiveBlacklist.isEmpty() ? null : effectiveBlacklist, pickupTtlSeconds);
+        TokenManager.IssueResult res = tm.issueTokenWithPickup(tokenId, expirySeconds, effectiveWhitelist.isEmpty() ? null : effectiveWhitelist, effectiveBlacklist.isEmpty() ? null : effectiveBlacklist, pickupTtlSeconds);
         if (res != null) {
-            if (id != null && !id.isBlank()) tm.setTokenPolicyId(res.tokenId, id);
-            if (name != null && !name.isBlank()) tm.setTokenName(res.tokenId, name);
+            if (policyId != null && !policyId.isBlank()) tm.setTokenPolicyId(res.tokenId, policyId);
         }
         return res;
     }
@@ -134,13 +120,6 @@ public final class AdminService {
         if (tm == null) return false;
         boolean ok = tm.revokeToken(id);
         if (ok) return true;
-        // try by name
-        for (Map.Entry<String, TokenManager.Token> e : tm.listTokens().entrySet()) {
-            TokenManager.Token t = e.getValue();
-            if (t.name != null && t.name.equals(id)) {
-                return tm.revokeToken(t.id);
-            }
-        }
         if (logger != null) logger.log("WARN", "Revoke token not found: " + id);
         return false;
     }
@@ -150,17 +129,6 @@ public final class AdminService {
         if (tm == null) return null;
         TokenManager.Token t = tm.rotateToken(id);
         String usedId = id;
-        if (t == null) {
-            // try by name
-            for (Map.Entry<String, TokenManager.Token> e : tm.listTokens().entrySet()) {
-                TokenManager.Token cand = e.getValue();
-                if (cand.name != null && cand.name.equals(id)) {
-                    t = tm.rotateToken(cand.id);
-                    usedId = cand.id;
-                    break;
-                }
-            }
-        }
         // log rotation
         com.hungerbridge.common.log.AuditLogger al = config.getAuditLogger();
         if (al != null && t != null) {

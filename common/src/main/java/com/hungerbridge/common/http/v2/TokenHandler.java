@@ -58,8 +58,8 @@ public final class TokenHandler implements HttpHandler {
 
         if ("POST".equalsIgnoreCase(method)) {
             JsonObject body = HttpUtil.readJson(ex);
-            String id = body != null && body.has("id") ? body.get("id").getAsString() : null;
-            String name = body != null && body.has("name") ? body.get("name").getAsString() : null;
+            String policyId = body != null && body.has("policyId") ? body.get("policyId").getAsString() : null;
+            String tokenId = body != null && body.has("tokenId") ? body.get("tokenId").getAsString() : null;
             long expiry = 0L;
             List<String> whitelist = null;
             List<String> blacklist = null;
@@ -74,32 +74,29 @@ public final class TokenHandler implements HttpHandler {
                     for (var el : body.getAsJsonArray("blacklist")) blacklist.add(el.getAsString());
                 }
             }
-            if (id == null || id.isBlank()) {
-                HttpUtil.error(ex, 400, "bad_request", "Token id required", config);
+            if (policyId == null || policyId.isBlank() || tokenId == null || tokenId.isBlank()) {
+                HttpUtil.error(ex, 400, "bad_request", "policyId and tokenId required", config);
                 return;
             }
 
-            // enforce name uniqueness at runtime
-            if (name != null && !name.isBlank()) {
-                for (TokenManager.Token existing : tm.listTokens().values()) {
-                    if (existing.name != null && existing.name.equals(name)) {
-                        HttpUtil.error(ex, 400, "duplicate_name", "token name already exists", config);
-                        return;
-                    }
-                }
+            // validate policy exists
+            TokensConfig tc = config.getTokensConfig();
+            if (tc != null && !tc.hasPolicy(policyId)) {
+                HttpUtil.error(ex, 400, "unknown_policy", "token policy id not found", config);
+                return;
             }
 
-                // create token and return one-time pickup id (do not return plaintext secret in API)
-                    TokenManager.IssueResult res = tm.issueTokenWithPickup(id, expiry, whitelist, blacklist, 300);
-                    if (res == null) { HttpUtil.error(ex, 500, "create_failed", "failed to create token", config); return; }
-                    if (name != null && !name.isBlank()) tm.setTokenName(res.tokenId, name);
-                    JsonObject resp = Json.obj(
-                        "ok", true,
-                        "id", res.tokenId,
-                        "pickup_id", res.pickupId,
-                        "pickup_url", "/hb/tokens/pickup/" + res.pickupId,
-                        "expiry", expiry
-                    );
+            // create token and return one-time pickup id (do not return plaintext secret in API)
+            TokenManager.IssueResult res = tm.issueTokenWithPickup(tokenId, expiry, whitelist, blacklist, 300);
+            if (res == null) { HttpUtil.error(ex, 500, "create_failed", "failed to create token", config); return; }
+            if (policyId != null && !policyId.isBlank()) tm.setTokenPolicyId(res.tokenId, policyId);
+            JsonObject resp = Json.obj(
+                    "ok", true,
+                    "id", res.tokenId,
+                    "pickup_id", res.pickupId,
+                    "pickup_url", "/hb/tokens/pickup/" + res.pickupId,
+                    "expiry", expiry
+            );
                 HttpUtil.writeJson(ex, 200, resp);
             return;
         }
@@ -128,11 +125,12 @@ public final class TokenHandler implements HttpHandler {
         Map<String, TokenManager.Token> map = tm.listTokens();
         JsonArray arr = new JsonArray();
         for (TokenManager.Token t : map.values()) {
-            JsonObject o = Json.obj(
+                JsonObject o = Json.obj(
                     "id", t.id,
+                    "policyId", t.policyId,
                     "revoked", t.revoked,
                     "expiry", t.expiry
-            );
+                );
             if (t.whitelist != null) {
                 JsonArray wa = new JsonArray();
                 for (String s : t.whitelist) wa.add(s);

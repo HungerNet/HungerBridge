@@ -55,7 +55,7 @@ public final class CommonCommandHandler {
                 case "tokens": {
                     if (args.length < 2) { out.add("Token subcommands: list, create, revoke, rotate"); break; }
                     if (args.length >= 2 && args[1].equalsIgnoreCase("help")) {
-                        out.add("Token subcommands: list, create <id> [name] [expiry], revoke <id|name>, rotate <id|name>");
+                        out.add("Token subcommands: list, create <policyId> <tokenId> [expiry], revoke <id>, rotate <id>");
                         out.add("Examples: '/hungerbridge token create admin mytoken', '/hungerbridge token create admin mytoken 3600'");
                         break;
                     }
@@ -67,30 +67,27 @@ public final class CommonCommandHandler {
                             } else {
                                 List<String> tokenLines = new ArrayList<>();
                                 for (TokenManager.Token t : toks.values()) {
-                                    if (t.name != null && !t.name.isBlank()) tokenLines.add(t.name + " -> " + t.id);
-                                    else tokenLines.add(t.id);
+                                    String line = t.id + " -> " + (t.policyId == null ? "<none>" : t.policyId) + " (revoked:" + t.revoked + ", expiry:" + t.expiry + ")";
+                                    tokenLines.add(line);
                                 }
                                 out.addAll(CommandMessages.formatList(tokenLines, false));
                             }
                             break;
                         case "create": {
-                            if (args.length < 3 || (args.length >= 3 && args[2].equalsIgnoreCase("help"))) {
-                                out.add("Usage: /hungerbridge token create <id> [name] [expiry]");
+                            if (args.length < 4 || (args.length >= 4 && args[2].equalsIgnoreCase("help"))) {
+                                out.add("Usage: /hungerbridge token create <policyId> <tokenId> [expiry]");
                                 out.add("Example: /hungerbridge token create admin mytoken 3600");
                                 break;
                             }
 
-                            String id = args[2];
-                            String name = null;
+                            String policyId = args[2];
+                            String tokenId = args.length >= 4 ? args[3] : null;
                             long expiry = 0L;
-                            if (args.length >= 4) {
-                                try { expiry = Long.parseLong(args[3]); } catch (NumberFormatException ignored) { name = args[3]; }
-                            }
                             if (args.length >= 5) {
                                 try { expiry = Long.parseLong(args[4]); } catch (NumberFormatException ignored) {}
                             }
-                            TokenManager.IssueResult res = admin.createTokenWithPickup(id, name, expiry, List.of(), List.of(), 300);
-                            if (res == null) addError(out, bridgeServer, "Unknown token id/policy or duplicate name: " + id);
+                            TokenManager.IssueResult res = admin.createTokenWithPickup(policyId, tokenId, expiry, List.of(), List.of(), 300);
+                            if (res == null) addError(out, bridgeServer, "Unknown policy id or duplicate token: " + policyId);
                             else {
                                 out.add("Token created. Retrieve it at: /hb/tokens/pickup/" + res.pickupId);
                                 try { if (bridgeServer != null && bridgeServer.getLogger() != null) bridgeServer.getLogger().log("INFO", "Created token: " + res.tokenId); } catch (Exception ignored) {}
@@ -153,7 +150,7 @@ public final class CommonCommandHandler {
     }
 
     private static void addWarning(List<String> out, BridgeServer bridgeServer, String message) {
-        out.add(CommandMessages.warning(message));
+        // Only log the warning at WARN level to avoid duplicate user-facing messages.
         try { if (bridgeServer != null && bridgeServer.getLogger() != null) bridgeServer.getLogger().log("WARN", message); } catch (Exception ignored) {}
     }
 
