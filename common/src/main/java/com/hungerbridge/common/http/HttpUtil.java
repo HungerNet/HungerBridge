@@ -170,9 +170,17 @@ public final class HttpUtil {
     public static void writeJson(HttpExchange ex, int status, JsonObject body) throws IOException {
         byte[] bytes = Json.stringify(body).getBytes(StandardCharsets.UTF_8);
         ex.getResponseHeaders().set("Content-Type", "application/json");
-        ex.sendResponseHeaders(status, bytes.length);
-        try (OutputStream out = ex.getResponseBody()) {
-            out.write(bytes);
+        boolean isHead = "HEAD".equalsIgnoreCase(ex.getRequestMethod());
+        ex.sendResponseHeaders(status, isHead ? 0 : bytes.length);
+        if (!isHead) {
+            try (OutputStream out = ex.getResponseBody()) {
+                out.write(bytes);
+            }
+        } else {
+            // For HEAD requests, do not write a body — just close the stream to complete the exchange.
+            try {
+                ex.getResponseBody().close();
+            } catch (Exception ignored) {}
         }
     }
 

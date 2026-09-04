@@ -8,7 +8,7 @@ public final class FabricLoggerAdapter implements Logger {
     private final org.slf4j.Logger logger;
 
     public FabricLoggerAdapter() {
-        this.logger = LoggerFactory.getLogger("");
+        this.logger = LoggerFactory.getLogger("HungerBridge");
     }
 
     public FabricLoggerAdapter(org.slf4j.Logger logger) {

@@ -19,8 +19,8 @@ public final class LogDistributor {
     private static final LogDistributor INSTANCE = new LogDistributor();
 
     private final CopyOnWriteArrayList<StreamConnection> clients = new CopyOnWriteArrayList<>();
-    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
-        Thread t = new Thread(r, "hungerbridge-log-distributor");
+        private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread t = new Thread(r, "HungerBridge");
         t.setDaemon(true);
         return t;
     });

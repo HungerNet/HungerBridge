@@ -51,7 +51,7 @@ public final class TokenManager {
     private static final Gson GSON = new Gson();
 
     private final ScheduledExecutorService sweepExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
-        Thread t = new Thread(r, "hb-pickup-sweeper");
+        Thread t = new Thread(r, "HungerBridge");
         t.setDaemon(true);
         return t;
     });
