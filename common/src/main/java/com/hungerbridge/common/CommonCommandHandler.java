@@ -12,7 +12,7 @@ public final class CommonCommandHandler {
         List<String> out = new ArrayList<>();
         AdminService admin = bridgeServer.getAdminService();
         if (admin == null) {
-            out.add(CommandMessages.error("Admin service is not available."));
+            addError(out, bridgeServer, "Admin service is not available.");
             return out;
         }
 
@@ -31,7 +31,7 @@ public final class CommonCommandHandler {
             switch (args[0].toLowerCase()) {
                 case "reload":
                     boolean ok = admin.reloadConfig();
-                    out.add(ok ? CommandMessages.success("Config reloaded.") : CommandMessages.error("Reload failed."));
+                    if (ok) addSuccess(out, bridgeServer, "Config reloaded."); else addError(out, bridgeServer, "Reload failed.");
                     break;
                 case "status":
                     out.addAll(CommandMessages.formatKeyValues(admin.getStatus()));
@@ -45,7 +45,7 @@ public final class CommonCommandHandler {
                     if (args.length >= 2) try { n = Integer.parseInt(args[1]); } catch (NumberFormatException ignored) {}
                     List<String> lines = admin.getAuditSummary(n);
                     if (lines == null || lines.isEmpty()) {
-                        out.add(CommandMessages.warning("No audit entries found."));
+                        addWarning(out, bridgeServer, "No audit entries found.");
                     } else {
                         out.addAll(CommandMessages.formatList(lines, false));
                     }
@@ -63,7 +63,7 @@ public final class CommonCommandHandler {
                         case "list":
                             Map<String, TokenManager.Token> toks = admin.listTokens();
                             if (toks.isEmpty()) {
-                                out.add(CommandMessages.warning("No tokens found."));
+                                addWarning(out, bridgeServer, "No tokens found.");
                             } else {
                                 List<String> tokenLines = new ArrayList<>();
                                 for (TokenManager.Token t : toks.values()) {
@@ -90,22 +90,30 @@ public final class CommonCommandHandler {
                                 try { expiry = Long.parseLong(args[4]); } catch (NumberFormatException ignored) {}
                             }
                             TokenManager.Token t = admin.createToken(id, name, expiry, List.of(), List.of());
-                            if (t == null) out.add(CommandMessages.error("Unknown token id/policy or duplicate name: " + id)); else out.add(CommandMessages.createdToken(t.id, t.secret));
+                            if (t == null) addError(out, bridgeServer, "Unknown token id/policy or duplicate name: " + id);
+                            else {
+                                out.add(CommandMessages.createdToken(t.id, t.secret));
+                                try { if (bridgeServer != null && bridgeServer.getLogger() != null) bridgeServer.getLogger().log("INFO", "Created token: " + t.id); } catch (Exception ignored) {}
+                            }
                             break;
                         }
                         case "revoke": {
                             if (args.length < 3) { out.add("Usage: /hungerbridge token revoke <id>"); break; }
                             boolean r = admin.revokeToken(args[2]);
-                            out.add(r ? CommandMessages.success("Revoked token: " + args[2]) : CommandMessages.warning("Token not found: " + args[2]));
+                            if (r) addSuccess(out, bridgeServer, "Revoked token: " + args[2]); else addWarning(out, bridgeServer, "Token not found: " + args[2]);
                             break;
                         }
                         case "rotate": {
                             if (args.length < 3) { out.add("Usage: /hungerbridge token rotate <id>"); break; }
                             TokenManager.Token t = admin.rotateToken(args[2]);
-                            if (t == null) out.add(CommandMessages.error("Rotate failed for token: " + args[2])); else out.add(CommandMessages.rotatedToken(t.id, t.secret));
+                            if (t == null) addError(out, bridgeServer, "Rotate failed for token: " + args[2]);
+                            else {
+                                out.add(CommandMessages.rotatedToken(t.id, t.secret));
+                                try { if (bridgeServer != null && bridgeServer.getLogger() != null) bridgeServer.getLogger().log("INFO", "Rotated token: " + t.id); } catch (Exception ignored) {}
+                            }
                             break;
                         }
-                        default: out.add(CommandMessages.error("Unknown token subcommand."));
+                        default: addError(out, bridgeServer, "Unknown token subcommand.");
                     }
                     break;
                 }
@@ -121,11 +129,11 @@ public final class CommonCommandHandler {
                     out.addAll(CommandMessages.formatKeyValues(cs));
                     break;
                 default:
-                    out.add(CommandMessages.error("Unknown subcommand."));
+                    addError(out, bridgeServer, "Unknown subcommand.");
             }
         } catch (Exception e) {
             String msg = e.getMessage() == null ? "An unexpected error occurred." : e.getMessage();
-            out.add(CommandMessages.error(msg));
+            addError(out, bridgeServer, msg);
             try {
                 if (bridgeServer != null) {
                     com.hungerbridge.common.Logger l = bridgeServer.getLogger();
@@ -136,6 +144,21 @@ public final class CommonCommandHandler {
         }
 
         return out;
+    }
+
+    private static void addError(List<String> out, BridgeServer bridgeServer, String message) {
+        out.add(CommandMessages.error(message));
+        try { if (bridgeServer != null && bridgeServer.getLogger() != null) bridgeServer.getLogger().log("ERROR", message); } catch (Exception ignored) {}
+    }
+
+    private static void addWarning(List<String> out, BridgeServer bridgeServer, String message) {
+        out.add(CommandMessages.warning(message));
+        try { if (bridgeServer != null && bridgeServer.getLogger() != null) bridgeServer.getLogger().log("WARN", message); } catch (Exception ignored) {}
+    }
+
+    private static void addSuccess(List<String> out, BridgeServer bridgeServer, String message) {
+        out.add(CommandMessages.success(message));
+        try { if (bridgeServer != null && bridgeServer.getLogger() != null) bridgeServer.getLogger().log("INFO", message); } catch (Exception ignored) {}
     }
 
     private CommonCommandHandler() {}
