@@ -124,6 +124,14 @@ public final class BridgeServer {
             pool.shutdownNow();
             pool = null;
         }
+        // shutdown TokenManager sweeper if present
+        try {
+            if (config != null) {
+                com.hungerbridge.common.security.TokenManager tm = config.getTokenManager();
+                if (tm != null) tm.shutdown();
+            }
+        } catch (Exception ignored) {}
+
         logger.log("INFO", "HungerBridge HTTP server stopped.");
     }
 

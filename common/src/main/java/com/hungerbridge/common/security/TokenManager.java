@@ -147,10 +147,10 @@ public final class TokenManager {
 
     // pickups: temporary records storing plaintext secrets until consumed or expired
     public static final class PickupRecord {
-        String pickupId;
-        String tokenId;
-        String secret; // plaintext, short-lived
-        long expiresAt;
+        public String pickupId;
+        public String tokenId;
+        public String secret; // plaintext, short-lived
+        public long expiresAt;
     }
 
     private final Map<String, PickupRecord> pickups = new ConcurrentHashMap<>();
