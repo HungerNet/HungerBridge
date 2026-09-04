@@ -48,7 +48,7 @@ public final class AdminService {
         List<String> effectiveBlacklist = blacklist == null ? new ArrayList<>() : new ArrayList<>(blacklist);
         // (name removed — no uniqueness checks)
         if (tc != null && (effectiveWhitelist.isEmpty() && effectiveBlacklist.isEmpty())) {
-            TokensConfig.TokenPolicy policy = tc.getPolicy(id);
+            TokensConfig.TokenPolicy policy = tc.getPolicy(policyId);
             if (policy != null) {
                 java.util.LinkedHashSet<String> resolved = new java.util.LinkedHashSet<>();
                 if (policy.endpoints != null) resolved.addAll(policy.endpoints);
@@ -86,7 +86,7 @@ public final class AdminService {
         List<String> effectiveBlacklist = blacklist == null ? new ArrayList<>() : new ArrayList<>(blacklist);
         // (name removed — no uniqueness checks)
         if (tc != null && (effectiveWhitelist.isEmpty() && effectiveBlacklist.isEmpty())) {
-            TokensConfig.TokenPolicy policy = tc.getPolicy(id);
+            TokensConfig.TokenPolicy policy = tc.getPolicy(policyId);
             if (policy != null) {
                 java.util.LinkedHashSet<String> resolved = new java.util.LinkedHashSet<>();
                 if (policy.endpoints != null) resolved.addAll(policy.endpoints);
