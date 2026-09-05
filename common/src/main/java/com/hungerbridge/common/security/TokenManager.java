@@ -285,11 +285,9 @@ public final class TokenManager {
         long now = Instant.now().getEpochSecond();
         if (Math.abs(now - ts) > allowedSkewSeconds) return false;
 
-        // check nonce uniqueness
         Long existing = nonceCache.putIfAbsent(nonce, ts + allowedSkewSeconds);
         if (existing != null) return false;
 
-        // cleanup old nonces occasionally and persist the cache so replay protection survives restarts.
         if (nonceCache.size() > 1000) {
             long cutoff = now - (allowedSkewSeconds * 2);
             Iterator<Map.Entry<String, Long>> it = nonceCache.entrySet().iterator();
@@ -302,21 +300,70 @@ public final class TokenManager {
             persistSessions();
         }
 
-        // Build message the same way client does: METHOD\n{path}\n{timestamp}\n{nonce}\n{body}
-        String bodyStr = body == null ? "" : body;
-        String msg = method.toUpperCase() + "\n" + path + "\n" + timestampStr + "\n" + nonce + "\n" + bodyStr;
-        try {
-            Mac mac = Mac.getInstance("HmacSHA256");
-            byte[] key = deriveTokenKey(tk.id, tk.salt);
-            SecretKeySpec keySpec = new SecretKeySpec(key, "HmacSHA256");
-            mac.init(keySpec);
-            byte[] out = mac.doFinal(msg.getBytes(StandardCharsets.UTF_8));
-            String expected = bytesToHex(out);
-            return expected.equalsIgnoreCase(signature);
-        } catch (NoSuchAlgorithmException | InvalidKeyException e) {
-            logger.log("ERROR", "HMAC verification failed: " + e.getMessage());
-            return false;
+        String rawBody = body == null ? "" : body;
+        String canonicalBody = canonicalizeBodyForHmac(rawBody);
+
+        for (String candidateBody : new String[] { rawBody, canonicalBody }) {
+            String msg = method.toUpperCase() + "\n" + path + "\n" + timestampStr + "\n" + nonce + "\n" + candidateBody;
+            try {
+                Mac mac = Mac.getInstance("HmacSHA256");
+                byte[] key = deriveTokenKey(tk.id, tk.salt);
+                SecretKeySpec keySpec = new SecretKeySpec(key, "HmacSHA256");
+                mac.init(keySpec);
+                byte[] out = mac.doFinal(msg.getBytes(StandardCharsets.UTF_8));
+                String expected = bytesToHex(out);
+                if (expected.equalsIgnoreCase(signature)) {
+                    return true;
+                }
+            } catch (NoSuchAlgorithmException | InvalidKeyException e) {
+                logger.log("ERROR", "HMAC verification failed: " + e.getMessage());
+                return false;
+            }
         }
+        return false;
+    }
+
+    private static String canonicalizeBodyForHmac(String body) {
+        if (body == null || body.isBlank()) return "";
+        String trimmed = body.trim();
+        if (trimmed.isEmpty()) return "";
+        try {
+            com.google.gson.JsonElement el = com.google.gson.JsonParser.parseString(trimmed);
+            if (el == null || el.isJsonNull()) return "";
+            return canonicalizeJson(el);
+        } catch (Exception ignored) {
+            return trimmed;
+        }
+    }
+
+    private static String canonicalizeJson(com.google.gson.JsonElement el) {
+        if (el == null || el.isJsonNull()) return "null";
+        if (el.isJsonPrimitive()) return el.toString();
+        if (el.isJsonArray()) {
+            StringBuilder sb = new StringBuilder("[");
+            boolean first = true;
+            for (com.google.gson.JsonElement item : el.getAsJsonArray()) {
+                if (!first) sb.append(',');
+                sb.append(canonicalizeJson(item));
+                first = false;
+            }
+            sb.append(']');
+            return sb.toString();
+        }
+        com.google.gson.JsonObject obj = el.getAsJsonObject();
+        java.util.List<String> keys = new java.util.ArrayList<>(obj.keySet());
+        java.util.Collections.sort(keys);
+        StringBuilder sb = new StringBuilder("{");
+        boolean first = true;
+        for (String key : keys) {
+            if (!first) sb.append(',');
+            sb.append(GSON.toJson(key));
+            sb.append(':');
+            sb.append(canonicalizeJson(obj.get(key)));
+            first = false;
+        }
+        sb.append('}');
+        return sb.toString();
     }
 
     private static String bytesToHex(byte[] data) {
