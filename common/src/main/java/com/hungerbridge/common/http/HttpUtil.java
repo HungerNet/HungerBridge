@@ -47,7 +47,13 @@ public final class HttpUtil {
         try {
             com.hungerbridge.common.TokensConfig tc = config.getTokensConfig();
             if (tc != null) {
-                com.hungerbridge.common.TokensConfig.TokenPolicy policy = tc.getPolicy(tokenId);
+                // Prefer the runtime token's associated policyId, if present.
+                TokenManager.Token runtimeToken = tm.listTokens().get(tokenId);
+                com.hungerbridge.common.TokensConfig.TokenPolicy policy = null;
+                if (runtimeToken != null && runtimeToken.policyId != null && !runtimeToken.policyId.isBlank()) {
+                    policy = tc.getPolicy(runtimeToken.policyId);
+                }
+                if (policy == null) policy = tc.getPolicy(tokenId);
                 if (policy != null) allowedSkew = policy.maxSkewSeconds;
                 else allowedSkew = tc.maxSkewSeconds;
                 if (allowedSkew < 0) allowedSkew = Integer.MAX_VALUE;
