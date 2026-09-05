@@ -12,6 +12,7 @@ import java.nio.file.Path;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -253,7 +254,13 @@ public final class TokenManager {
     private synchronized void persistPickups() {
         try {
             String txt = GSON.toJson(pickups);
-            Files.writeString(pickupsFile, txt, StandardCharsets.UTF_8);
+            Path tmp = pickupsFile.resolveSibling(pickupsFile.getFileName().toString() + ".tmp");
+            Files.writeString(tmp, txt, StandardCharsets.UTF_8);
+            try {
+                Files.move(tmp, pickupsFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING, java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+            } catch (AtomicMoveNotSupportedException amnse) {
+                Files.move(tmp, pickupsFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
         } catch (IOException e) {
             if (logger != null) logger.log("WARN", "Failed to persist pickups: " + e.getMessage());
         }

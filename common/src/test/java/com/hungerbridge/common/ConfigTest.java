@@ -157,7 +157,7 @@ public final class ConfigTest {
     }
 
     @Test
-    public void rateLimiterRefillsAcrossMilliseconds() throws InterruptedException {
+    public void rateLimiterRefillsAcrossMilliseconds() throws Exception {
         Path dir = Files.createTempDirectory("hungerbridge-rate-limit");
         com.hungerbridge.common.security.RateLimiter limiter = new com.hungerbridge.common.security.RateLimiter(dir, (level, message) -> {});
         limiter.setLimits(1000.0, 1.0, 1000.0, 1.0);
