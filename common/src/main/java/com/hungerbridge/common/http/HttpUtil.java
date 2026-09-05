@@ -72,22 +72,8 @@ public final class HttpUtil {
             return false;
         }
         TokenManager.Token tk = (TokenManager.Token) tokObj;
-        // revoked check
-        if (tk.revoked) return false;
-        // expiry check
-        if (tk.expiry > 0 && Instant.now().getEpochSecond() > tk.expiry) return false;
-        
-        // Interpret explicit empty lists as authoritative:
-        // - whitelist != null && empty => deny all
-        // - blacklist != null && empty => allow all
-        if (tk.whitelist != null) {
-            if (tk.whitelist.isEmpty()) return false;
-            return tk.whitelist.contains(action);
-        }
-        if (tk.blacklist != null) {
-            if (tk.blacklist.isEmpty()) return true;
-            return !tk.blacklist.contains(action);
-        }
+        if (!tokenAclAllows(tk, action)) return false;
+
         // IP whitelist/blacklist enforcement (enforced after authentication)
         com.hungerbridge.common.security.SecurityConfig sc = config.getSecurityConfig();
         if (sc != null) {
@@ -119,6 +105,32 @@ public final class HttpUtil {
                 if (!ok) return false;
             }
         }
+        return true;
+    }
+
+    public static boolean tokenAclAllows(TokenManager.Token tk, String action) {
+        if (tk == null) return false;
+        if (tk.revoked) return false;
+        if (tk.expiry > 0 && Instant.now().getEpochSecond() > tk.expiry) return false;
+
+        // A runtime token with both lists explicitly empty is the legacy/default
+        // admin policy shape and should behave like an empty blacklist: allow all.
+        boolean bothEmpty = tk.whitelist != null && tk.blacklist != null
+                && tk.whitelist.isEmpty() && tk.blacklist.isEmpty();
+        if (bothEmpty) return true;
+
+        // Explicit whitelist semantics: empty whitelist means deny all.
+        if (tk.whitelist != null) {
+            if (tk.whitelist.isEmpty()) return false;
+            return tk.whitelist.contains(action);
+        }
+
+        // Explicit blacklist semantics: empty blacklist means allow all.
+        if (tk.blacklist != null) {
+            if (tk.blacklist.isEmpty()) return true;
+            return !tk.blacklist.contains(action);
+        }
+
         return true;
     }
 

@@ -1,11 +1,13 @@
 package com.hungerbridge.common;
 
+import com.hungerbridge.common.http.HttpUtil;
 import com.hungerbridge.common.security.TokenManager;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -45,5 +47,17 @@ public final class PolicySemanticsTest {
         assertNotNull(t);
         assertNotNull(t.whitelist);
         assertTrue(t.whitelist.isEmpty(), "Expected runtime whitelist to be an explicit empty list (deny all)");
+    }
+
+    @Test
+    public void dualEmptyTokenListsRemainPermissiveForAdminPolicy() {
+        TokenManager.Token token = new TokenManager.Token();
+        token.whitelist = List.of();
+        token.blacklist = List.of();
+        token.revoked = false;
+        token.expiry = 0;
+
+        assertTrue(HttpUtil.tokenAclAllows(token, "log"));
+        assertTrue(HttpUtil.tokenAclAllows(token, "admin"));
     }
 }
