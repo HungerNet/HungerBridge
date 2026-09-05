@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.hungerbridge.common.ConfigTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-09-05T17:50:10.927Z" hostname="bdce08eb-e372-4c24-8232-f7728e03ea13" time="0.24">
+  <properties/>
+  <testcase name="reloadConfigLoadsNamedTokenPolicies()" classname="com.hungerbridge.common.ConfigTest" time="0.084"/>
+  <testcase name="readsEnabledEndpointsAndNewSecuritySchema()" classname="com.hungerbridge.common.ConfigTest" time="0.007"/>
+  <testcase name="rejectsUnknownTokenPolicyIdOnCreate()" classname="com.hungerbridge.common.ConfigTest" time="0.004"/>
+  <testcase name="rateLimiterRefillsAcrossMilliseconds()" classname="com.hungerbridge.common.ConfigTest" time="0.122"/>
+  <testcase name="commandMessagesUseConsistentCapitalization()" classname="com.hungerbridge.common.ConfigTest" time="0.004"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -60,11 +60,23 @@ public final class AdminService {
                         effectiveBlacklist.addAll(resolved);
                     }
                 }
+                // If the policy explicitly configures an empty whitelist, that
+                // must mean "deny all". If it configures an empty blacklist,
+                // that must mean "allow all". Represent these semantics by
+                // ensuring the runtime token receives a non-null (possibly
+                // empty) list that the ACL engine will interpret accordingly.
+                if ("whitelist".equalsIgnoreCase(policy.endpointsMode) || "whitelist".equalsIgnoreCase(policy.commandsMode)) {
+                    if (effectiveWhitelist.isEmpty()) effectiveWhitelist = java.util.List.of();
+                } else {
+                    if (effectiveBlacklist.isEmpty()) effectiveBlacklist = java.util.List.of();
+                }
                 if (expirySeconds <= 0 && policy.defaultExpirySeconds > 0) expirySeconds = policy.defaultExpirySeconds;
             }
         }
         // Create a runtime token with the requested tokenId (if provided) or generated id.
-        TokenManager.Token t = tm.createToken(tokenId, expirySeconds, effectiveWhitelist.isEmpty() ? null : effectiveWhitelist, effectiveBlacklist.isEmpty() ? null : effectiveBlacklist);
+        // Pass lists directly; empty (non-null) lists are now interpreted by the
+        // ACL engine as explicit deny/allow semantics.
+        TokenManager.Token t = tm.createToken(tokenId, expirySeconds, effectiveWhitelist, effectiveBlacklist);
         if (t != null) {
             if (policyId != null && !policyId.isBlank()) tm.setTokenPolicyId(t.id, policyId);
         }
@@ -98,11 +110,17 @@ public final class AdminService {
                         effectiveBlacklist.addAll(resolved);
                     }
                 }
+                // Preserve explicit empty list semantics for runtime tokens
+                if ("whitelist".equalsIgnoreCase(policy.endpointsMode) || "whitelist".equalsIgnoreCase(policy.commandsMode)) {
+                    if (effectiveWhitelist.isEmpty()) effectiveWhitelist = java.util.List.of();
+                } else {
+                    if (effectiveBlacklist.isEmpty()) effectiveBlacklist = java.util.List.of();
+                }
                 if (expirySeconds <= 0 && policy.defaultExpirySeconds > 0) expirySeconds = policy.defaultExpirySeconds;
             }
         }
 
-        TokenManager.IssueResult res = tm.issueTokenWithPickup(tokenId, expirySeconds, effectiveWhitelist.isEmpty() ? null : effectiveWhitelist, effectiveBlacklist.isEmpty() ? null : effectiveBlacklist, pickupTtlSeconds);
+        TokenManager.IssueResult res = tm.issueTokenWithPickup(tokenId, expirySeconds, effectiveWhitelist, effectiveBlacklist, pickupTtlSeconds);
         if (res != null) {
             if (policyId != null && !policyId.isBlank()) tm.setTokenPolicyId(res.tokenId, policyId);
         }

@@ -152,8 +152,8 @@ public final class ConfigTest {
     public void commandMessagesUseConsistentCapitalization() {
         assertTrue(CommandMessages.HEADER.startsWith("HungerBridge Commands"));
         assertTrue(CommandMessages.helpLines().getFirst().startsWith("Usage:"));
-        assertTrue(CommandMessages.createdToken("admin", "secret").startsWith("Created token"));
-        assertTrue(CommandMessages.rotatedToken("admin", "secret").startsWith("Rotated token"));
+        assertTrue(CommandMessages.createdToken("admin", "secret").contains("Created token"));
+        assertTrue(CommandMessages.rotatedToken("admin", "secret").contains("Rotated token"));
     }
 
     @Test

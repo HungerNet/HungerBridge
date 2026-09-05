@@ -76,11 +76,16 @@ public final class HttpUtil {
         if (tk.revoked) return false;
         // expiry check
         if (tk.expiry > 0 && Instant.now().getEpochSecond() > tk.expiry) return false;
-
-        if (tk.whitelist != null && !tk.whitelist.isEmpty()) {
+        
+        // Interpret explicit empty lists as authoritative:
+        // - whitelist != null && empty => deny all
+        // - blacklist != null && empty => allow all
+        if (tk.whitelist != null) {
+            if (tk.whitelist.isEmpty()) return false;
             return tk.whitelist.contains(action);
         }
-        if (tk.blacklist != null && !tk.blacklist.isEmpty()) {
+        if (tk.blacklist != null) {
+            if (tk.blacklist.isEmpty()) return true;
             return !tk.blacklist.contains(action);
         }
         // IP whitelist/blacklist enforcement (enforced after authentication)

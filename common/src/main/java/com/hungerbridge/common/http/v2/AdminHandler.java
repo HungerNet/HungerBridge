@@ -32,13 +32,14 @@ public final class AdminHandler implements HttpHandler {
             HttpUtil.error(ex, 401, "unauthenticated", "authentication required", config);
             return false;
         }
-        Object tok = ex.getAttribute("hb.auth.token");
-        if (tok instanceof com.hungerbridge.common.security.TokenManager.Token) {
-            com.hungerbridge.common.security.TokenManager.Token t = (com.hungerbridge.common.security.TokenManager.Token) tok;
-            if (t.whitelist != null && t.whitelist.contains("admin")) return true;
+        // Enforce admin rights through the unified ACL engine so policy rules
+        // (whitelist/blacklist semantics) are followed exactly and there are
+        // no legacy hardcoded exceptions.
+        if (!HttpUtil.checkAcl(ex, config, "admin")) {
+            HttpUtil.error(ex, 403, "forbidden", "admin rights required", config);
+            return false;
         }
-        HttpUtil.error(ex, 403, "forbidden", "admin rights required", config);
-        return false;
+        return true;
     }
 
     @Override

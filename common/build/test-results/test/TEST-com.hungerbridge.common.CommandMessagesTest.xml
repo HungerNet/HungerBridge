@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.hungerbridge.common.CommandMessagesTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-09-05T17:50:11.169Z" hostname="bdce08eb-e372-4c24-8232-f7728e03ea13" time="0.006">
+  <properties/>
+  <testcase name="formatStatusIncludesName()" classname="com.hungerbridge.common.CommandMessagesTest" time="0.001"/>
+  <testcase name="formatListNumberedAndBulleted()" classname="com.hungerbridge.common.CommandMessagesTest" time="0.001"/>
+  <testcase name="formatKeyValuesProducesLines()" classname="com.hungerbridge.common.CommandMessagesTest" time="0.001"/>
+  <testcase name="createdTokenUsesColor()" classname="com.hungerbridge.common.CommandMessagesTest" time="0.001"/>
+  <testcase name="formatTableAlignsColumns()" classname="com.hungerbridge.common.CommandMessagesTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
