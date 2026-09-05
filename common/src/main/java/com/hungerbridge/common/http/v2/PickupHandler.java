@@ -25,6 +25,10 @@ public final class PickupHandler implements HttpHandler {
             return;
         }
 
+        if (!HttpUtil.rateLimit(ex, config, "pickup")) {
+            return;
+        }
+
         String path = ex.getRequestURI().getPath();
         String[] parts = path.split("/");
         if (parts.length < 4) {
