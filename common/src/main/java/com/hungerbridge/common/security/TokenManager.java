@@ -302,11 +302,6 @@ public final class TokenManager {
 
         String rawBody = body == null ? "" : body;
         String canonicalBody = canonicalizeBodyForHmac(rawBody);
-        // DEBUG: print bodies for diagnosing HMAC mismatches during development
-        try {
-            System.err.println("[DEBUG] rawBody='" + rawBody + "'");
-            System.err.println("[DEBUG] canonicalBody='" + canonicalBody + "'");
-        } catch (Exception ignored) {}
 
         for (String candidateBody : new String[] { rawBody, canonicalBody }) {
             String msg = method.toUpperCase() + "\n" + path + "\n" + timestampStr + "\n" + nonce + "\n" + candidateBody;
@@ -317,7 +312,6 @@ public final class TokenManager {
                 mac.init(keySpec);
                 byte[] out = mac.doFinal(msg.getBytes(StandardCharsets.UTF_8));
                 String expected = bytesToHex(out);
-                try { System.err.println("[DEBUG] candidateBody='" + candidateBody + "' expected='" + expected + "' provided='" + signature + "'"); } catch (Exception ignored) {}
                 if (expected.equalsIgnoreCase(signature)) {
                     return true;
                 }

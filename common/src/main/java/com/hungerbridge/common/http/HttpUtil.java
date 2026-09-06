@@ -37,14 +37,9 @@ public final class HttpUtil {
                 byte[] b = in.readAllBytes();
                 bodyStr = new String(b, StandardCharsets.UTF_8).trim();
                 if (bodyStr.isEmpty()) bodyStr = "";
-                // Attempt to canonicalize JSON bodies so HMAC verification is
-                // insensitive to key ordering. If parsing fails, keep raw body.
-                String canonical = bodyStr;
-                try {
-                    com.google.gson.JsonElement el = com.google.gson.JsonParser.parseString(bodyStr);
-                    canonical = canonicalizeJson(el);
-                } catch (Exception ignored) {}
-                ex.setAttribute("hb.request.body", canonical);
+                // Preserve the exact request payload for downstream JSON parsing and
+                // only canonicalize it opportunistically for HMAC verification.
+                ex.setAttribute("hb.request.body", bodyStr);
             } catch (IOException e) {
                 return false;
             }
