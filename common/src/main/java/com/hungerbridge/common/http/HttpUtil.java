@@ -93,16 +93,54 @@ public final class HttpUtil {
             return false;
         }
         TokenManager.Token tk = (TokenManager.Token) tokObj;
-        if (!tokenAclAllows(tk, action)) {
-            com.hungerbridge.common.log.AuditLogger al = config != null ? config.getAuditLogger() : null;
-            String tid = (String) ex.getAttribute("hb.auth.tokenId");
-            if (al != null) {
-                java.util.Map<String,Object> extra = new java.util.HashMap<>();
-                extra.put("path", ex.getRequestURI().getPath());
-                extra.put("method", ex.getRequestMethod());
-                al.logEvent(tid, ip, action, "denied", extra);
+        // First, evaluate explicit runtime token lists if present
+        if (tokenAclAllows(tk, action)) {
+            // allowed by runtime lists
+        } else {
+            // If runtime lists denied, consult tokens.yaml policy (if any)
+            boolean allowedByPolicy = false;
+            try {
+                com.hungerbridge.common.TokensConfig tc = config != null ? config.getTokensConfig() : null;
+                if (tc != null) {
+                    com.hungerbridge.common.TokensConfig.TokenPolicy policy = null;
+                    if (tk.policyId != null && !tk.policyId.isBlank()) policy = tc.getPolicy(tk.policyId);
+                    if (policy == null) policy = tc.getPolicy(tk.id);
+                    if (policy != null) {
+                        // apply same semantics as tokenAclAllows but using policy lists
+                        if (policy.endpoints != null) {
+                            if (policy.endpoints.isEmpty()) {
+                                // empty whitelist/blacklist semantics determined by endpointsMode
+                                if ("whitelist".equalsIgnoreCase(policy.endpointsMode)) {
+                                    allowedByPolicy = false; // empty whitelist => deny all
+                                } else {
+                                    allowedByPolicy = true; // empty blacklist => allow all
+                                }
+                            } else {
+                                if ("whitelist".equalsIgnoreCase(policy.endpointsMode)) {
+                                    allowedByPolicy = policy.endpoints.contains(action);
+                                } else {
+                                    allowedByPolicy = !policy.endpoints.contains(action);
+                                }
+                            }
+                        } else {
+                            // no explicit endpoints listed in policy -> allow
+                            allowedByPolicy = true;
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+
+            if (!allowedByPolicy) {
+                com.hungerbridge.common.log.AuditLogger al = config != null ? config.getAuditLogger() : null;
+                String tid = (String) ex.getAttribute("hb.auth.tokenId");
+                if (al != null) {
+                    java.util.Map<String,Object> extra = new java.util.HashMap<>();
+                    extra.put("path", ex.getRequestURI().getPath());
+                    extra.put("method", ex.getRequestMethod());
+                    al.logEvent(tid, ip, action, "denied", extra);
+                }
+                return false;
             }
-            return false;
         }
 
         // IP whitelist/blacklist enforcement (enforced after authentication)
