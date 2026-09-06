@@ -56,8 +56,6 @@ public final class BridgeServer {
 
         server.createContext("/ping", new PingHandler(config, logger));
         endpoints.add("/ping");
-        server.createContext("/server/ping", new PingHandler(config, logger));
-        endpoints.add("/server/ping");
         server.createContext("/auth/check", new com.hungerbridge.common.http.v2.AuthCheckHandler(config));
         endpoints.add("/auth/check");
         server.createContext("/server/run", new RunHandler(config, logger, executor));
@@ -74,8 +72,6 @@ public final class BridgeServer {
         endpoints.add("/server/meta");
         server.createContext("/server/stream", new StreamLogsHandler(config));
         endpoints.add("/server/stream");
-        server.createContext("/server/stream/logs", new StreamLogsHandler(config));
-        endpoints.add("/server/stream/logs");
         server.createContext("/system/uptime", new com.hungerbridge.common.http.v2.SystemUptimeHandler(config, logger));
         endpoints.add("/system/uptime");
         server.createContext("/system/cpu", new com.hungerbridge.common.http.v2.SystemCpuHandler(config, logger));
@@ -140,10 +136,7 @@ public final class BridgeServer {
         endpoints.add("/admin/token/meta");
         server.createContext("/admin/audit/purge", new com.hungerbridge.common.http.v2.AdminAuditPurgeHandler(admin, config));
         endpoints.add("/admin/audit/purge");
-        server.createContext("/tps", new TpsHandler(config, logger, executor));
-        endpoints.add("/tps");
-        server.createContext("/players", new PlayersHandler(config, logger, executor));
-        endpoints.add("/players");
+        // legacy aliases removed: prefer canonical v3 routes (e.g. /world/tps, /players/list)
         server.createContext("/server/info", new InfoHandler(config, logger));
         endpoints.add("/server/info");
         server.createContext("/server/status", new StatusHandler(config, logger));

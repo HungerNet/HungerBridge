@@ -57,8 +57,9 @@ public final class PolicySemanticsTest {
         token.revoked = false;
         token.expiry = 0;
 
-        assertTrue(HttpUtil.tokenAclAllows(token, "log"));
-        assertTrue(HttpUtil.tokenAclAllows(token, "admin"));
+        // Under the new semantics, an explicit empty whitelist means "deny all".
+        assertFalse(HttpUtil.tokenAclAllows(token, "log"));
+        assertFalse(HttpUtil.tokenAclAllows(token, "admin"));
     }
 
     @Test

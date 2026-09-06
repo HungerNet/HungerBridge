@@ -8,7 +8,7 @@ It exposes a small, secure HTTP API:
 
  - `POST /server/run` — execute a command as console (with optional silent mode)
  - `POST /server/log` — write raw text to the server console
- - `GET /server/ping` — health check
+ - `GET /ping` — health check
 
 HungerBridge works identically on:
 
@@ -38,7 +38,7 @@ curl -N \
   -H "X-Auth-Timestamp: $(date +%s)" \
   -H "X-Auth-Nonce: $(openssl rand -hex 16)" \
   -H "X-Auth-Signature: <hmac-signature>" \
-  http://localhost:1913/server/stream/logs
+  http://localhost:1913/server/stream
 ```
 
 The server sends each line as an SSE event:
@@ -137,12 +137,12 @@ Core HTTP API endpoints
 
  - `POST /run` — execute a command as console (JSON `{command, silent, show_console}`)
  - `POST /log` — write raw text to the server console (JSON `{level, message}`)
-`GET  /server/ping` — health check
+ - `GET  /ping` — health check
  - `GET  /server/info` — server and bridge metadata
  - `GET  /server/status` — runtime status (ok)
- - `GET  /server/tps` — TPS and tick time metrics
- - `GET  /server/players` — players count/list
- - `GET  /server/stream/logs` — SSE stream of console logs (supports signed headers)
+ - `GET  /world/tps` — TPS and tick time metrics
+ - `GET  /players/list` — players count/list
+ - `GET  /server/stream` — SSE stream of console logs (supports signed headers)
 
 Admin HTTP endpoints (require an admin-capable token)
 
@@ -217,7 +217,7 @@ provide a header provider callable to sign the SSE connection when using
 HMAC tokens.
 
 ```bash
-curl -N -H "X-Auth-Token-Id: admin" -H "X-Auth-Timestamp: $(date +%s)" -H "X-Auth-Nonce: $(openssl rand -hex 16)" -H "X-Auth-Signature: <hmac-signature>" http://localhost:1913/server/stream/logs
+curl -N -H "X-Auth-Token-Id: admin" -H "X-Auth-Timestamp: $(date +%s)" -H "X-Auth-Nonce: $(openssl rand -hex 16)" -H "X-Auth-Signature: <hmac-signature>" http://localhost:1913/server/stream
 ```
 
 Each SSE `data:` event contains a single raw console line.

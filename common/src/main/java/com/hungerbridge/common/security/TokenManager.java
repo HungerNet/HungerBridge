@@ -391,8 +391,8 @@ public final class TokenManager {
         public String policyId = null;
         public boolean revoked = false;
         public long expiry = 0; // epoch seconds, 0 = never
-        public List<String> whitelist = Collections.emptyList();
-        public List<String> blacklist = Collections.emptyList();
+        public List<String> whitelist = null;
+        public List<String> blacklist = null;
     }
 
     public Token createToken(String id, long expirySeconds, List<String> whitelist, List<String> blacklist) {

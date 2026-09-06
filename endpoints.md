@@ -267,9 +267,7 @@ curl -N "http://localhost:1913/server/stream?history=50"
 ```python
 client.stream.connect(history=50)
 ```
-
-- The client also keeps a legacy fallback for `/server/stream/logs` if the server is older or a compatibility endpoint is needed.
-
+</details>
 </details>
 
 <details>
@@ -833,9 +831,7 @@ client.token_meta()
 
 ## 5. Compatibility notes
 
-- Older v2 routes continue to work when they still exist, so older clients are not intentionally broken.
-- The canonical v3 tree is the list above. The client prefers the v3 contract and falls back to legacy URLs when needed.
-- The stream endpoint remains compatible with the older `/server/stream/logs` route to avoid abrupt client breakage.
+- The canonical v3 tree is the authoritative API surface. HungerBridge and clients should target the v3 routes listed above.
 
 ## 6. Error behavior
 

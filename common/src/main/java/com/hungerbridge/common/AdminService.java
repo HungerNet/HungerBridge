@@ -44,10 +44,13 @@ public final class AdminService {
         if (tc != null && policyId != null && !policyId.isBlank() && !tc.hasPolicy(policyId)) {
             return null;
         }
-        List<String> effectiveWhitelist = whitelist == null ? new ArrayList<>() : new ArrayList<>(whitelist);
-        List<String> effectiveBlacklist = blacklist == null ? new ArrayList<>() : new ArrayList<>(blacklist);
+        // Preserve null when caller did not provide explicit lists. Only
+        // materialize lists when a caller provides them or when a policy
+        // explicitly defines an empty list (to express allow/deny-all semantics).
+        List<String> effectiveWhitelist = whitelist != null ? new ArrayList<>(whitelist) : null;
+        List<String> effectiveBlacklist = blacklist != null ? new ArrayList<>(blacklist) : null;
         // (name removed — no uniqueness checks)
-        if (tc != null && (effectiveWhitelist.isEmpty() && effectiveBlacklist.isEmpty())) {
+        if (tc != null && effectiveWhitelist == null && effectiveBlacklist == null) {
             TokensConfig.TokenPolicy policy = tc.getPolicy(policyId);
             if (policy != null) {
                 java.util.LinkedHashSet<String> resolved = new java.util.LinkedHashSet<>();
@@ -55,20 +58,18 @@ public final class AdminService {
                 if (policy.commands != null) resolved.addAll(policy.commands);
                 if (!resolved.isEmpty()) {
                     if ("whitelist".equalsIgnoreCase(policy.endpointsMode) || "whitelist".equalsIgnoreCase(policy.commandsMode)) {
-                        effectiveWhitelist.addAll(resolved);
+                        effectiveWhitelist = new ArrayList<>(resolved);
                     } else {
-                        effectiveBlacklist.addAll(resolved);
+                        effectiveBlacklist = new ArrayList<>(resolved);
                     }
-                }
-                // If the policy explicitly configures an empty whitelist, that
-                // must mean "deny all". If it configures an empty blacklist,
-                // that must mean "allow all". Represent these semantics by
-                // ensuring the runtime token receives a non-null (possibly
-                // empty) list that the ACL engine will interpret accordingly.
-                if ("whitelist".equalsIgnoreCase(policy.endpointsMode) || "whitelist".equalsIgnoreCase(policy.commandsMode)) {
-                    if (effectiveWhitelist.isEmpty()) effectiveWhitelist = java.util.List.of();
                 } else {
-                    if (effectiveBlacklist.isEmpty()) effectiveBlacklist = java.util.List.of();
+                    // Policy explicitly configured empty lists — represent that
+                    // as an explicit empty (non-null) list to convey allow/deny-all.
+                    if ("whitelist".equalsIgnoreCase(policy.endpointsMode) || "whitelist".equalsIgnoreCase(policy.commandsMode)) {
+                        effectiveWhitelist = java.util.List.of();
+                    } else {
+                        effectiveBlacklist = java.util.List.of();
+                    }
                 }
                 if (expirySeconds <= 0 && policy.defaultExpirySeconds > 0) expirySeconds = policy.defaultExpirySeconds;
             }
@@ -93,11 +94,12 @@ public final class AdminService {
         if (tc != null && policyId != null && !policyId.isBlank() && !tc.hasPolicy(policyId)) {
             return null;
         }
-
-        List<String> effectiveWhitelist = whitelist == null ? new ArrayList<>() : new ArrayList<>(whitelist);
-        List<String> effectiveBlacklist = blacklist == null ? new ArrayList<>() : new ArrayList<>(blacklist);
-        // (name removed — no uniqueness checks)
-        if (tc != null && (effectiveWhitelist.isEmpty() && effectiveBlacklist.isEmpty())) {
+        // Preserve null when caller did not provide explicit lists. Only
+        // materialize lists when a caller provides them or when a policy
+        // explicitly defines an empty list (to express allow/deny-all semantics).
+        List<String> effectiveWhitelist = whitelist != null ? new ArrayList<>(whitelist) : null;
+        List<String> effectiveBlacklist = blacklist != null ? new ArrayList<>(blacklist) : null;
+        if (tc != null && effectiveWhitelist == null && effectiveBlacklist == null) {
             TokensConfig.TokenPolicy policy = tc.getPolicy(policyId);
             if (policy != null) {
                 java.util.LinkedHashSet<String> resolved = new java.util.LinkedHashSet<>();
@@ -105,16 +107,16 @@ public final class AdminService {
                 if (policy.commands != null) resolved.addAll(policy.commands);
                 if (!resolved.isEmpty()) {
                     if ("whitelist".equalsIgnoreCase(policy.endpointsMode) || "whitelist".equalsIgnoreCase(policy.commandsMode)) {
-                        effectiveWhitelist.addAll(resolved);
+                        effectiveWhitelist = new ArrayList<>(resolved);
                     } else {
-                        effectiveBlacklist.addAll(resolved);
+                        effectiveBlacklist = new ArrayList<>(resolved);
                     }
-                }
-                // Preserve explicit empty list semantics for runtime tokens
-                if ("whitelist".equalsIgnoreCase(policy.endpointsMode) || "whitelist".equalsIgnoreCase(policy.commandsMode)) {
-                    if (effectiveWhitelist.isEmpty()) effectiveWhitelist = java.util.List.of();
                 } else {
-                    if (effectiveBlacklist.isEmpty()) effectiveBlacklist = java.util.List.of();
+                    if ("whitelist".equalsIgnoreCase(policy.endpointsMode) || "whitelist".equalsIgnoreCase(policy.commandsMode)) {
+                        effectiveWhitelist = java.util.List.of();
+                    } else {
+                        effectiveBlacklist = java.util.List.of();
+                    }
                 }
                 if (expirySeconds <= 0 && policy.defaultExpirySeconds > 0) expirySeconds = policy.defaultExpirySeconds;
             }
