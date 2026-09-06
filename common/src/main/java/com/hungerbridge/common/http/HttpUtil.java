@@ -37,7 +37,14 @@ public final class HttpUtil {
                 byte[] b = in.readAllBytes();
                 bodyStr = new String(b, StandardCharsets.UTF_8).trim();
                 if (bodyStr.isEmpty()) bodyStr = "";
-                ex.setAttribute("hb.request.body", bodyStr);
+                // Attempt to canonicalize JSON bodies so HMAC verification is
+                // insensitive to key ordering. If parsing fails, keep raw body.
+                String canonical = bodyStr;
+                try {
+                    com.google.gson.JsonElement el = com.google.gson.JsonParser.parseString(bodyStr);
+                    canonical = canonicalizeJson(el);
+                } catch (Exception ignored) {}
+                ex.setAttribute("hb.request.body", canonical);
             } catch (IOException e) {
                 return false;
             }
@@ -138,6 +145,40 @@ public final class HttpUtil {
         }
 
         return true;
+    }
+
+    private static String canonicalizeJson(com.google.gson.JsonElement el) {
+        if (el == null || el.isJsonNull()) return "null";
+        if (el.isJsonPrimitive()) return el.toString();
+        if (el.isJsonArray()) {
+            StringBuilder sb = new StringBuilder();
+            sb.append('[');
+            boolean first = true;
+            for (com.google.gson.JsonElement e : el.getAsJsonArray()) {
+                if (!first) sb.append(',');
+                sb.append(canonicalizeJson(e));
+                first = false;
+            }
+            sb.append(']');
+            return sb.toString();
+        }
+        // object: sort keys lexicographically
+        java.util.Map<String, com.google.gson.JsonElement> map = new java.util.TreeMap<>();
+        for (java.util.Map.Entry<String, com.google.gson.JsonElement> en : el.getAsJsonObject().entrySet()) {
+            map.put(en.getKey(), en.getValue());
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append('{');
+        boolean first = true;
+        for (java.util.Map.Entry<String, com.google.gson.JsonElement> en : map.entrySet()) {
+            if (!first) sb.append(',');
+            sb.append(Json.GSON.toJson(en.getKey()));
+            sb.append(':');
+            sb.append(canonicalizeJson(en.getValue()));
+            first = false;
+        }
+        sb.append('}');
+        return sb.toString();
     }
 
     public static boolean rateLimit(HttpExchange ex, Config config, String action) throws IOException {

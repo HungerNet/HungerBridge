@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.hungerbridge.common.TokenManagerPickupTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-09-05T23:13:33.592Z" hostname="bdce08eb-e372-4c24-8232-f7728e03ea13" time="0.005">
-  <properties/>
-  <testcase name="issueAndConsumePickup()" classname="com.hungerbridge.common.TokenManagerPickupTest" time="0.004"/>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>
