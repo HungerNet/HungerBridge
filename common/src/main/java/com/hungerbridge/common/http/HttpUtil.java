@@ -37,8 +37,6 @@ public final class HttpUtil {
                 byte[] b = in.readAllBytes();
                 bodyStr = new String(b, StandardCharsets.UTF_8).trim();
                 if (bodyStr.isEmpty()) bodyStr = "";
-                // Preserve the exact request payload for downstream JSON parsing and
-                // only canonicalize it opportunistically for HMAC verification.
                 ex.setAttribute("hb.request.body", bodyStr);
             } catch (IOException e) {
                 return false;
@@ -49,13 +47,7 @@ public final class HttpUtil {
         try {
             com.hungerbridge.common.TokensConfig tc = config.getTokensConfig();
             if (tc != null) {
-                // Prefer the runtime token's associated policyId, if present.
-                TokenManager.Token runtimeToken = tm.listTokens().get(tokenId);
-                com.hungerbridge.common.TokensConfig.TokenPolicy policy = null;
-                if (runtimeToken != null && runtimeToken.policyId != null && !runtimeToken.policyId.isBlank()) {
-                    policy = tc.getPolicy(runtimeToken.policyId);
-                }
-                if (policy == null) policy = tc.getPolicy(tokenId);
+                com.hungerbridge.common.TokensConfig.TokenPolicy policy = tc.getPolicy(tokenId);
                 if (policy != null) allowedSkew = policy.maxSkewSeconds;
                 else allowedSkew = tc.maxSkewSeconds;
                 if (allowedSkew < 0) allowedSkew = Integer.MAX_VALUE;
@@ -77,67 +69,20 @@ public final class HttpUtil {
         Object tokObj = ex.getAttribute("hb.auth.token");
         if (!(tokObj instanceof TokenManager.Token)) {
             // no token metadata available — deny by default
-            com.hungerbridge.common.log.AuditLogger alx = config != null ? config.getAuditLogger() : null;
-            String tidx = (String) ex.getAttribute("hb.auth.tokenId");
-            if (alx != null) {
-                java.util.Map<String,Object> extra = new java.util.HashMap<>();
-                extra.put("path", ex.getRequestURI().getPath());
-                extra.put("method", ex.getRequestMethod());
-                alx.logEvent(tidx, ip, action, "denied", extra);
-            }
             return false;
         }
         TokenManager.Token tk = (TokenManager.Token) tokObj;
-        // First, evaluate explicit runtime token lists if present
-        if (tokenAclAllows(tk, action)) {
-            // allowed by runtime lists
-        } else {
-            // If runtime lists denied, consult tokens.yaml policy (if any)
-            boolean allowedByPolicy = false;
-            try {
-                com.hungerbridge.common.TokensConfig tc = config != null ? config.getTokensConfig() : null;
-                if (tc != null) {
-                    com.hungerbridge.common.TokensConfig.TokenPolicy policy = null;
-                    if (tk.policyId != null && !tk.policyId.isBlank()) policy = tc.getPolicy(tk.policyId);
-                    if (policy == null) policy = tc.getPolicy(tk.id);
-                    if (policy != null) {
-                        // apply same semantics as tokenAclAllows but using policy lists
-                        if (policy.endpoints != null) {
-                            if (policy.endpoints.isEmpty()) {
-                                // empty whitelist/blacklist semantics determined by endpointsMode
-                                if ("whitelist".equalsIgnoreCase(policy.endpointsMode)) {
-                                    allowedByPolicy = false; // empty whitelist => deny all
-                                } else {
-                                    allowedByPolicy = true; // empty blacklist => allow all
-                                }
-                            } else {
-                                if ("whitelist".equalsIgnoreCase(policy.endpointsMode)) {
-                                    allowedByPolicy = policy.endpoints.contains(action);
-                                } else {
-                                    allowedByPolicy = !policy.endpoints.contains(action);
-                                }
-                            }
-                        } else {
-                            // no explicit endpoints listed in policy -> allow
-                            allowedByPolicy = true;
-                        }
-                    }
-                }
-            } catch (Exception ignored) {}
+        // revoked check
+        if (tk.revoked) return false;
+        // expiry check
+        if (tk.expiry > 0 && Instant.now().getEpochSecond() > tk.expiry) return false;
 
-            if (!allowedByPolicy) {
-                com.hungerbridge.common.log.AuditLogger al = config != null ? config.getAuditLogger() : null;
-                String tid = (String) ex.getAttribute("hb.auth.tokenId");
-                if (al != null) {
-                    java.util.Map<String,Object> extra = new java.util.HashMap<>();
-                    extra.put("path", ex.getRequestURI().getPath());
-                    extra.put("method", ex.getRequestMethod());
-                    al.logEvent(tid, ip, action, "denied", extra);
-                }
-                return false;
-            }
+        if (tk.whitelist != null && !tk.whitelist.isEmpty()) {
+            return tk.whitelist.contains(action);
         }
-
+        if (tk.blacklist != null && !tk.blacklist.isEmpty()) {
+            return !tk.blacklist.contains(action);
+        }
         // IP whitelist/blacklist enforcement (enforced after authentication)
         com.hungerbridge.common.security.SecurityConfig sc = config.getSecurityConfig();
         if (sc != null) {
@@ -170,61 +115,6 @@ public final class HttpUtil {
             }
         }
         return true;
-    }
-
-    public static boolean tokenAclAllows(TokenManager.Token tk, String action) {
-        if (tk == null) return false;
-        if (tk.revoked) return false;
-        if (tk.expiry > 0 && Instant.now().getEpochSecond() > tk.expiry) return false;
-        // Unified semantics using `list` + `listMode`.
-        // - If a list is present and mode is "whitelist": empty => deny all, otherwise only listed actions allowed.
-        // - If a list is present and mode is "blacklist": empty => allow all, otherwise listed actions are denied.
-        // - If no list present: allow.
-        if (tk.list != null) {
-            String mode = tk.listMode == null ? "blacklist" : tk.listMode;
-            if ("whitelist".equalsIgnoreCase(mode)) {
-                if (tk.list.isEmpty()) return false;
-                return tk.list.contains(action);
-            } else {
-                if (tk.list.isEmpty()) return true;
-                return !tk.list.contains(action);
-            }
-        }
-        return true;
-    }
-
-    private static String canonicalizeJson(com.google.gson.JsonElement el) {
-        if (el == null || el.isJsonNull()) return "null";
-        if (el.isJsonPrimitive()) return el.toString();
-        if (el.isJsonArray()) {
-            StringBuilder sb = new StringBuilder();
-            sb.append('[');
-            boolean first = true;
-            for (com.google.gson.JsonElement e : el.getAsJsonArray()) {
-                if (!first) sb.append(',');
-                sb.append(canonicalizeJson(e));
-                first = false;
-            }
-            sb.append(']');
-            return sb.toString();
-        }
-        // object: sort keys lexicographically
-        java.util.Map<String, com.google.gson.JsonElement> map = new java.util.TreeMap<>();
-        for (java.util.Map.Entry<String, com.google.gson.JsonElement> en : el.getAsJsonObject().entrySet()) {
-            map.put(en.getKey(), en.getValue());
-        }
-        StringBuilder sb = new StringBuilder();
-        sb.append('{');
-        boolean first = true;
-        for (java.util.Map.Entry<String, com.google.gson.JsonElement> en : map.entrySet()) {
-            if (!first) sb.append(',');
-            sb.append(Json.GSON.toJson(en.getKey()));
-            sb.append(':');
-            sb.append(canonicalizeJson(en.getValue()));
-            first = false;
-        }
-        sb.append('}');
-        return sb.toString();
     }
 
     public static boolean rateLimit(HttpExchange ex, Config config, String action) throws IOException {

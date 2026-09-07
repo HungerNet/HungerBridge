@@ -12,7 +12,6 @@ import java.nio.file.Path;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -170,42 +169,9 @@ public final class TokenManager {
             Map<String, List<Token>> root = GSON.fromJson(txt, t);
             if (root == null) return;
             List<Token> list = root.getOrDefault("tokens", Collections.emptyList());
-                // We need to support both legacy persisted token shapes (which used
-                // `whitelist`/`blacklist`) and the new unified `list` + `list_mode`.
-                // Parse tokens array manually to migrate any legacy fields.
-                com.google.gson.JsonElement rootEl = com.google.gson.JsonParser.parseString(txt);
-                if (rootEl != null && rootEl.isJsonObject()) {
-                    com.google.gson.JsonObject rootObj = rootEl.getAsJsonObject();
-                    com.google.gson.JsonArray toks = rootObj.has("tokens") && rootObj.get("tokens").isJsonArray()
-                            ? rootObj.getAsJsonArray("tokens") : new com.google.gson.JsonArray();
-                    for (com.google.gson.JsonElement e : toks) {
-                        if (!e.isJsonObject()) continue;
-                        com.google.gson.JsonObject jo = e.getAsJsonObject();
-                        try {
-                            // Strictly require new schema: `list` and optional `list_mode`.
-                            if (jo.has("whitelist") || jo.has("blacklist")) {
-                                if (logger != null) logger.log("WARN", "Skipping token with legacy whitelist/blacklist fields (unsupported)");
-                                continue;
-                            }
-                            Token tk = new Token();
-                            if (jo.has("id")) tk.id = jo.get("id").getAsString();
-                            if (jo.has("salt")) tk.salt = jo.get("salt").getAsString();
-                            if (jo.has("policyId")) tk.policyId = jo.get("policyId").getAsString();
-                            if (jo.has("revoked")) tk.revoked = jo.get("revoked").getAsBoolean();
-                            if (jo.has("expiry")) tk.expiry = jo.get("expiry").getAsLong();
-
-                            if (jo.has("list")) {
-                                com.google.gson.JsonArray a = jo.getAsJsonArray("list");
-                                java.util.List<String> vals = new java.util.ArrayList<>();
-                                for (com.google.gson.JsonElement v : a) if (!v.isJsonNull()) vals.add(v.getAsString());
-                                tk.list = java.util.List.copyOf(vals);
-                            }
-                            if (jo.has("list_mode")) tk.listMode = jo.get("list_mode").getAsString();
-
-                            if (tk.id != null) tokens.put(tk.id, tk);
-                        } catch (Exception ignored) {}
-                    }
-                }
+            for (Token tk : list) {
+                tokens.put(tk.id, tk);
+            }
         } catch (Exception e) {
             if (logger != null) logger.log("WARN", "Failed to load tokens: " + e.getMessage());
         }
@@ -287,13 +253,7 @@ public final class TokenManager {
     private synchronized void persistPickups() {
         try {
             String txt = GSON.toJson(pickups);
-            Path tmp = pickupsFile.resolveSibling(pickupsFile.getFileName().toString() + ".tmp");
-            Files.writeString(tmp, txt, StandardCharsets.UTF_8);
-            try {
-                Files.move(tmp, pickupsFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING, java.nio.file.StandardCopyOption.ATOMIC_MOVE);
-            } catch (AtomicMoveNotSupportedException amnse) {
-                Files.move(tmp, pickupsFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-            }
+            Files.writeString(pickupsFile, txt, StandardCharsets.UTF_8);
         } catch (IOException e) {
             if (logger != null) logger.log("WARN", "Failed to persist pickups: " + e.getMessage());
         }
@@ -318,9 +278,11 @@ public final class TokenManager {
         long now = Instant.now().getEpochSecond();
         if (Math.abs(now - ts) > allowedSkewSeconds) return false;
 
+        // check nonce uniqueness
         Long existing = nonceCache.putIfAbsent(nonce, ts + allowedSkewSeconds);
         if (existing != null) return false;
 
+        // cleanup old nonces occasionally and persist the cache so replay protection survives restarts.
         if (nonceCache.size() > 1000) {
             long cutoff = now - (allowedSkewSeconds * 2);
             Iterator<Map.Entry<String, Long>> it = nonceCache.entrySet().iterator();
@@ -333,91 +295,21 @@ public final class TokenManager {
             persistSessions();
         }
 
-        String rawBody = body == null ? "" : body;
-        String canonicalBody = canonicalizeBodyForHmac(rawBody);
-
-        for (String candidateBody : new String[] { rawBody, canonicalBody }) {
-            String msg = method.toUpperCase() + "\n" + path + "\n" + timestampStr + "\n" + nonce + "\n" + candidateBody;
-            try {
-                Mac mac = Mac.getInstance("HmacSHA256");
-                byte[] key = deriveTokenKey(tk.id, tk.salt);
-                SecretKeySpec keySpec = new SecretKeySpec(key, "HmacSHA256");
-                mac.init(keySpec);
-                byte[] out = mac.doFinal(msg.getBytes(StandardCharsets.UTF_8));
-                String expected = bytesToHex(out);
-                if (expected.equalsIgnoreCase(signature)) {
-                    return true;
-                }
-            } catch (NoSuchAlgorithmException | InvalidKeyException e) {
-                logger.log("ERROR", "HMAC verification failed: " + e.getMessage());
-                return false;
-            }
-        }
-        // Log debugging information to help diagnose mismatches. This includes
-        // the derived key (hex), the provided signature, and the expected
-        // signatures computed over both the raw and canonicalized bodies.
+        // Build message the same way client does: METHOD\n{path}\n{timestamp}\n{nonce}\n{body}
+        String bodyStr = body == null ? "" : body;
+        String msg = method.toUpperCase() + "\n" + path + "\n" + timestampStr + "\n" + nonce + "\n" + bodyStr;
         try {
-            byte[] derived = deriveTokenKey(tk.id, tk.salt);
-            String derivedHex = bytesToHex(derived);
-            String rawMsg = method.toUpperCase() + "\n" + path + "\n" + timestampStr + "\n" + nonce + "\n" + rawBody;
-            String canMsg = method.toUpperCase() + "\n" + path + "\n" + timestampStr + "\n" + nonce + "\n" + canonicalBody;
             Mac mac = Mac.getInstance("HmacSHA256");
-            SecretKeySpec ks = new SecretKeySpec(derived, "HmacSHA256");
-            mac.init(ks);
-            String expRaw = bytesToHex(mac.doFinal(rawMsg.getBytes(StandardCharsets.UTF_8)));
-            // recompute for canonical (re-init mac)
-            mac.init(ks);
-            String expCan = bytesToHex(mac.doFinal(canMsg.getBytes(StandardCharsets.UTF_8)));
-            if (logger != null) {
-                logger.log("DEBUG", "HMAC mismatch for token='" + tk.id + "' providedSig='" + signature + "' derivedKey='" + derivedHex + "' expectedRaw='" + expRaw + "' expectedCanonical='" + expCan + "'");
-            }
-        } catch (Exception e) {
-            if (logger != null) logger.log("DEBUG", "HMAC mismatch (failed to compute debug signatures): " + e.getMessage());
+            byte[] key = deriveTokenKey(tk.id, tk.salt);
+            SecretKeySpec keySpec = new SecretKeySpec(key, "HmacSHA256");
+            mac.init(keySpec);
+            byte[] out = mac.doFinal(msg.getBytes(StandardCharsets.UTF_8));
+            String expected = bytesToHex(out);
+            return expected.equalsIgnoreCase(signature);
+        } catch (NoSuchAlgorithmException | InvalidKeyException e) {
+            logger.log("ERROR", "HMAC verification failed: " + e.getMessage());
+            return false;
         }
-        return false;
-    }
-
-    private static String canonicalizeBodyForHmac(String body) {
-        if (body == null || body.isBlank()) return "";
-        String trimmed = body.trim();
-        if (trimmed.isEmpty()) return "";
-        try {
-            com.google.gson.JsonElement el = com.google.gson.JsonParser.parseString(trimmed);
-            if (el == null || el.isJsonNull()) return "";
-            return canonicalizeJson(el);
-        } catch (Exception ignored) {
-            return trimmed;
-        }
-    }
-
-    private static String canonicalizeJson(com.google.gson.JsonElement el) {
-        if (el == null || el.isJsonNull()) return "null";
-        if (el.isJsonPrimitive()) return el.toString();
-        if (el.isJsonArray()) {
-            StringBuilder sb = new StringBuilder("[");
-            boolean first = true;
-            for (com.google.gson.JsonElement item : el.getAsJsonArray()) {
-                if (!first) sb.append(',');
-                sb.append(canonicalizeJson(item));
-                first = false;
-            }
-            sb.append(']');
-            return sb.toString();
-        }
-        com.google.gson.JsonObject obj = el.getAsJsonObject();
-        java.util.List<String> keys = new java.util.ArrayList<>(obj.keySet());
-        java.util.Collections.sort(keys);
-        StringBuilder sb = new StringBuilder("{");
-        boolean first = true;
-        for (String key : keys) {
-            if (!first) sb.append(',');
-            sb.append(GSON.toJson(key));
-            sb.append(':');
-            sb.append(canonicalizeJson(obj.get(key)));
-            first = false;
-        }
-        sb.append('}');
-        return sb.toString();
     }
 
     private static String bytesToHex(byte[] data) {
@@ -434,15 +326,13 @@ public final class TokenManager {
         // do not store plaintext secret. Instead store a salt for HKDF derivation.
         public String salt;
         // human-friendly unique name (optional)
+        // (name removed — tokens use policyId for policy association)
         // policyId links this runtime token to a named policy in tokens.yaml
         public String policyId = null;
         public boolean revoked = false;
         public long expiry = 0; // epoch seconds, 0 = never
-        // Unified ACL: a single list plus a mode. Serialized as `list` and `list_mode`.
-        @com.google.gson.annotations.SerializedName("list")
-        public java.util.List<String> list = null;
-        @com.google.gson.annotations.SerializedName("list_mode")
-        public String listMode = null; // "blacklist" or "whitelist"
+        public List<String> whitelist = Collections.emptyList();
+        public List<String> blacklist = Collections.emptyList();
     }
 
     public Token createToken(String id, long expirySeconds, List<String> whitelist, List<String> blacklist) {
@@ -460,13 +350,8 @@ public final class TokenManager {
         } else if (expirySeconds == 0) {
             t.expiry = 0L;
         }
-        if (whitelist != null) {
-            t.list = whitelist;
-            t.listMode = "whitelist";
-        } else if (blacklist != null) {
-            t.list = blacklist;
-            t.listMode = "blacklist";
-        }
+        if (whitelist != null) t.whitelist = whitelist;
+        if (blacklist != null) t.blacklist = blacklist;
 
         tokens.put(effectiveId, t);
         persistTokens();
