@@ -108,6 +108,8 @@ public final class BridgeServer {
         endpoints.add("/admin/token/list");
         server.createContext("/admin/token/create", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_create"));
         endpoints.add("/admin/token/create");
+        server.createContext("/admin/token/issue", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_create"));
+        endpoints.add("/admin/token/issue");
         server.createContext("/admin/token/revoke", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_revoke"));
         endpoints.add("/admin/token/revoke");
         server.createContext("/admin/token/remove", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_remove"));

@@ -45,6 +45,13 @@ public final class PickupHandler implements HttpHandler {
 
         TokenManager.PickupRecord pr = tm.consumePickup(pickupId);
         if (pr == null) {
+            com.hungerbridge.common.log.AuditLogger al = config.getAuditLogger();
+            if (al != null) {
+                java.util.Map<String,Object> extra = new java.util.HashMap<>();
+                extra.put("path", ex.getRequestURI().getPath());
+                extra.put("method", ex.getRequestMethod());
+                al.logEvent(null, ex.getRemoteAddress() != null ? ex.getRemoteAddress().getAddress().getHostAddress() : null, "pickup", "denied", extra);
+            }
             HttpUtil.error(ex, 404, "not_found", "Pickup not found or expired", config);
             return;
         }
@@ -55,6 +62,13 @@ public final class PickupHandler implements HttpHandler {
                 "token_id", pr.tokenId,
                 "token_secret", pr.secret
         );
+        com.hungerbridge.common.log.AuditLogger al = config.getAuditLogger();
+        if (al != null) {
+            java.util.Map<String,Object> extra = new java.util.HashMap<>();
+            extra.put("path", ex.getRequestURI().getPath());
+            extra.put("method", ex.getRequestMethod());
+            al.logEvent(pr.tokenId, ex.getRemoteAddress() != null ? ex.getRemoteAddress().getAddress().getHostAddress() : null, "pickup", "allowed", extra);
+        }
         HttpUtil.writeJson(ex, 200, resp);
     }
 }

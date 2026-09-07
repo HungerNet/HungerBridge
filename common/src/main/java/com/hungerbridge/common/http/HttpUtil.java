@@ -22,26 +22,48 @@ public final class HttpUtil {
     private HttpUtil() {}
 
     public static boolean auth(HttpExchange ex, Config config) {
+        AuthResult r = verifyRequest(ex, config, null);
+        if (r == null) return false;
+        if (!r.ok) return false;
+        // attach token metadata
+        ex.setAttribute("hb.auth.tokenId", r.tokenId);
+        if (r.token != null) ex.setAttribute("hb.auth.token", r.token);
+        return true;
+    }
+
+    public static final class AuthResult {
+        public boolean ok;
+        public String reason; // e.g., no_token, bad_signature, revoked, expired, denied_by_policy
+        public String tokenId;
+        public TokenManager.Token token;
+    }
+
+    /**
+     * Unified request verification and ACL enforcement.
+     * If requiredScope is null, only signature/nonce/timestamp checks are applied.
+     */
+    public static AuthResult verifyRequest(HttpExchange ex, Config config, String requiredScope) {
+        AuthResult out = new AuthResult();
         TokenManager tm = config.getTokenManager();
-        if (tm == null) return false;
+        if (tm == null) {
+            out.ok = false; out.reason = "no_token_manager"; return out;
+        }
 
         String tokenId = ex.getRequestHeaders().getFirst("X-Auth-Token-Id");
         String ts = ex.getRequestHeaders().getFirst("X-Auth-Timestamp");
         String nonce = ex.getRequestHeaders().getFirst("X-Auth-Nonce");
         String sig = ex.getRequestHeaders().getFirst("X-Auth-Signature");
 
-        // Read and cache request body for signature verification
+        // Read and cache request body
         String bodyStr = (String) ex.getAttribute("hb.request.body");
         if (bodyStr == null) {
             try (InputStream in = ex.getRequestBody()) {
                 byte[] b = in.readAllBytes();
                 bodyStr = new String(b, StandardCharsets.UTF_8).trim();
                 if (bodyStr.isEmpty()) bodyStr = "";
-                // Preserve the exact request payload for downstream JSON parsing and
-                // only canonicalize it opportunistically for HMAC verification.
                 ex.setAttribute("hb.request.body", bodyStr);
             } catch (IOException e) {
-                return false;
+                out.ok = false; out.reason = "internal_error"; return out;
             }
         }
 
@@ -49,26 +71,68 @@ public final class HttpUtil {
         try {
             com.hungerbridge.common.TokensConfig tc = config.getTokensConfig();
             if (tc != null) {
-                // Prefer the runtime token's associated policyId, if present.
                 TokenManager.Token runtimeToken = tm.listTokens().get(tokenId);
                 com.hungerbridge.common.TokensConfig.TokenPolicy policy = null;
-                if (runtimeToken != null && runtimeToken.policyId != null && !runtimeToken.policyId.isBlank()) {
-                    policy = tc.getPolicy(runtimeToken.policyId);
-                }
+                if (runtimeToken != null && runtimeToken.policyId != null && !runtimeToken.policyId.isBlank()) policy = tc.getPolicy(runtimeToken.policyId);
                 if (policy == null) policy = tc.getPolicy(tokenId);
-                if (policy != null) allowedSkew = policy.maxSkewSeconds;
-                else allowedSkew = tc.maxSkewSeconds;
+                if (policy != null) allowedSkew = policy.maxSkewSeconds; else allowedSkew = tc.maxSkewSeconds;
                 if (allowedSkew < 0) allowedSkew = Integer.MAX_VALUE;
             }
         } catch (Exception ignored) {}
-        boolean ok = tm.verifyHmac(tokenId, ts, nonce, sig, ex.getRequestMethod(), ex.getRequestURI().getPath(), bodyStr, allowedSkew);
-        if (!ok) return false;
 
-        // attach token metadata for downstream ACL checks
-        ex.setAttribute("hb.auth.tokenId", tokenId);
+        TokenManager.VerifyResult vr = tm.verifyHmacDetailed(tokenId, ts, nonce, sig, ex.getRequestMethod(), ex.getRequestURI().getPath(), bodyStr, allowedSkew);
+        if (vr != TokenManager.VerifyResult.OK) {
+            out.ok = false;
+            switch (vr) {
+                case NO_TOKEN: out.reason = "no_token"; break;
+                case REVOKED: out.reason = "revoked"; break;
+                case EXPIRED: out.reason = "expired"; break;
+                case BAD_TIMESTAMP: out.reason = "bad_timestamp"; break;
+                case NONCE_REPLAY: out.reason = "nonce_replay"; break;
+                case BAD_SIGNATURE: out.reason = "bad_signature"; break;
+                default: out.reason = "internal_error"; break;
+            }
+            return out;
+        }
+
+        // signature OK; attach token
         TokenManager.Token tk = tm.listTokens().get(tokenId);
-        if (tk != null) ex.setAttribute("hb.auth.token", tk);
-        return true;
+        out.ok = true; out.reason = "ok"; out.tokenId = tokenId; out.token = tk;
+
+        // If a requiredScope is provided, evaluate ACLs
+        if (requiredScope != null) {
+            boolean allowed = true;
+            if (tk != null) {
+                allowed = tokenAclAllows(tk, requiredScope);
+            }
+            if (!allowed) {
+                // consult policy fallback
+                boolean allowedByPolicy = false;
+                try {
+                    com.hungerbridge.common.TokensConfig tc = config.getTokensConfig();
+                    if (tc != null) {
+                        com.hungerbridge.common.TokensConfig.TokenPolicy policy = null;
+                        if (tk != null && tk.policyId != null && !tk.policyId.isBlank()) policy = tc.getPolicy(tk.policyId);
+                        if (policy == null) policy = tc.getPolicy(tokenId);
+                        if (policy != null) {
+                            if (policy.endpoints != null) {
+                                if (policy.endpoints.isEmpty()) {
+                                    if ("whitelist".equalsIgnoreCase(policy.endpointsMode)) allowedByPolicy = false; else allowedByPolicy = true;
+                                } else {
+                                    if ("whitelist".equalsIgnoreCase(policy.endpointsMode)) allowedByPolicy = policy.endpoints.contains(requiredScope);
+                                    else allowedByPolicy = !policy.endpoints.contains(requiredScope);
+                                }
+                            } else allowedByPolicy = true;
+                        }
+                    }
+                } catch (Exception ignored) {}
+                if (!allowedByPolicy) {
+                    out.ok = false; out.reason = "denied_by_policy"; return out;
+                }
+            }
+        }
+
+        return out;
     }
 
     public static boolean checkAcl(HttpExchange ex, Config config, String action) {
@@ -253,13 +317,8 @@ public final class HttpUtil {
             return false;
         }
 
-        // allowed — log the allowed request for audit
-        if (al != null) {
-            java.util.Map<String, Object> extra = new java.util.HashMap<>();
-            extra.put("path", ex.getRequestURI().getPath());
-            extra.put("method", ex.getRequestMethod());
-            al.logEvent(tokenId, ip, action, "allowed", extra);
-        }
+        // Do not log "allowed" here; handlers should log final allowed/denied
+        // after completing request processing to ensure accurate results.
         return true;
     }
 

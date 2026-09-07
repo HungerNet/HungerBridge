@@ -28,17 +28,31 @@ public final class AdminHandler implements HttpHandler {
     }
 
     private boolean requireAdmin(HttpExchange ex) throws IOException {
-        if (!HttpUtil.auth(ex, config)) {
-            HttpUtil.error(ex, 401, "unauthenticated", "authentication required", config);
-            return false;
+        HttpUtil.AuthResult ar = HttpUtil.verifyRequest(ex, config, "admin");
+        if (ar == null || !ar.ok) {
+            String reason = ar == null ? "internal_error" : ar.reason;
+            switch (reason) {
+                case "no_token":
+                case "bad_signature":
+                case "bad_timestamp":
+                case "nonce_replay":
+                    HttpUtil.error(ex, 401, "unauthorized", "authentication failed: " + reason, config);
+                    return false;
+                case "revoked":
+                case "expired":
+                    HttpUtil.error(ex, 403, "forbidden", "token not valid: " + reason, config);
+                    return false;
+                case "denied_by_policy":
+                    HttpUtil.error(ex, 403, "forbidden", "admin rights required", config);
+                    return false;
+                default:
+                    HttpUtil.error(ex, 500, "internal", "auth error: " + reason, config);
+                    return false;
+            }
         }
-        // Enforce admin rights through the unified ACL engine so policy rules
-        // (whitelist/blacklist semantics) are followed exactly and there are
-        // no legacy hardcoded exceptions.
-        if (!HttpUtil.checkAcl(ex, config, "admin")) {
-            HttpUtil.error(ex, 403, "forbidden", "admin rights required", config);
-            return false;
-        }
+        // attach token info for handlers
+        if (ar.token != null) ex.setAttribute("hb.auth.token", ar.token);
+        ex.setAttribute("hb.auth.tokenId", ar.tokenId);
         return true;
     }
 

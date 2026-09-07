@@ -75,6 +75,25 @@ public final class TokenManager {
 
         this.masterKey = loadOrCreateMasterKey();
         loadTokens();
+        // If no tokens exist, bootstrap a root admin token and log its secret once.
+        if (tokens.isEmpty()) {
+            String rootId = "root";
+            byte[] salt = new byte[16];
+            new java.security.SecureRandom().nextBytes(salt);
+            String saltHex = bytesToHex(salt);
+            Token t = new Token();
+            t.id = rootId;
+            t.salt = saltHex;
+            t.revoked = false;
+            t.expiry = 0L;
+            t.list = java.util.List.of("admin");
+            t.listMode = "whitelist"; // grant admin rights for bootstrap root token
+            tokens.put(rootId, t);
+            persistTokens();
+            byte[] derived = deriveTokenKey(rootId, salt);
+            String secretHex = bytesToHex(derived);
+            if (logger != null) logger.log("INFO", "Bootstrapped root token id='root' secret(hex)='" + secretHex + "' — record this value now; it will not be stored");
+        }
         loadSessions();
         loadPickups();
 
@@ -322,6 +341,63 @@ public final class TokenManager {
         return false;
     }
 
+    public enum VerifyResult {
+        OK,
+        NO_TOKEN,
+        REVOKED,
+        EXPIRED,
+        BAD_TIMESTAMP,
+        NONCE_REPLAY,
+        BAD_SIGNATURE,
+        INTERNAL_ERROR
+    }
+
+    /**
+     * Detailed HMAC verification returning a VerifyResult for precise failure reasons.
+     */
+    public VerifyResult verifyHmacDetailed(String tokenId, String timestampStr, String nonce, String signature, String method, String path, String body, long allowedSkewSeconds) {
+        if (tokenId == null) return VerifyResult.NO_TOKEN;
+        Token tk = tokens.get(tokenId);
+        if (tk == null) return VerifyResult.NO_TOKEN;
+        if (tk.revoked) return VerifyResult.REVOKED;
+        long ts;
+        try { ts = Long.parseLong(timestampStr); } catch (NumberFormatException e) { return VerifyResult.BAD_TIMESTAMP; }
+        long now = Instant.now().getEpochSecond();
+        if (Math.abs(now - ts) > allowedSkewSeconds) return VerifyResult.BAD_TIMESTAMP;
+
+        Long existing = nonceCache.putIfAbsent(nonce, ts + allowedSkewSeconds);
+        if (existing != null) return VerifyResult.NONCE_REPLAY;
+
+        // persist/cleanup as before
+        if (nonceCache.size() > 1000) {
+            long cutoff = now - (allowedSkewSeconds * 2);
+            Iterator<Map.Entry<String, Long>> it = nonceCache.entrySet().iterator();
+            while (it.hasNext()) {
+                Map.Entry<String, Long> e = it.next();
+                if (e.getValue() < now || e.getValue() < cutoff) it.remove();
+            }
+            persistSessions();
+        } else {
+            persistSessions();
+        }
+
+        try {
+            String rawBody = body == null ? "" : body;
+            String canonicalBody = canonicalizeBodyForHmac(rawBody);
+            String msg = method.toUpperCase() + "\n" + path + "\n" + timestampStr + "\n" + nonce + "\n" + canonicalBody;
+            javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
+            byte[] key = deriveTokenKey(tk.id, tk.salt);
+            javax.crypto.spec.SecretKeySpec ks = new javax.crypto.spec.SecretKeySpec(key, "HmacSHA256");
+            mac.init(ks);
+            String exp = bytesToHex(mac.doFinal(msg.getBytes(StandardCharsets.UTF_8)));
+            if (exp.equalsIgnoreCase(signature)) return VerifyResult.OK;
+            return VerifyResult.BAD_SIGNATURE;
+        } catch (Exception e) {
+            if (logger != null) logger.log("ERROR", "HMAC verification error: " + e.getMessage());
+            return VerifyResult.INTERNAL_ERROR;
+        }
+    }
+
     private static String bytesToHex(byte[] data) {
         StringBuilder sb = new StringBuilder(data.length * 2);
         for (byte b : data) sb.append(String.format("%02x", b & 0xff));
@@ -508,6 +584,10 @@ public final class TokenManager {
     // Derive per-token HMAC key using HKDF(SHA256) with masterKey, salt and tokenId as info
     private byte[] deriveTokenKey(String tokenId, String saltHex) {
         byte[] salt = hexToBytes(saltHex);
+        return deriveTokenKey(tokenId, salt);
+    }
+
+    public byte[] deriveTokenKey(String tokenId, byte[] salt) {
         return hkdfExpand(hkdfExtract(masterKey, salt), (tokenId).getBytes(StandardCharsets.UTF_8), 32);
     }
 
