@@ -40,15 +40,11 @@ public final class AuthCheckHandler implements HttpHandler {
         out.addProperty("policyId", t.policyId);
         out.addProperty("revoked", t.revoked);
         out.addProperty("expiry", t.expiry);
-        if (t.whitelist != null) {
-            JsonArray wa = new JsonArray();
-            for (String s : t.whitelist) wa.add(s);
-            out.add("whitelist", wa);
-        }
-        if (t.blacklist != null) {
-            JsonArray ba = new JsonArray();
-            for (String s : t.blacklist) ba.add(s);
-            out.add("blacklist", ba);
+        if (t.list != null) {
+            JsonArray la = new JsonArray();
+            for (String s : t.list) la.add(s);
+            out.add("list", la);
+            out.addProperty("list_mode", t.listMode == null ? "blacklist" : t.listMode);
         }
 
         HttpUtil.writeJson(ex, 200, Json.obj("ok", true, "permissions", out));

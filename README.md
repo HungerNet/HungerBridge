@@ -63,7 +63,7 @@ curl -X POST \
   -H "X-Auth-Timestamp: $(date +%s)" \
   -H "X-Auth-Nonce: $(openssl rand -hex 16)" \
   -H "X-Auth-Signature: <hmac-signature>" \
-  -d '{"id":"bridge-client","expiry":3600,"whitelist":["run"]}' \
+  -d '{"id":"bridge-client","expiry":3600,"list":["run"],"list_mode":"whitelist"}' \
   http://localhost:1913/admin/token/create
 ```
 
@@ -236,7 +236,7 @@ curl -X POST \
   -H "X-Auth-Timestamp: $(date +%s)" \
   -H "X-Auth-Nonce: $(openssl rand -hex 16)" \
   -H "X-Auth-Signature: <hmac-signature>" \
-  -d '{"id":"bridge-client","expiry":3600,"whitelist":["run"]}' \
+  -d '{"id":"bridge-client","expiry":3600,"list":["run"],"list_mode":"whitelist"}' \
   http://localhost:1913/admin/token/create
 ```
 

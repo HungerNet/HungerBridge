@@ -66,13 +66,16 @@ public final class TokenHandler implements HttpHandler {
             List<String> blacklist = null;
             if (body != null) {
                 if (body.has("expiry")) expiry = body.get("expiry").getAsLong();
-                if (body.has("whitelist")) {
-                    whitelist = new ArrayList<>();
-                    for (var el : body.getAsJsonArray("whitelist")) whitelist.add(el.getAsString());
+                if (body.has("whitelist") || body.has("blacklist")) {
+                    HttpUtil.error(ex, 400, "legacy_fields", "whitelist/blacklist not supported; use list and list_mode", config);
+                    return;
                 }
-                if (body.has("blacklist")) {
-                    blacklist = new ArrayList<>();
-                    for (var el : body.getAsJsonArray("blacklist")) blacklist.add(el.getAsString());
+                if (body.has("list")) {
+                    List<String> list = new ArrayList<>();
+                    for (var el : body.getAsJsonArray("list")) list.add(el.getAsString());
+                    String listMode = body.has("list_mode") ? body.get("list_mode").getAsString() : "blacklist";
+                    if ("whitelist".equalsIgnoreCase(listMode)) whitelist = list;
+                    else blacklist = list;
                 }
             }
             if (policyId == null || policyId.isBlank() || tokenId == null || tokenId.isBlank()) {
@@ -134,15 +137,11 @@ public final class TokenHandler implements HttpHandler {
                     "revoked", t.revoked,
                     "expiry", t.expiry
                 );
-            if (t.whitelist != null) {
-                JsonArray wa = new JsonArray();
-                for (String s : t.whitelist) wa.add(s);
-                o.add("whitelist", wa);
-            }
-            if (t.blacklist != null) {
-                JsonArray ba = new JsonArray();
-                for (String s : t.blacklist) ba.add(s);
-                o.add("blacklist", ba);
+            if (t.list != null) {
+                JsonArray la = new JsonArray();
+                for (String s : t.list) la.add(s);
+                o.add("list", la);
+                o.addProperty("list_mode", t.listMode == null ? "blacklist" : t.listMode);
             }
             arr.add(o);
         }

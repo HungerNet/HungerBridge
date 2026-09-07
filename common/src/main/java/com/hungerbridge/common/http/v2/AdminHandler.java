@@ -58,8 +58,10 @@ public final class AdminHandler implements HttpHandler {
                                 o.addProperty("policyId", t.policyId);
                         o.addProperty("revoked", t.revoked);
                         o.addProperty("expiry", t.expiry);
-                        o.add("whitelist", com.hungerbridge.common.Json.GSON.toJsonTree(t.whitelist));
-                        o.add("blacklist", com.hungerbridge.common.Json.GSON.toJsonTree(t.blacklist));
+                        if (t.list != null) {
+                            o.add("list", com.hungerbridge.common.Json.GSON.toJsonTree(t.list));
+                            o.addProperty("list_mode", t.listMode == null ? "blacklist" : t.listMode);
+                        }
                         arr.add(o);
                     }
                     HttpUtil.writeJson(ex, 200, Response.ok(arr));
@@ -80,13 +82,16 @@ public final class AdminHandler implements HttpHandler {
                         break;
                     }
 
-                    List<String> wl = java.util.List.of();
-                    List<String> bl = java.util.List.of();
-                    if (body != null && body.has("whitelist")) {
-                        wl = com.hungerbridge.common.Json.GSON.fromJson(body.get("whitelist"), List.class);
+                    if (body != null && (body.has("whitelist") || body.has("blacklist"))) {
+                        HttpUtil.error(ex, 400, "legacy_fields", "whitelist/blacklist not supported; use list and list_mode", config);
+                        break;
                     }
-                    if (body != null && body.has("blacklist")) {
-                        bl = com.hungerbridge.common.Json.GSON.fromJson(body.get("blacklist"), List.class);
+                    List<String> wl = null;
+                    List<String> bl = null;
+                    if (body != null && body.has("list")) {
+                        List<String> list = com.hungerbridge.common.Json.GSON.fromJson(body.get("list"), List.class);
+                        String lm = body.has("list_mode") ? body.get("list_mode").getAsString() : "blacklist";
+                        if ("whitelist".equalsIgnoreCase(lm)) wl = list; else bl = list;
                     }
                     if (policyId == null || policyId.isBlank() || tokenId == null || tokenId.isBlank()) {
                         HttpUtil.error(ex, 400, "missing_fields", "policyId and tokenId required", config);

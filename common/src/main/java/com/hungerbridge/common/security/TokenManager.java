@@ -170,9 +170,42 @@ public final class TokenManager {
             Map<String, List<Token>> root = GSON.fromJson(txt, t);
             if (root == null) return;
             List<Token> list = root.getOrDefault("tokens", Collections.emptyList());
-            for (Token tk : list) {
-                tokens.put(tk.id, tk);
-            }
+                // We need to support both legacy persisted token shapes (which used
+                // `whitelist`/`blacklist`) and the new unified `list` + `list_mode`.
+                // Parse tokens array manually to migrate any legacy fields.
+                com.google.gson.JsonElement rootEl = com.google.gson.JsonParser.parseString(txt);
+                if (rootEl != null && rootEl.isJsonObject()) {
+                    com.google.gson.JsonObject rootObj = rootEl.getAsJsonObject();
+                    com.google.gson.JsonArray toks = rootObj.has("tokens") && rootObj.get("tokens").isJsonArray()
+                            ? rootObj.getAsJsonArray("tokens") : new com.google.gson.JsonArray();
+                    for (com.google.gson.JsonElement e : toks) {
+                        if (!e.isJsonObject()) continue;
+                        com.google.gson.JsonObject jo = e.getAsJsonObject();
+                        try {
+                            // Strictly require new schema: `list` and optional `list_mode`.
+                            if (jo.has("whitelist") || jo.has("blacklist")) {
+                                if (logger != null) logger.log("WARN", "Skipping token with legacy whitelist/blacklist fields (unsupported)");
+                                continue;
+                            }
+                            Token tk = new Token();
+                            if (jo.has("id")) tk.id = jo.get("id").getAsString();
+                            if (jo.has("salt")) tk.salt = jo.get("salt").getAsString();
+                            if (jo.has("policyId")) tk.policyId = jo.get("policyId").getAsString();
+                            if (jo.has("revoked")) tk.revoked = jo.get("revoked").getAsBoolean();
+                            if (jo.has("expiry")) tk.expiry = jo.get("expiry").getAsLong();
+
+                            if (jo.has("list")) {
+                                com.google.gson.JsonArray a = jo.getAsJsonArray("list");
+                                java.util.List<String> vals = new java.util.ArrayList<>();
+                                for (com.google.gson.JsonElement v : a) if (!v.isJsonNull()) vals.add(v.getAsString());
+                                tk.list = java.util.List.copyOf(vals);
+                            }
+                            if (jo.has("list_mode")) tk.listMode = jo.get("list_mode").getAsString();
+
+                            if (tk.id != null) tokens.put(tk.id, tk);
+                        } catch (Exception ignored) {}
+                    }
+                }
         } catch (Exception e) {
             if (logger != null) logger.log("WARN", "Failed to load tokens: " + e.getMessage());
         }
@@ -380,13 +413,15 @@ public final class TokenManager {
         // do not store plaintext secret. Instead store a salt for HKDF derivation.
         public String salt;
         // human-friendly unique name (optional)
-        // (name removed — tokens use policyId for policy association)
         // policyId links this runtime token to a named policy in tokens.yaml
         public String policyId = null;
         public boolean revoked = false;
         public long expiry = 0; // epoch seconds, 0 = never
-        public List<String> whitelist = null;
-        public List<String> blacklist = null;
+        // Unified ACL: a single list plus a mode. Serialized as `list` and `list_mode`.
+        @com.google.gson.annotations.SerializedName("list")
+        public java.util.List<String> list = null;
+        @com.google.gson.annotations.SerializedName("list_mode")
+        public String listMode = null; // "blacklist" or "whitelist"
     }
 
     public Token createToken(String id, long expirySeconds, List<String> whitelist, List<String> blacklist) {
@@ -404,8 +439,13 @@ public final class TokenManager {
         } else if (expirySeconds == 0) {
             t.expiry = 0L;
         }
-        if (whitelist != null) t.whitelist = whitelist;
-        if (blacklist != null) t.blacklist = blacklist;
+        if (whitelist != null) {
+            t.list = whitelist;
+            t.listMode = "whitelist";
+        } else if (blacklist != null) {
+            t.list = blacklist;
+            t.listMode = "blacklist";
+        }
 
         tokens.put(effectiveId, t);
         persistTokens();

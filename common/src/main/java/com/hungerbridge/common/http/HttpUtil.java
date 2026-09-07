@@ -176,20 +176,20 @@ public final class HttpUtil {
         if (tk == null) return false;
         if (tk.revoked) return false;
         if (tk.expiry > 0 && Instant.now().getEpochSecond() > tk.expiry) return false;
-        // New semantics:
-        // - If a whitelist is present: empty => deny all, otherwise only listed actions allowed.
-        // - If a blacklist is present: empty => allow all, otherwise listed actions are denied.
-        // - If neither list is present: allow (no explicit restrictions).
-        if (tk.whitelist != null) {
-            if (tk.whitelist.isEmpty()) return false;
-            return tk.whitelist.contains(action);
+        // Unified semantics using `list` + `listMode`.
+        // - If a list is present and mode is "whitelist": empty => deny all, otherwise only listed actions allowed.
+        // - If a list is present and mode is "blacklist": empty => allow all, otherwise listed actions are denied.
+        // - If no list present: allow.
+        if (tk.list != null) {
+            String mode = tk.listMode == null ? "blacklist" : tk.listMode;
+            if ("whitelist".equalsIgnoreCase(mode)) {
+                if (tk.list.isEmpty()) return false;
+                return tk.list.contains(action);
+            } else {
+                if (tk.list.isEmpty()) return true;
+                return !tk.list.contains(action);
+            }
         }
-
-        if (tk.blacklist != null) {
-            if (tk.blacklist.isEmpty()) return true;
-            return !tk.blacklist.contains(action);
-        }
-
         return true;
     }
 
