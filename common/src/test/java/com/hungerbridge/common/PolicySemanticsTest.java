@@ -27,8 +27,9 @@ public final class PolicySemanticsTest {
 
         TokenManager.Token t = admin.createToken("admin", null, 0L, null, null);
         assertNotNull(t);
-        assertNotNull(t.blacklist);
-        assertTrue(t.blacklist.isEmpty(), "Expected runtime blacklist to be an explicit empty list (allow all)");
+        assertNotNull(t.list);
+        assertTrue(t.list.isEmpty(), "Expected runtime list to be an explicit empty list (allow all)");
+        assertEquals("blacklist", t.listMode);
     }
 
     @Test
@@ -45,15 +46,16 @@ public final class PolicySemanticsTest {
 
         TokenManager.Token t = admin.createToken("limited", null, 0L, null, null);
         assertNotNull(t);
-        assertNotNull(t.whitelist);
-        assertTrue(t.whitelist.isEmpty(), "Expected runtime whitelist to be an explicit empty list (deny all)");
+        assertNotNull(t.list);
+        assertTrue(t.list.isEmpty(), "Expected runtime list to be an explicit empty list (deny all)");
+        assertEquals("whitelist", t.listMode);
     }
 
     @Test
     public void dualEmptyTokenListsRemainPermissiveForAdminPolicy() {
         TokenManager.Token token = new TokenManager.Token();
-        token.whitelist = List.of();
-        token.blacklist = List.of();
+        token.list = List.of();
+        token.listMode = "whitelist";
         token.revoked = false;
         token.expiry = 0;
 

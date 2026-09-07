@@ -269,20 +269,24 @@ public final class TokenManager {
     }
 
     public boolean verifyHmac(String tokenId, String timestampStr, String nonce, String signature, String method, String path, String body, long allowedSkewSeconds) {
-        if (tokenId == null || signature == null || timestampStr == null || nonce == null) return false;
+        // Detailed validation with early debug logs for root-cause diagnosis.
+        if (tokenId == null) { if (logger != null) logger.log("DEBUG", "verifyHmac: missing tokenId"); return false; }
+        if (signature == null) { if (logger != null) logger.log("DEBUG", "verifyHmac: missing signature"); return false; }
+        if (timestampStr == null) { if (logger != null) logger.log("DEBUG", "verifyHmac: missing timestamp"); return false; }
+        if (nonce == null) { if (logger != null) logger.log("DEBUG", "verifyHmac: missing nonce"); return false; }
+
         Token tk = tokens.get(tokenId);
-        if (tk == null) return false;
-        if (tk.revoked) return false;
+        if (tk == null) { if (logger != null) logger.log("DEBUG", "verifyHmac: token not found: " + tokenId); return false; }
+        if (tk.revoked) { if (logger != null) logger.log("DEBUG", "verifyHmac: token revoked: " + tokenId); return false; }
+
         long ts;
-        try { ts = Long.parseLong(timestampStr); } catch (NumberFormatException e) { return false; }
+        try { ts = Long.parseLong(timestampStr); } catch (NumberFormatException e) { if (logger != null) logger.log("DEBUG", "verifyHmac: invalid timestamp: " + timestampStr); return false; }
         long now = Instant.now().getEpochSecond();
-        if (Math.abs(now - ts) > allowedSkewSeconds) return false;
+        if (Math.abs(now - ts) > allowedSkewSeconds) { if (logger != null) logger.log("DEBUG", "verifyHmac: timestamp skew (now=" + now + ", ts=" + ts + ")"); return false; }
 
-        // check nonce uniqueness
         Long existing = nonceCache.putIfAbsent(nonce, ts + allowedSkewSeconds);
-        if (existing != null) return false;
+        if (existing != null) { if (logger != null) logger.log("DEBUG", "verifyHmac: nonce replay: " + nonce); return false; }
 
-        // cleanup old nonces occasionally and persist the cache so replay protection survives restarts.
         if (nonceCache.size() > 1000) {
             long cutoff = now - (allowedSkewSeconds * 2);
             Iterator<Map.Entry<String, Long>> it = nonceCache.entrySet().iterator();
@@ -295,9 +299,10 @@ public final class TokenManager {
             persistSessions();
         }
 
-        // Build message the same way client does: METHOD\n{path}\n{timestamp}\n{nonce}\n{body}
-        String bodyStr = body == null ? "" : body;
-        String msg = method.toUpperCase() + "\n" + path + "\n" + timestampStr + "\n" + nonce + "\n" + bodyStr;
+        // Deterministic canonicalization: require client to sign canonical JSON.
+        String rawBody = body == null ? "" : body;
+        String canonicalBody = canonicalizeBodyForHmac(rawBody);
+        String msg = method.toUpperCase() + "\n" + path + "\n" + timestampStr + "\n" + nonce + "\n" + canonicalBody;
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
             byte[] key = deriveTokenKey(tk.id, tk.salt);
@@ -305,16 +310,64 @@ public final class TokenManager {
             mac.init(keySpec);
             byte[] out = mac.doFinal(msg.getBytes(StandardCharsets.UTF_8));
             String expected = bytesToHex(out);
-            return expected.equalsIgnoreCase(signature);
+            if (expected.equalsIgnoreCase(signature)) return true;
+            if (logger != null) {
+                String derivedHex = bytesToHex(key);
+                logger.log("DEBUG", "HMAC mismatch for token='" + tk.id + "' providedSig='" + signature + "' derivedKey='" + derivedHex + "' expected='" + expected + "'");
+            }
         } catch (NoSuchAlgorithmException | InvalidKeyException e) {
-            logger.log("ERROR", "HMAC verification failed: " + e.getMessage());
+            if (logger != null) logger.log("ERROR", "HMAC verification failed: " + e.getMessage());
             return false;
         }
+        return false;
     }
 
     private static String bytesToHex(byte[] data) {
         StringBuilder sb = new StringBuilder(data.length * 2);
         for (byte b : data) sb.append(String.format("%02x", b & 0xff));
+        return sb.toString();
+    }
+
+    private static String canonicalizeBodyForHmac(String body) {
+        if (body == null || body.isBlank()) return "";
+        String trimmed = body.trim();
+        if (trimmed.isEmpty()) return "";
+        try {
+            com.google.gson.JsonElement el = com.google.gson.JsonParser.parseString(trimmed);
+            if (el == null || el.isJsonNull()) return "";
+            return canonicalizeJson(el);
+        } catch (Exception ignored) {
+            return trimmed;
+        }
+    }
+
+    private static String canonicalizeJson(com.google.gson.JsonElement el) {
+        if (el == null || el.isJsonNull()) return "null";
+        if (el.isJsonPrimitive()) return el.toString();
+        if (el.isJsonArray()) {
+            StringBuilder sb = new StringBuilder("[");
+            boolean first = true;
+            for (com.google.gson.JsonElement item : el.getAsJsonArray()) {
+                if (!first) sb.append(',');
+                sb.append(canonicalizeJson(item));
+                first = false;
+            }
+            sb.append(']');
+            return sb.toString();
+        }
+        com.google.gson.JsonObject obj = el.getAsJsonObject();
+        java.util.List<String> keys = new java.util.ArrayList<>(obj.keySet());
+        java.util.Collections.sort(keys);
+        StringBuilder sb = new StringBuilder("{");
+        boolean first = true;
+        for (String key : keys) {
+            if (!first) sb.append(',');
+            sb.append(GSON.toJson(key));
+            sb.append(':');
+            sb.append(canonicalizeJson(obj.get(key)));
+            first = false;
+        }
+        sb.append('}');
         return sb.toString();
     }
 
@@ -331,12 +384,26 @@ public final class TokenManager {
         public String policyId = null;
         public boolean revoked = false;
         public long expiry = 0; // epoch seconds, 0 = never
-        public List<String> whitelist = Collections.emptyList();
-        public List<String> blacklist = Collections.emptyList();
+        @com.google.gson.annotations.SerializedName("list")
+        public java.util.List<String> list = null;
+        @com.google.gson.annotations.SerializedName("list_mode")
+        public String listMode = null; // "blacklist" or "whitelist"
     }
 
     public Token createToken(String id, long expirySeconds, List<String> whitelist, List<String> blacklist) {
         String effectiveId = id != null && !id.isBlank() ? id : java.util.UUID.randomUUID().toString().replaceAll("-", "");
+        // enforce uniqueness: do not allow creating a token with an id that
+        // already exists or that is pending pickup
+        if (effectiveId != null && tokens.containsKey(effectiveId)) {
+            if (logger != null) logger.log("WARN", "Create token failed: id already exists: " + effectiveId);
+            return null;
+        }
+        for (PickupRecord pr : pickups.values()) {
+            if (pr != null && pr.tokenId != null && pr.tokenId.equals(effectiveId)) {
+                if (logger != null) logger.log("WARN", "Create token failed: id already pending pickup: " + effectiveId);
+                return null;
+            }
+        }
         byte[] salt = new byte[16];
         new java.security.SecureRandom().nextBytes(salt);
         String saltHex = bytesToHex(salt);
@@ -350,8 +417,13 @@ public final class TokenManager {
         } else if (expirySeconds == 0) {
             t.expiry = 0L;
         }
-        if (whitelist != null) t.whitelist = whitelist;
-        if (blacklist != null) t.blacklist = blacklist;
+        if (whitelist != null) {
+            t.list = whitelist;
+            t.listMode = "whitelist";
+        } else if (blacklist != null) {
+            t.list = blacklist;
+            t.listMode = "blacklist";
+        }
 
         tokens.put(effectiveId, t);
         persistTokens();
