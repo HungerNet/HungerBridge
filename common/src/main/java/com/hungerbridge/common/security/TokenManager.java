@@ -353,6 +353,27 @@ public final class TokenManager {
                 return false;
             }
         }
+        // Log debugging information to help diagnose mismatches. This includes
+        // the derived key (hex), the provided signature, and the expected
+        // signatures computed over both the raw and canonicalized bodies.
+        try {
+            byte[] derived = deriveTokenKey(tk.id, tk.salt);
+            String derivedHex = bytesToHex(derived);
+            String rawMsg = method.toUpperCase() + "\n" + path + "\n" + timestampStr + "\n" + nonce + "\n" + rawBody;
+            String canMsg = method.toUpperCase() + "\n" + path + "\n" + timestampStr + "\n" + nonce + "\n" + canonicalBody;
+            Mac mac = Mac.getInstance("HmacSHA256");
+            SecretKeySpec ks = new SecretKeySpec(derived, "HmacSHA256");
+            mac.init(ks);
+            String expRaw = bytesToHex(mac.doFinal(rawMsg.getBytes(StandardCharsets.UTF_8)));
+            // recompute for canonical (re-init mac)
+            mac.init(ks);
+            String expCan = bytesToHex(mac.doFinal(canMsg.getBytes(StandardCharsets.UTF_8)));
+            if (logger != null) {
+                logger.log("DEBUG", "HMAC mismatch for token='" + tk.id + "' providedSig='" + signature + "' derivedKey='" + derivedHex + "' expectedRaw='" + expRaw + "' expectedCanonical='" + expCan + "'");
+            }
+        } catch (Exception e) {
+            if (logger != null) logger.log("DEBUG", "HMAC mismatch (failed to compute debug signatures): " + e.getMessage());
+        }
         return false;
     }
 
