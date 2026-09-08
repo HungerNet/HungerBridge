@@ -15,7 +15,7 @@ public class TokenManagerPickupTest {
         Path dir = Files.createTempDirectory("hb-token-test");
         TokenManager tm = new TokenManager(dir, (l,m)->{});
 
-        TokenManager.IssueResult res = tm.issueTokenWithPickup(null, 0, null, null, 300);
+        TokenManager.IssueResult res = tm.issueTokenWithPickup(null, 0, null, 300);
         assertNotNull(res, "IssueResult should not be null");
         assertNotNull(res.pickupId);
 

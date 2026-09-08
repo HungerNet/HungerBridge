@@ -1,27 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.hungerbridge.common.PolicySemanticsTest" tests="1" skipped="0" failures="1" errors="0" timestamp="2026-09-06T00:38:06.022Z" hostname="bdce08eb-e372-4c24-8232-f7728e03ea13" time="0.12">
+<testsuite name="com.hungerbridge.common.PolicySemanticsTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-09-08T03:51:13.958Z" hostname="bdce08eb-e372-4c24-8232-f7728e03ea13" time="0.021">
   <properties/>
-  <testcase name="jsonBodyFieldOrderDoesNotAffectHmacVerification()" classname="com.hungerbridge.common.PolicySemanticsTest" time="0.107">
-    <failure message="org.opentest4j.AssertionFailedError: expected: &lt;true&gt; but was: &lt;false&gt;" type="org.opentest4j.AssertionFailedError">org.opentest4j.AssertionFailedError: expected: &lt;true&gt; but was: &lt;false&gt;
-	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:151)
-	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
-	at org.junit.jupiter.api.AssertTrue.failNotTrue(AssertTrue.java:63)
-	at org.junit.jupiter.api.AssertTrue.assertTrue(AssertTrue.java:36)
-	at org.junit.jupiter.api.AssertTrue.assertTrue(AssertTrue.java:31)
-	at org.junit.jupiter.api.Assertions.assertTrue(Assertions.java:183)
-	at com.hungerbridge.common.PolicySemanticsTest.jsonBodyFieldOrderDoesNotAffectHmacVerification(PolicySemanticsTest.java:93)
-	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
-</failure>
-  </testcase>
+  <testcase name="wildcardPermissionMatchesNewPermissionModel()" classname="com.hungerbridge.common.PolicySemanticsTest" time="0.001"/>
+  <testcase name="emptyPermissionsPolicyDeniesAllActions()" classname="com.hungerbridge.common.PolicySemanticsTest" time="0.006"/>
+  <testcase name="jsonBodyFieldOrderDoesNotAffectHmacVerification()" classname="com.hungerbridge.common.PolicySemanticsTest" time="0.013"/>
   <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[[DEBUG] rawBody='{"level":"info","message":"hello"}'
-[DEBUG] canonicalBody='{"level":"info","message":"hello"}'
-[DEBUG] candidateBody='{"level":"info","message":"hello"}' expected='396156e582487d171983f6eab4a09d9ef6c1b9442102668dccabc3672f46e357' provided='396156e582487d171983f6eab4a09d9ef6c1b9442102668dccabc3672f46e357'
-[DEBUG] rawBody='{"message":"hello","level":"info"}'
-[DEBUG] canonicalBody='{"level":"info","message":"hello"}'
-[DEBUG] candidateBody='{"message":"hello","level":"info"}' expected='3a1c7c549d271b3aa03ccca9feb9c0e024439f54a2532d84065f7a36c2feb822' provided='396156e582487d171983f6eab4a09d9ef6c1b9442102668dccabc3672f46e357'
-[DEBUG] candidateBody='{"level":"info","message":"hello"}' expected='397d1b47993e95454a7186d0564614e5036dcb6446bde7e455aabcaf68e3da25' provided='396156e582487d171983f6eab4a09d9ef6c1b9442102668dccabc3672f46e357'
-]]></system-err>
+  <system-err><![CDATA[]]></system-err>
 </testsuite>

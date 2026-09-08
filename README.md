@@ -92,7 +92,7 @@ print(client.runCommand('say hello'))
 ```
 
 Storage and example files
-- Example tokens policy: `config/HungerBridge/tokens.yaml`
+- Example runtime policies: `config/HungerBridge/policies.yaml`
 - Token storage: `config/HungerBridge/storage/tokens.json`
 - Nonce/session cache: `config/HungerBridge/storage/sessions.json`
 
@@ -147,14 +147,14 @@ Core HTTP API endpoints
 Admin HTTP endpoints (require an admin-capable token)
 
   - `GET  /admin/token/list` — list tokens (no secrets)
-  - `POST /admin/token/create` — create token (JSON: `id`, optional `expiry`, optional `whitelist`, optional `blacklist`) — returns `id` and `secret`
+  - `POST /admin/token/create` — create token (JSON: `policyId`, `tokenId`, optional `expiry`, optional `permissions`) — returns `id` and `secret`
   - `POST /admin/token/revoke` — revoke token (JSON: `id`)
   - `POST /admin/token/remove` — remove token from storage (irreversible)
   - `POST /admin/token/rotate` — rotate token secret (JSON: `id`) — returns new `id` and `secret`
- - `GET  /admin/status` — rate limits and ACLs
- - `GET  /admin/ip` — show configured IP whitelist/blacklist
+ - `GET  /admin/status` — rate limits and security status
+ - `GET  /admin/ip` — show configured IP filter list
  - `GET  /admin/audit?n=<N>` — return last N audit entries
- - `POST /admin/reload` — reload `security.yaml` and `tokens.yaml`
+ - `POST /admin/reload` — reload `security.yaml` and `policies.yaml`
 
 Supported platforms
 
@@ -192,17 +192,18 @@ rate_limits:
 audit_retention_days: 14
 ```
 
-`tokens.yaml` — default token policy
+`policies.yaml` — default token policies
 
 ```yaml
-tokens:
+policies:
   - id: admin
     default_expiry: 0
     max_skew: -1
-    endpoints_mode: blacklist
-    endpoints: []
-    commands_mode: blacklist
-    commands: []
+    permissions: ["*"]
+  - id: moderator
+    default_expiry: 0
+    max_skew: 300
+    permissions: ["ping", "server.log", "server.run"]
 ```
 
 `storage/` files (managed by the server)
@@ -224,8 +225,8 @@ Each SSE `data:` event contains a single raw console line.
 
 ## Token management (HMAC tokens)
 
-HungerBridge supports per-client HMAC-signed tokens. Tokens provide ACLs
-(whitelist/blacklist), expiry, and replay protection.
+HungerBridge supports per-client HMAC-signed tokens. Tokens provide policy
+permissions, expiry, and replay protection.
 
 Create a token using an admin-capable token:
 
@@ -236,7 +237,7 @@ curl -X POST \
   -H "X-Auth-Timestamp: $(date +%s)" \
   -H "X-Auth-Nonce: $(openssl rand -hex 16)" \
   -H "X-Auth-Signature: <hmac-signature>" \
-  -d '{"id":"bridge-client","expiry":3600,"list":["run"],"list_mode":"whitelist"}' \
+  -d '{"policyId":"moderator","tokenId":"bridge-client","expiry":3600,"permissions":["server.log","server.run"]}' \
   http://localhost:1913/admin/token/create
 ```
 
@@ -316,7 +317,7 @@ client = BridgeClient('http://localhost:1913', 'abcd1234:<secret>')
 print(client.runCommand('say hello'))
 
 # admin: create token (requires an admin-capable token)
-resp = client.create_token(token_id='bridge-client', expiry=3600, whitelist=['run'])
+resp = client.create_token(policy_id='moderator', token_id='bridge-client', expiry=3600, permissions=['server.log', 'server.run'])
 print(resp)
 
 # list tokens

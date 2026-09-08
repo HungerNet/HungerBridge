@@ -1,0 +1,18 @@
+policies:
+  - id: admin
+    default_expiry: 0
+    max_skew: -1
+    permissions:
+      - "*"
+
+  - id: moderator
+    default_expiry: 0
+    max_skew: 300
+    permissions:
+      - ping
+      - server.log
+      - server.stream
+      - server.run
+      - world.*
+      - system.*
+      - admin.audit

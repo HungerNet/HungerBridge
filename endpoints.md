@@ -116,7 +116,7 @@ client.ping()
 - Method: `GET`
 - Auth: required
 - Permission/action: token metadata is returned directly after successful authentication.
-- Purpose: validate the active token, its policy, expiry, and whitelist/blacklist.
+- Purpose: validate the active token, its policy, expiry, and effective permissions.
 
 ```bash
 curl -sS -H "X-Auth-Token-Id: admin" -H "X-Auth-Timestamp: $(date +%s)" -H "X-Auth-Nonce: $(openssl rand -hex 16)" -H "X-Auth-Signature: <sig>" http://localhost:1913/auth/check

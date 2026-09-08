@@ -69,12 +69,11 @@ public final class AdminHandler implements HttpHandler {
                         com.hungerbridge.common.security.TokenManager.Token t = e.getValue();
                         JsonObject o = new JsonObject();
                         o.addProperty("id", t.id);
-                                o.addProperty("policyId", t.policyId);
                         o.addProperty("revoked", t.revoked);
                         o.addProperty("expiry", t.expiry);
-                        if (t.list != null) {
-                            o.add("list", com.hungerbridge.common.Json.GSON.toJsonTree(t.list));
-                            o.addProperty("list_mode", t.listMode == null ? "blacklist" : t.listMode);
+                        o.addProperty("max_skew", t.maxSkew);
+                        if (t.permissions != null && !t.permissions.isEmpty()) {
+                            o.add("permissions", com.hungerbridge.common.Json.GSON.toJsonTree(t.permissions));
                         }
                         arr.add(o);
                     }
@@ -89,29 +88,26 @@ public final class AdminHandler implements HttpHandler {
                     if (body != null && body.has("expiry")) expiry = body.get("expiry").getAsLong();
                     else if (config.getTokensConfig() != null) expiry = config.getTokensConfig().defaultExpirySeconds;
 
-                    // If a policy id is provided, ensure it exists in tokens.yaml
+                    // If a policy id is provided, ensure it exists in policies.yaml
                     com.hungerbridge.common.TokensConfig tccheck = config.getTokensConfig();
                     if (policyId != null && tccheck != null && !tccheck.policies.containsKey(policyId)) {
                         HttpUtil.error(ex, 400, "unknown_policy", "token policy id not found", config);
                         break;
                     }
 
-                    if (body != null && (body.has("whitelist") || body.has("blacklist"))) {
-                        HttpUtil.error(ex, 400, "legacy_fields", "whitelist/blacklist not supported; use list and list_mode", config);
+                    if (body != null && (body.has("whitelist") || body.has("blacklist") || body.has("list") || body.has("list_mode"))) {
+                        HttpUtil.error(ex, 400, "legacy_fields", "legacy ACL list fields are unsupported; use permissions", config);
                         break;
                     }
-                    List<String> wl = null;
-                    List<String> bl = null;
-                    if (body != null && body.has("list")) {
-                        List<String> list = com.hungerbridge.common.Json.GSON.fromJson(body.get("list"), List.class);
-                        String lm = body.has("list_mode") ? body.get("list_mode").getAsString() : "blacklist";
-                        if ("whitelist".equalsIgnoreCase(lm)) wl = list; else bl = list;
+                    List<String> permissions = null;
+                    if (body != null && body.has("permissions")) {
+                        permissions = com.hungerbridge.common.Json.GSON.fromJson(body.get("permissions"), List.class);
                     }
                     if (policyId == null || policyId.isBlank() || tokenId == null || tokenId.isBlank()) {
                         HttpUtil.error(ex, 400, "missing_fields", "policyId and tokenId required", config);
                         break;
                     }
-                    com.hungerbridge.common.security.TokenManager.IssueResult res = admin.createTokenWithPickup(policyId, tokenId, expiry, wl, bl, 300);
+                    com.hungerbridge.common.security.TokenManager.IssueResult res = admin.createTokenWithPickup(policyId, tokenId, expiry, permissions, 300);
                     if (res == null) { HttpUtil.error(ex, 500, "create_failed", "failed to create token", config); break; }
                     // consume pickup immediately to return secret
                     com.hungerbridge.common.security.TokenManager tm = config.getTokenManager();

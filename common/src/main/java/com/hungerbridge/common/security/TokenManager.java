@@ -1,6 +1,8 @@
 package com.hungerbridge.common.security;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
 import com.hungerbridge.common.Logger;
 
@@ -34,6 +36,112 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
  */
 public final class TokenManager {
+
+    public static byte[] deriveSecret(byte[] masterKey, byte[] salt, String id) {
+        byte[] effectiveMaster = masterKey == null ? new byte[32] : masterKey;
+        byte[] effectiveSalt = salt == null ? new byte[16] : salt;
+        byte[] prk = hkdfExtract(effectiveMaster, effectiveSalt);
+        byte[] info = id == null ? new byte[0] : id.getBytes(StandardCharsets.UTF_8);
+        return hkdfExpand(prk, info, 32);
+    }
+
+    public static String canonicalRequest(String method, String path, String timestamp, String nonce, String body) {
+        String normalizedMethod = method == null ? "" : method.trim().toUpperCase();
+        String normalizedPath = normalizePath(path);
+        String canonicalBody = canonicalizeBody(body);
+        return normalizedMethod + "\n" + normalizedPath + "\n" + timestamp + "\n" + nonce + "\n" + canonicalBody;
+    }
+
+    public static boolean permissionMatches(String node, List<String> permissions) {
+        if (node == null || node.isBlank()) return false;
+        if (permissions == null || permissions.isEmpty()) return false;
+        for (String permission : permissions) {
+            if (permission == null || permission.isBlank()) continue;
+            if ("*".equals(permission)) return true;
+            if (permission.endsWith(".*") && node.startsWith(permission.substring(0, permission.length() - 1))) return true;
+            if (permission.equals(node)) return true;
+        }
+        return false;
+    }
+
+    public static String hmacHex(byte[] key, String message) {
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(key, "HmacSHA256"));
+            return bytesToHex(mac.doFinal(message.getBytes(StandardCharsets.UTF_8)));
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to build HMAC", e);
+        }
+    }
+
+    public static String normalizePath(String path) {
+        String normalized = path == null ? "/" : path.trim();
+        if (normalized.isEmpty()) return "/";
+        if (normalized.startsWith("http://") || normalized.startsWith("https://")) {
+            try {
+                java.net.URI uri = java.net.URI.create(normalized);
+                normalized = uri.getPath();
+            } catch (Exception ignored) {
+                normalized = normalized.replaceFirst("^[^/]+://[^/]+", "");
+            }
+        }
+        normalized = normalized.split("\\?", 2)[0].split("#", 2)[0];
+        if (normalized.isEmpty()) return "/";
+        if (!normalized.startsWith("/")) normalized = "/" + normalized;
+        while (normalized.length() > 1 && normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        return normalized.isEmpty() ? "/" : normalized;
+    }
+
+    public static String canonicalizeBody(String body) {
+        if (body == null || body.isBlank()) return "";
+        String trimmed = body.trim();
+        try {
+            JsonElement element = JsonParser.parseString(trimmed);
+            return canonicalizeJson(element);
+        } catch (Exception ignored) {
+            return trimmed;
+        }
+    }
+
+    public static String canonicalizeJson(JsonElement element) {
+        if (element == null || element.isJsonNull()) return "null";
+        if (element.isJsonPrimitive()) return element.toString();
+        if (element.isJsonArray()) {
+            StringBuilder sb = new StringBuilder("[");
+            boolean first = true;
+            for (JsonElement child : element.getAsJsonArray()) {
+                if (!first) sb.append(',');
+                sb.append(canonicalizeJson(child));
+                first = false;
+            }
+            sb.append(']');
+            return sb.toString();
+        }
+        Map<String, JsonElement> sorted = new java.util.TreeMap<>();
+        for (Map.Entry<String, JsonElement> entry : element.getAsJsonObject().entrySet()) {
+            sorted.put(entry.getKey(), entry.getValue());
+        }
+        StringBuilder sb = new StringBuilder("{");
+        boolean first = true;
+        for (Map.Entry<String, JsonElement> entry : sorted.entrySet()) {
+            if (!first) sb.append(',');
+            sb.append(GSON.toJson(entry.getKey()));
+            sb.append(':');
+            sb.append(canonicalizeJson(entry.getValue()));
+            first = false;
+        }
+        sb.append('}');
+        return sb.toString();
+    }
+
+    public byte[] deriveTokenSecret(Token token) {
+        if (token == null || token.salt == null || token.salt.isBlank()) {
+            throw new IllegalArgumentException("token does not have a usable salt");
+        }
+        return deriveSecret(masterKey, hexToBytes(token.salt), token.id);
+    }
 
     private final Path storageDir;
     private final Path tokensFile;
@@ -86,8 +194,8 @@ public final class TokenManager {
             t.salt = saltHex;
             t.revoked = false;
             t.expiry = 0L;
-            t.list = java.util.List.of("admin");
-            t.listMode = "whitelist"; // grant admin rights for bootstrap root token
+            t.permissions = new java.util.ArrayList<>(java.util.List.of("*"));
+            t.maxSkew = -1;
             tokens.put(rootId, t);
             persistTokens();
             byte[] derived = deriveTokenKey(rootId, salt);
@@ -318,21 +426,28 @@ public final class TokenManager {
             persistSessions();
         }
 
-        // Deterministic canonicalization: require client to sign canonical JSON.
         String rawBody = body == null ? "" : body;
         String canonicalBody = canonicalizeBodyForHmac(rawBody);
-        String msg = method.toUpperCase() + "\n" + path + "\n" + timestampStr + "\n" + nonce + "\n" + canonicalBody;
+        String normalizedPath = normalizePath(path);
+        String methodName = method == null ? "" : method.trim().toUpperCase();
+        String canonicalMsg = methodName + "\n" + normalizedPath + "\n" + timestampStr + "\n" + nonce + "\n" + canonicalBody;
+        String rawMsg = methodName + "\n" + normalizedPath + "\n" + timestampStr + "\n" + nonce + "\n" + rawBody.trim();
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
             byte[] key = deriveTokenKey(tk.id, tk.salt);
             SecretKeySpec keySpec = new SecretKeySpec(key, "HmacSHA256");
             mac.init(keySpec);
-            byte[] out = mac.doFinal(msg.getBytes(StandardCharsets.UTF_8));
-            String expected = bytesToHex(out);
-            if (expected.equalsIgnoreCase(signature)) return true;
-            if (logger != null) {
-                String derivedHex = bytesToHex(key);
-                logger.log("DEBUG", "HMAC mismatch for token='" + tk.id + "' providedSig='" + signature + "' derivedKey='" + derivedHex + "' expected='" + expected + "'");
+            String expectedCanonical = bytesToHex(mac.doFinal(canonicalMsg.getBytes(StandardCharsets.UTF_8)));
+            if (expectedCanonical.equalsIgnoreCase(signature)) return true;
+            if (!rawMsg.equals(canonicalMsg)) {
+                mac.reset();
+                mac.init(keySpec);
+                String expectedRaw = bytesToHex(mac.doFinal(rawMsg.getBytes(StandardCharsets.UTF_8)));
+                if (expectedRaw.equalsIgnoreCase(signature)) return true;
+                if (logger != null) {
+                    String derivedHex = bytesToHex(key);
+                    logger.log("DEBUG", "HMAC mismatch for token='" + tk.id + "' providedSig='" + signature + "' derivedKey='" + derivedHex + "' expectedCanonical='" + expectedCanonical + "' expectedRaw='" + expectedRaw + "'");
+                }
             }
         } catch (NoSuchAlgorithmException | InvalidKeyException e) {
             if (logger != null) logger.log("ERROR", "HMAC verification failed: " + e.getMessage());
@@ -384,13 +499,21 @@ public final class TokenManager {
         try {
             String rawBody = body == null ? "" : body;
             String canonicalBody = canonicalizeBodyForHmac(rawBody);
-            String msg = method.toUpperCase() + "\n" + path + "\n" + timestampStr + "\n" + nonce + "\n" + canonicalBody;
+            String normalizedPath = normalizePath(path);
+            String msgCanonical = (method == null ? "" : method.trim().toUpperCase()) + "\n" + normalizedPath + "\n" + timestampStr + "\n" + nonce + "\n" + canonicalBody;
+            String rawMsg = (method == null ? "" : method.trim().toUpperCase()) + "\n" + normalizedPath + "\n" + timestampStr + "\n" + nonce + "\n" + rawBody.trim();
             javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
             byte[] key = deriveTokenKey(tk.id, tk.salt);
             javax.crypto.spec.SecretKeySpec ks = new javax.crypto.spec.SecretKeySpec(key, "HmacSHA256");
             mac.init(ks);
-            String exp = bytesToHex(mac.doFinal(msg.getBytes(StandardCharsets.UTF_8)));
+            String exp = bytesToHex(mac.doFinal(msgCanonical.getBytes(StandardCharsets.UTF_8)));
             if (exp.equalsIgnoreCase(signature)) return VerifyResult.OK;
+            if (!rawMsg.equals(msgCanonical)) {
+                mac.reset();
+                mac.init(ks);
+                String expRaw = bytesToHex(mac.doFinal(rawMsg.getBytes(StandardCharsets.UTF_8)));
+                if (expRaw.equalsIgnoreCase(signature)) return VerifyResult.OK;
+            }
             return VerifyResult.BAD_SIGNATURE;
         } catch (Exception e) {
             if (logger != null) logger.log("ERROR", "HMAC verification error: " + e.getMessage());
@@ -398,7 +521,7 @@ public final class TokenManager {
         }
     }
 
-    private static String bytesToHex(byte[] data) {
+    public static String bytesToHex(byte[] data) {
         StringBuilder sb = new StringBuilder(data.length * 2);
         for (byte b : data) sb.append(String.format("%02x", b & 0xff));
         return sb.toString();
@@ -417,56 +540,18 @@ public final class TokenManager {
         }
     }
 
-    private static String canonicalizeJson(com.google.gson.JsonElement el) {
-        if (el == null || el.isJsonNull()) return "null";
-        if (el.isJsonPrimitive()) return el.toString();
-        if (el.isJsonArray()) {
-            StringBuilder sb = new StringBuilder("[");
-            boolean first = true;
-            for (com.google.gson.JsonElement item : el.getAsJsonArray()) {
-                if (!first) sb.append(',');
-                sb.append(canonicalizeJson(item));
-                first = false;
-            }
-            sb.append(']');
-            return sb.toString();
-        }
-        com.google.gson.JsonObject obj = el.getAsJsonObject();
-        java.util.List<String> keys = new java.util.ArrayList<>(obj.keySet());
-        java.util.Collections.sort(keys);
-        StringBuilder sb = new StringBuilder("{");
-        boolean first = true;
-        for (String key : keys) {
-            if (!first) sb.append(',');
-            sb.append(GSON.toJson(key));
-            sb.append(':');
-            sb.append(canonicalizeJson(obj.get(key)));
-            first = false;
-        }
-        sb.append('}');
-        return sb.toString();
-    }
-
     public boolean hasToken(String id) { return tokens.containsKey(id); }
 
-    // lightweight token representation
     public static final class Token {
         public String id;
-        // do not store plaintext secret. Instead store a salt for HKDF derivation.
         public String salt;
-        // human-friendly unique name (optional)
-        // (name removed — tokens use policyId for policy association)
-        // policyId links this runtime token to a named policy in tokens.yaml
-        public String policyId = null;
         public boolean revoked = false;
-        public long expiry = 0; // epoch seconds, 0 = never
-        @com.google.gson.annotations.SerializedName("list")
-        public java.util.List<String> list = null;
-        @com.google.gson.annotations.SerializedName("list_mode")
-        public String listMode = null; // "blacklist" or "whitelist"
+        public long expiry = 0;
+        public java.util.List<String> permissions = new java.util.ArrayList<>();
+        public int maxSkew = -1;
     }
 
-    public Token createToken(String id, long expirySeconds, List<String> whitelist, List<String> blacklist) {
+    public Token createToken(String id, long expirySeconds, List<String> permissions) {
         String effectiveId = id != null && !id.isBlank() ? id : java.util.UUID.randomUUID().toString().replaceAll("-", "");
         // enforce uniqueness: do not allow creating a token with an id that
         // already exists or that is pending pickup
@@ -493,12 +578,8 @@ public final class TokenManager {
         } else if (expirySeconds == 0) {
             t.expiry = 0L;
         }
-        if (whitelist != null) {
-            t.list = whitelist;
-            t.listMode = "whitelist";
-        } else if (blacklist != null) {
-            t.list = blacklist;
-            t.listMode = "blacklist";
+        if (permissions != null) {
+            t.permissions = new java.util.ArrayList<>(permissions);
         }
 
         tokens.put(effectiveId, t);
@@ -506,17 +587,26 @@ public final class TokenManager {
         return t;
     }
 
-    public Token createToken(long ttlSeconds, List<String> whitelist, List<String> blacklist) {
-        return createToken(null, ttlSeconds, whitelist, blacklist);
+    public Token createToken(long ttlSeconds, List<String> permissions) {
+        return createToken(null, ttlSeconds, permissions);
     }
 
     /**
-     * Attach an external policy id (from tokens.yaml) to a runtime token and persist.
+     * Attach an external policy id (from policies.yaml) to a runtime token and persist.
      */
     public void setTokenPolicyId(String tokenId, String policyId) {
+        // policy id is referenced externally only; it is not persisted in tokens.json
+        if (tokenId == null || tokenId.isBlank()) return;
         Token t = tokens.get(tokenId);
         if (t == null) return;
-        t.policyId = policyId;
+        persistTokens();
+    }
+
+    public void persistTokenPolicyState(String tokenId, List<String> permissions, int maxSkew) {
+        Token t = tokens.get(tokenId);
+        if (t == null) return;
+        t.permissions = permissions == null ? new java.util.ArrayList<>() : new java.util.ArrayList<>(permissions);
+        t.maxSkew = maxSkew;
         persistTokens();
     }
 
@@ -639,8 +729,8 @@ public final class TokenManager {
         public String tokenId;
     }
 
-    public synchronized IssueResult issueTokenWithPickup(String id, long expirySeconds, List<String> whitelist, List<String> blacklist, int pickupTtlSeconds) {
-        Token t = createToken(id, expirySeconds, whitelist, blacklist);
+    public synchronized IssueResult issueTokenWithPickup(String id, long expirySeconds, List<String> permissions, int pickupTtlSeconds) {
+        Token t = createToken(id, expirySeconds, permissions);
         if (t == null) return null;
         // derive token secret (plaintext) from master key and salt/token id
         byte[] key = deriveTokenKey(t.id, t.salt);

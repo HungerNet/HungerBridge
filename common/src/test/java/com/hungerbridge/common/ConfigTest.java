@@ -63,22 +63,16 @@ public final class ConfigTest {
                   ip_burst: 40
                 audit_retention_days: 14
                 """);
-        Files.writeString(dir.resolve("tokens.yaml"), """
-                tokens:
+        Files.writeString(dir.resolve("policies.yaml"), """
+                policies:
                   - id: admin
                     default_expiry: 0
                     max_skew: -1
-                    endpoints_mode: blacklist
-                    endpoints: []
-                    commands_mode: blacklist
-                    commands: []
+                    permissions: ["*"]
                   - id: reporter
                     default_expiry: 3600
                     max_skew: 120
-                    endpoints_mode: whitelist
-                    endpoints: ["ping", "info"]
-                    commands_mode: blacklist
-                    commands: []
+                    permissions: ["ping", "info"]
                 """);
 
         Config config = Config.load(dir, (level, message) -> {});
@@ -87,22 +81,16 @@ public final class ConfigTest {
         assertNotNull(config.getTokensConfig());
         assertTrue(config.getTokensConfig().getPolicy("reporter") != null);
 
-        Files.writeString(dir.resolve("tokens.yaml"), """
-                tokens:
+        Files.writeString(dir.resolve("policies.yaml"), """
+                policies:
                   - id: admin
                     default_expiry: 0
                     max_skew: -1
-                    endpoints_mode: blacklist
-                    endpoints: []
-                    commands_mode: blacklist
-                    commands: []
+                    permissions: ["*"]
                   - id: watcher
                     default_expiry: 1200
                     max_skew: 60
-                    endpoints_mode: whitelist
-                    endpoints: ["stream_logs"]
-                    commands_mode: blacklist
-                    commands: []
+                    permissions: ["stream"]
                 """);
 
         assertTrue(admin.reloadConfig());
@@ -130,22 +118,19 @@ public final class ConfigTest {
                   ip_burst: 40
                 audit_retention_days: 14
                 """);
-        Files.writeString(dir.resolve("tokens.yaml"), """
-                tokens:
+        Files.writeString(dir.resolve("policies.yaml"), """
+                policies:
                   - id: admin
                     default_expiry: 0
                     max_skew: -1
-                    endpoints_mode: blacklist
-                    endpoints: []
-                    commands_mode: blacklist
-                    commands: []
+                    permissions: ["*"]
                 """);
 
         Config config = Config.load(dir, (level, message) -> {});
         config.setTokenManager(new TokenManager(dir, null));
         AdminService admin = new AdminService(dir, config, null, null);
 
-        assertNull(admin.createToken("unknown-policy", null, 0L, java.util.List.of(), java.util.List.of()));
+        assertNull(admin.createToken("unknown-policy", null, 0L, java.util.List.of()));
     }
 
     @Test

@@ -154,7 +154,7 @@ public final class Config {
         java.util.List<String> existed = new java.util.ArrayList<>();
 
         if (autogenRoot != null && Files.exists(autogenRoot)) {
-            for (String fileName : java.util.List.of("config.yaml", "security.yaml", "tokens.yaml")) {
+            for (String fileName : java.util.List.of("config.yaml", "security.yaml", "policies.yaml")) {
                 Path source = autogenRoot.resolve(fileName);
                 Path target = runtimeConfigDir.resolve(fileName);
                 if (!Files.exists(source)) continue;

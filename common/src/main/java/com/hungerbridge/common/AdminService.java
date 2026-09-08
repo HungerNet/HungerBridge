@@ -37,49 +37,31 @@ public final class AdminService {
         return tm.listTokens();
     }
 
-    public TokenManager.Token createToken(String policyId, String tokenId, long expirySeconds, List<String> whitelist, List<String> blacklist) {
+    public TokenManager.Token createToken(String policyId, String tokenId, long expirySeconds, List<String> permissions) {
         TokenManager tm = config.getTokenManager();
         if (tm == null) return null;
         TokensConfig tc = config.getTokensConfig();
         if (tc != null && policyId != null && !policyId.isBlank() && !tc.hasPolicy(policyId)) {
             return null;
         }
-        // Preserve null when caller did not provide explicit lists. Only
-        // materialize lists when a caller provides them or when a policy
-        // explicitly defines an empty list (to express allow/deny-all semantics).
-        List<String> effectiveWhitelist = whitelist != null ? new ArrayList<>(whitelist) : null;
-        List<String> effectiveBlacklist = blacklist != null ? new ArrayList<>(blacklist) : null;
-        // (name removed — no uniqueness checks)
-        if (tc != null && effectiveWhitelist == null && effectiveBlacklist == null) {
+        List<String> effectivePermissions = permissions != null ? new ArrayList<>(permissions) : null;
+        if (tc != null && effectivePermissions == null) {
             TokensConfig.TokenPolicy policy = tc.getPolicy(policyId);
-            if (policy != null) {
-                java.util.LinkedHashSet<String> resolved = new java.util.LinkedHashSet<>();
-                if (policy.endpoints != null) resolved.addAll(policy.endpoints);
-                if (policy.commands != null) resolved.addAll(policy.commands);
-                if (!resolved.isEmpty()) {
-                    if ("whitelist".equalsIgnoreCase(policy.endpointsMode) || "whitelist".equalsIgnoreCase(policy.commandsMode)) {
-                        effectiveWhitelist = new ArrayList<>(resolved);
-                    } else {
-                        effectiveBlacklist = new ArrayList<>(resolved);
-                    }
-                } else {
-                    // Policy explicitly configured empty lists — represent that
-                    // as an explicit empty (non-null) list to convey allow/deny-all.
-                    if ("whitelist".equalsIgnoreCase(policy.endpointsMode) || "whitelist".equalsIgnoreCase(policy.commandsMode)) {
-                        effectiveWhitelist = java.util.List.of();
-                    } else {
-                        effectiveBlacklist = java.util.List.of();
-                    }
-                }
-                if (expirySeconds <= 0 && policy.defaultExpirySeconds > 0) expirySeconds = policy.defaultExpirySeconds;
+            if (policy != null && policy.permissions != null && !policy.permissions.isEmpty()) {
+                effectivePermissions = new ArrayList<>(policy.permissions);
+            }
+            if (expirySeconds <= 0 && policy != null && policy.defaultExpirySeconds > 0) {
+                expirySeconds = policy.defaultExpirySeconds;
             }
         }
-        // Create a runtime token with the requested tokenId (if provided) or generated id.
-        // Pass lists directly; empty (non-null) lists are now interpreted by the
-        // ACL engine as explicit deny/allow semantics.
-        TokenManager.Token t = tm.createToken(tokenId, expirySeconds, effectiveWhitelist, effectiveBlacklist);
+        TokenManager.Token t = tm.createToken(tokenId, expirySeconds, effectivePermissions);
         if (t != null) {
-            if (policyId != null && !policyId.isBlank()) tm.setTokenPolicyId(t.id, policyId);
+            TokensConfig.TokenPolicy policy = tc == null ? null : tc.getPolicy(policyId);
+            if (policy != null && policy.permissions != null) {
+                t.permissions = new ArrayList<>(policy.permissions);
+                t.maxSkew = policy.maxSkewSeconds;
+                tm.persistTokenPolicyState(t.id, policy.permissions, policy.maxSkewSeconds);
+            }
         }
         return t;
     }
@@ -87,52 +69,43 @@ public final class AdminService {
     /**
      * Create a token and issue a one-time pickup record. Returns the IssueResult containing pickup and token id.
      */
-    public TokenManager.IssueResult createTokenWithPickup(String policyId, String tokenId, long expirySeconds, List<String> whitelist, List<String> blacklist, int pickupTtlSeconds) {
+    public TokenManager.IssueResult createTokenWithPickup(String policyId, String tokenId, long expirySeconds, List<String> permissions, int pickupTtlSeconds) {
         TokenManager tm = config.getTokenManager();
         if (tm == null) return null;
         TokensConfig tc = config.getTokensConfig();
         if (tc != null && policyId != null && !policyId.isBlank() && !tc.hasPolicy(policyId)) {
             return null;
         }
-        // Preserve null when caller did not provide explicit lists. Only
-        // materialize lists when a caller provides them or when a policy
-        // explicitly defines an empty list (to express allow/deny-all semantics).
-        List<String> effectiveWhitelist = whitelist != null ? new ArrayList<>(whitelist) : null;
-        List<String> effectiveBlacklist = blacklist != null ? new ArrayList<>(blacklist) : null;
-        if (tc != null && effectiveWhitelist == null && effectiveBlacklist == null) {
+        List<String> effectivePermissions = permissions != null ? new ArrayList<>(permissions) : null;
+        if (tc != null && effectivePermissions == null) {
             TokensConfig.TokenPolicy policy = tc.getPolicy(policyId);
-            if (policy != null) {
-                java.util.LinkedHashSet<String> resolved = new java.util.LinkedHashSet<>();
-                if (policy.endpoints != null) resolved.addAll(policy.endpoints);
-                if (policy.commands != null) resolved.addAll(policy.commands);
-                if (!resolved.isEmpty()) {
-                    if ("whitelist".equalsIgnoreCase(policy.endpointsMode) || "whitelist".equalsIgnoreCase(policy.commandsMode)) {
-                        effectiveWhitelist = new ArrayList<>(resolved);
-                    } else {
-                        effectiveBlacklist = new ArrayList<>(resolved);
-                    }
-                } else {
-                    if ("whitelist".equalsIgnoreCase(policy.endpointsMode) || "whitelist".equalsIgnoreCase(policy.commandsMode)) {
-                        effectiveWhitelist = java.util.List.of();
-                    } else {
-                        effectiveBlacklist = java.util.List.of();
-                    }
-                }
-                if (expirySeconds <= 0 && policy.defaultExpirySeconds > 0) expirySeconds = policy.defaultExpirySeconds;
+            if (policy != null && policy.permissions != null && !policy.permissions.isEmpty()) {
+                effectivePermissions = new ArrayList<>(policy.permissions);
+            }
+            if (expirySeconds <= 0 && policy != null && policy.defaultExpirySeconds > 0) {
+                expirySeconds = policy.defaultExpirySeconds;
             }
         }
 
-        TokenManager.IssueResult res = tm.issueTokenWithPickup(tokenId, expirySeconds, effectiveWhitelist, effectiveBlacklist, pickupTtlSeconds);
+        TokenManager.IssueResult res = tm.issueTokenWithPickup(tokenId, expirySeconds, effectivePermissions, pickupTtlSeconds);
         if (res != null) {
-            if (policyId != null && !policyId.isBlank()) tm.setTokenPolicyId(res.tokenId, policyId);
+            TokensConfig.TokenPolicy policy = tc == null ? null : tc.getPolicy(policyId);
+            if (policy != null && policy.permissions != null) {
+                TokenManager.Token t = tm.listTokens().get(res.tokenId);
+                if (t != null) {
+                    t.permissions = new ArrayList<>(policy.permissions);
+                    t.maxSkew = policy.maxSkewSeconds;
+                    tm.persistTokenPolicyState(t.id, policy.permissions, policy.maxSkewSeconds);
+                }
+            }
         }
         return res;
     }
 
-    public TokenManager.Token createToken(long expirySeconds, List<String> whitelist, List<String> blacklist) {
+    public TokenManager.Token createToken(long expirySeconds, List<String> permissions) {
         TokenManager tm = config.getTokenManager();
         if (tm == null) return null;
-        return tm.createToken(null, expirySeconds, whitelist, blacklist);
+        return tm.createToken(null, expirySeconds, permissions);
     }
 
     public boolean revokeToken(String id) {
@@ -242,7 +215,7 @@ public final class AdminService {
         try {
             Path cfg = configDir.resolve("config.yaml");
             Path sec = configDir.resolve("security.yaml");
-            Path tokensYaml = configDir.resolve("tokens.yaml");
+            Path policiesYaml = configDir.resolve("policies.yaml");
             Path storage = configDir.resolve("storage");
             Path tokens = storage.resolve("tokens.json");
             Path sessions = storage.resolve("sessions.json");
@@ -250,7 +223,7 @@ public final class AdminService {
 
             out.put("config.yaml_exists", Files.exists(cfg));
             out.put("security.yaml_exists", Files.exists(sec));
-            out.put("tokens.yaml_exists", Files.exists(tokensYaml));
+            out.put("policies.yaml_exists", Files.exists(policiesYaml));
             out.put("tokens_json_exists", Files.exists(tokens));
             out.put("sessions_json_exists", Files.exists(sessions));
             out.put("logs_dir_exists", Files.exists(logs));

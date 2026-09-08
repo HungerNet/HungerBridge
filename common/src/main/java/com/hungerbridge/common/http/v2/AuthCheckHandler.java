@@ -37,16 +37,15 @@ public final class AuthCheckHandler implements HttpHandler {
 
         JsonObject out = new JsonObject();
         out.addProperty("id", t.id);
-        out.addProperty("policyId", t.policyId);
         out.addProperty("revoked", t.revoked);
         out.addProperty("expiry", t.expiry);
-        if (t.list != null) {
+        out.addProperty("max_skew", t.maxSkew);
+        if (t.permissions != null && !t.permissions.isEmpty()) {
             JsonArray la = new JsonArray();
-            for (String s : t.list) la.add(s);
-            out.add("list", la);
-            out.addProperty("list_mode", t.listMode == null ? "blacklist" : t.listMode);
+            for (String s : t.permissions) la.add(s);
+            out.add("permissions", la);
         }
 
-        HttpUtil.writeJson(ex, 200, Json.obj("ok", true, "permissions", out));
+        HttpUtil.writeJson(ex, 200, Json.obj("ok", true, "token", out));
     }
 }

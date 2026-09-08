@@ -42,7 +42,12 @@ public final class AdminTokenMetaHandler implements HttpHandler {
         Map<String, TokenManager.Token> tokens = admin.listTokens();
         for (Map.Entry<String, TokenManager.Token> entry : tokens.entrySet()) {
             TokenManager.Token t = entry.getValue();
-            JsonObject obj = Json.obj("id", t.id, "policyId", t.policyId, "revoked", t.revoked, "expiry", t.expiry);
+            JsonObject obj = Json.obj("id", t.id, "revoked", t.revoked, "expiry", t.expiry, "max_skew", t.maxSkew);
+            if (t.permissions != null && !t.permissions.isEmpty()) {
+                JsonArray perms = new JsonArray();
+                for (String s : t.permissions) perms.add(s);
+                obj.add("permissions", perms);
+            }
             arr.add(obj);
         }
         HttpUtil.writeJson(ex, 200, Json.obj("ok", true, "tokens", arr));

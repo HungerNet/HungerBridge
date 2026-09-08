@@ -67,7 +67,7 @@ public final class CommonCommandHandler {
                             } else {
                                 List<String> tokenLines = new ArrayList<>();
                                 for (TokenManager.Token t : toks.values()) {
-                                    String line = t.id + " -> " + (t.policyId == null ? "<none>" : t.policyId) + " (revoked:" + t.revoked + ", expiry:" + t.expiry + ")";
+                                    String line = t.id + " (revoked:" + t.revoked + ", expiry:" + t.expiry + ", max_skew:" + t.maxSkew + ")";
                                     tokenLines.add(line);
                                 }
                                 out.addAll(CommandMessages.formatList(tokenLines, false));
@@ -86,7 +86,7 @@ public final class CommonCommandHandler {
                             if (args.length >= 5) {
                                 try { expiry = Long.parseLong(args[4]); } catch (NumberFormatException ignored) {}
                             }
-                            TokenManager.IssueResult res = admin.createTokenWithPickup(policyId, tokenId, expiry, List.of(), List.of(), 300);
+                            TokenManager.IssueResult res = admin.createTokenWithPickup(policyId, tokenId, expiry, List.of(), 300);
                             if (res == null) addError(out, bridgeServer, "Unknown policy id or duplicate token: " + policyId);
                             else {
                                 out.add("Token created with ID \"" + tokenId + "\". Retrieve it at: /tokens/pickup/" + res.pickupId);
@@ -115,7 +115,7 @@ public final class CommonCommandHandler {
                 }
                 case "ip":
                     if (args.length >= 2 && args[1].equalsIgnoreCase("help")) {
-                        out.add("IP: show the whitelist/blacklist status.");
+                        out.add("IP: show the current IP list status.");
                         break;
                     }
                     out.addAll(CommandMessages.formatKeyValues(admin.getIpStatus()));
