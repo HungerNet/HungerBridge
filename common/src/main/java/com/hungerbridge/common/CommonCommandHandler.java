@@ -25,6 +25,81 @@ public final class CommonCommandHandler {
 
         try {
             switch (args[0].toLowerCase()) {
+                case "status": {
+                    com.hungerbridge.common.Config cfg = bridgeServer != null ? bridgeServer.getConfig() : null;
+                    com.hungerbridge.common.security.TokenManager tm = cfg != null ? cfg.getTokenManager() : null;
+                    com.hungerbridge.common.security.RateLimiter rl = cfg != null ? cfg.getRateLimiter() : null;
+                    com.hungerbridge.common.TokensConfig tc = cfg != null ? cfg.getTokensConfig() : null;
+                    java.util.Map<String, Object> root = new java.util.LinkedHashMap<>();
+                    root.put("port", cfg != null ? cfg.getPort() : "unknown");
+                    root.put("version", cfg != null ? cfg.getVersion() : "unknown");
+                    root.put("tokens_count", tm != null ? tm.listTokens().size() : 0);
+                    root.put("policies_count", tc != null ? tc.policies.size() : 0);
+                    if (rl != null) {
+                        java.util.Map<String, Object> rates = new java.util.LinkedHashMap<>();
+                        rates.put("token_rps", rl.getTokenRps());
+                        rates.put("token_burst", rl.getTokenBurst());
+                        rates.put("ip_rps", rl.getIpRps());
+                        rates.put("ip_burst", rl.getIpBurst());
+                        root.put("rate_limits", rates);
+                    }
+                    out.addAll(CommandMessages.formatKeyValues(root));
+                    return out;
+                }
+                case "reload": {
+                    if (bridgeServer == null) { addError(out, bridgeServer, "Server unavailable."); return out; }
+                    boolean ok = bridgeServer.reloadConfig();
+                    if (ok) addSuccess(out, bridgeServer, "Reloaded config from disk."); else addError(out, bridgeServer, "Reload failed.");
+                    return out;
+                }
+                case "audit": {
+                    com.hungerbridge.common.Config cfg = bridgeServer != null ? bridgeServer.getConfig() : null;
+                    com.hungerbridge.common.log.AuditLogger al = cfg != null ? cfg.getAuditLogger() : null;
+                    int n = 50;
+                    if (args.length >= 2) {
+                        try { n = Integer.parseInt(args[1]); } catch (NumberFormatException ignored) {}
+                    }
+                    if (al == null) { addError(out, bridgeServer, "Audit logger not initialized."); return out; }
+                    java.util.List<String> lines = al.tail(n);
+                    if (lines.isEmpty()) { out.add("No audit entries."); return out; }
+                    out.addAll(lines);
+                    return out;
+                }
+                case "config": {
+                    com.hungerbridge.common.Config cfg = bridgeServer != null ? bridgeServer.getConfig() : null;
+                    if (cfg == null) { addError(out, bridgeServer, "Server unavailable."); return out; }
+                    java.util.Map<String, Object> main = new java.util.LinkedHashMap<>();
+                    main.put("port", cfg.getPort());
+                    main.put("players_max_list", cfg.getPlayersMaxList());
+                    main.put("platform", cfg.getPlatform());
+                    main.put("version", cfg.getVersion());
+                    out.add("**Main**:");
+                    out.addAll(CommandMessages.formatKeyValues(main));
+                    out.add("**Security**:");
+                    com.hungerbridge.common.security.SecurityConfig sc = cfg.getSecurityConfig();
+                    if (sc != null) {
+                        java.util.Map<String, Object> s = new java.util.LinkedHashMap<>();
+                        s.put("ip_list_mode", sc.ipListMode);
+                        s.put("ip_list_size", sc.ipList.size());
+                        s.put("token_rps", sc.tokenRps);
+                        s.put("token_burst", sc.tokenBurst);
+                        s.put("audit_retention_days", sc.auditRetentionDays);
+                        out.addAll(CommandMessages.formatKeyValues(s));
+                    } else {
+                        out.add("(none)");
+                    }
+                    out.add("**Tokens**:");
+                    com.hungerbridge.common.TokensConfig tc = cfg.getTokensConfig();
+                    if (tc != null) {
+                        java.util.Map<String, Object> t = new java.util.LinkedHashMap<>();
+                        t.put("policies_count", tc.policies.size());
+                        t.put("default_expiry", tc.defaultExpirySeconds);
+                        out.addAll(CommandMessages.formatKeyValues(t));
+                    } else {
+                        out.add("(none)");
+                    }
+                    return out;
+                }
                 case "token":
                 case "tokens": {
                     // token subcommands: list, create <tokenId> <policyId> [expiry], revoke <id>, rotate <id>
@@ -48,16 +123,18 @@ public final class CommonCommandHandler {
                         }
                         case "create": {
                             if (tm == null || cfg == null) { addError(out, bridgeServer, "Token manager not initialized."); return out; }
-                            if (args.length < 4) { addError(out, bridgeServer, "Usage: token create <tokenId> <policyId> [expiry]"); return out; }
-                            String tokenId = args[2];
-                            String policyId = args[3];
+                            if (args.length < 3) { addError(out, bridgeServer, "Usage: token create <tokenId> <policyId> [expiry]"); return out; }
+                            // Per policy: ignore provided tokenId and generate a server-side id
+                            String providedPolicyOrId = args[2];
+                            String policyId = providedPolicyOrId;
                             long expiry = 0L;
-                            if (args.length >= 5) {
-                                try { expiry = Long.parseLong(args[4]); } catch (NumberFormatException nfe) { addError(out, bridgeServer, "Invalid expiry value."); return out; }
+                            if (args.length >= 4) {
+                                try { expiry = Long.parseLong(args[3]); } catch (NumberFormatException nfe) { addError(out, bridgeServer, "Invalid expiry value."); return out; }
                             }
                             com.hungerbridge.common.TokensConfig tc = cfg.getTokensConfig();
-                            if (tc != null && !tc.hasPolicy(policyId)) { addError(out, bridgeServer, "Unknown policy id: " + policyId); return out; }
-                            TokenManager.IssueResult res = tm.issueTokenWithPickup(tokenId, expiry, null, 300);
+                            if (tc != null && policyId != null && !policyId.isBlank() && !tc.hasPolicy(policyId)) { addError(out, bridgeServer, "Unknown policy id: " + policyId); return out; }
+                            // create token without specifying id so TokenManager generates one
+                            TokenManager.IssueResult res = tm.issueTokenWithPickup(null, expiry, null, 300);
                             if (res == null) { addError(out, bridgeServer, "Failed to create token."); return out; }
                             TokenManager.PickupRecord pr = tm.consumePickup(res.pickupId);
                             if (pr == null) { addError(out, bridgeServer, "Failed to retrieve token secret."); return out; }

@@ -81,4 +81,19 @@ public final class AuditLogger {
             logger.log("WARN", "Failed to prune audit logs: " + e.getMessage());
         }
     }
+
+    public synchronized java.util.List<String> tail(int n) {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        if (n <= 0) return out;
+        try {
+            Path file = currentAuditFile();
+            if (!Files.exists(file)) return out;
+            java.util.List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
+            int start = Math.max(0, lines.size() - n);
+            for (int i = start; i < lines.size(); i++) out.add(lines.get(i));
+        } catch (IOException e) {
+            logger.log("WARN", "Failed to read audit log: " + e.getMessage());
+        }
+        return out;
+    }
 }

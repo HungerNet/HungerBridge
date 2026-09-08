@@ -138,4 +138,28 @@ public final class BridgeServer {
     }
 
     public Config getConfig() { return config; }
+
+    public synchronized boolean reloadConfig() {
+        try {
+            com.hungerbridge.common.security.SecurityConfig sc = com.hungerbridge.common.security.SecurityConfig.load(configDir);
+            com.hungerbridge.common.TokensConfig tc = com.hungerbridge.common.TokensConfig.load(configDir);
+            config.setSecurityConfig(sc);
+            config.setTokensConfig(tc);
+            // update rate limiter if present
+            try {
+                com.hungerbridge.common.security.RateLimiter rl = config.getRateLimiter();
+                if (rl != null && sc != null) rl.setLimits(sc.tokenRps, sc.tokenBurst, sc.ipRps, sc.ipBurst);
+            } catch (Exception ignored) {}
+            // prune audit logs
+            try {
+                com.hungerbridge.common.log.AuditLogger al = config.getAuditLogger();
+                if (al != null && sc != null) al.pruneOldLogs(sc.auditRetentionDays);
+            } catch (Exception ignored) {}
+            if (logger != null) logger.log("INFO", "Reloaded runtime config from disk.");
+            return true;
+        } catch (Exception e) {
+            if (logger != null) logger.log("WARN", "Failed to reload config: " + e.getMessage());
+            return false;
+        }
+    }
 }
