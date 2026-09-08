@@ -31,12 +31,13 @@ public final class LogHandler implements HttpHandler {
             HttpUtil.error(ex, 405, "method_not_allowed", "Use POST", config);
             return;
         }
-        if (!HttpUtil.auth(ex, config)) {
+
+        JsonObject json = HttpUtil.readJson(ex);
+        if (!HttpUtil.auth(ex, config, json)) {  // pass canonical body into auth
             HttpUtil.error(ex, 401, "unauthorized", "Authentication required", config);
             return;
         }
-        // Read body to extract requested level before performing ACL checks
-        JsonObject json = HttpUtil.readJson(ex);
+
         if (json == null || !json.has("message")) {
             HttpUtil.error(ex, 400, "bad_request", "Missing field: message", config);
             return;
@@ -45,15 +46,12 @@ public final class LogHandler implements HttpHandler {
         String level = json.has("level") ? json.get("level").getAsString() : "info";
         String msg = json.get("message").getAsString();
 
-        // Allow tokens that are permitted for the specific level (log.info/log.warn/log.error)
-        // or the generic `log` action.
-        String actionLevel = "log." + level.toLowerCase();
-        if (!HttpUtil.checkAcl(ex, config, actionLevel) && !HttpUtil.checkAcl(ex, config, "log")) {
+        if (!HttpUtil.checkAcl(ex, config, "server.log")) {
             HttpUtil.error(ex, 403, "forbidden", "Token not permitted to post logs", config);
             return;
         }
 
-        if (!HttpUtil.rateLimit(ex, config, "log")) return;
+        if (!HttpUtil.rateLimit(ex, config, "server.log")) return;
 
         logger.log(level.toUpperCase(), msg);
         HttpUtil.writeJson(ex, 200, Json.obj("ok", true));
