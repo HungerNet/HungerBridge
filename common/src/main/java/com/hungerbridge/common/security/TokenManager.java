@@ -180,7 +180,6 @@ public final class TokenManager {
 
     private final Path storageDir;
     private final Path tokensFile;
-    private final Path sessionsFile;
     private final Path pickupsFile;
     private final Logger logger;
 
@@ -188,8 +187,6 @@ public final class TokenManager {
     private final byte[] masterKey;
 
     private final Map<String, Token> tokens = new ConcurrentHashMap<>();
-    // nonce -> expiry epoch seconds
-    private final Map<String, Long> nonceCache = new ConcurrentHashMap<>();
 
     private static final Gson GSON = new Gson();
 
@@ -201,9 +198,8 @@ public final class TokenManager {
 
     public TokenManager(Path configDir, Logger logger) {
         this.logger = logger;
-        this.storageDir = configDir.resolve("storage");
+        this.storageDir = findAutogenStorageDir(configDir);
         this.tokensFile = storageDir.resolve("tokens.json");
-        this.sessionsFile = storageDir.resolve("sessions.json");
         this.pickupsFile = storageDir.resolve("pickups.json");
 
         try {
@@ -218,10 +214,7 @@ public final class TokenManager {
 
         this.masterKey = loadOrCreateMasterKey();
         loadTokens();
-        // If no tokens exist, leave the token store empty. Tokens should be
-        // provisioned explicitly via operator tooling; do not auto-bootstrap
-        // a privileged token.
-        loadSessions();
+        // pickups persisted in autogen
         loadPickups();
 
         // start periodic sweep to remove expired pickups every 5 minutes
@@ -249,6 +242,29 @@ public final class TokenManager {
         } catch (IOException e) {
             throw new RuntimeException("Failed to load/create master key", e);
         }
+    }
+
+    private static Path findAutogenStorageDir(Path configDir) {
+        // Prefer an autogen/HungerBridge directory near the repository root.
+        try {
+            Path userDir = Path.of(System.getProperty("user.dir", "")).toAbsolutePath();
+            Path parent = userDir.getParent();
+            java.util.List<Path> candidates = new java.util.ArrayList<>();
+            candidates.add(userDir.resolve("autogen").resolve("HungerBridge"));
+            candidates.add(userDir.resolve("HungerBridge").resolve("autogen").resolve("HungerBridge"));
+            if (parent != null) {
+                candidates.add(parent.resolve("HungerBridge").resolve("autogen").resolve("HungerBridge"));
+                candidates.add(parent.resolve("autogen").resolve("HungerBridge"));
+            }
+            candidates.add(Path.of(".").toAbsolutePath().resolve("autogen").resolve("HungerBridge"));
+            for (Path p : candidates) {
+                try {
+                    if (p != null && java.nio.file.Files.exists(p) && java.nio.file.Files.isDirectory(p)) return p;
+                } catch (Exception ignored) {}
+            }
+        } catch (Exception ignored) {}
+        // Fallback to configDir/storage
+        try { return configDir.resolve("storage"); } catch (Exception e) { return configDir; }
     }
 
     private void setOwnerOnlyPerms(Path path) {
@@ -304,8 +320,28 @@ public final class TokenManager {
     }
 
     private void loadTokens() {
-        // Token persistence removed; start with empty token set.
-        if (logger != null) logger.log("INFO", "Token persistence disabled; running without tokens.");
+        try {
+            if (!Files.exists(storageDir)) Files.createDirectories(storageDir);
+            if (!Files.exists(tokensFile)) {
+                // create a minimal empty tokens template
+                String tmpl = GSON.toJson(Collections.emptyMap());
+                Files.writeString(tokensFile, tmpl, StandardCharsets.UTF_8);
+                ensureFilePermissions(tokensFile, logger);
+                if (logger != null) logger.log("INFO", "Created tokens template: " + tokensFile);
+            }
+            ensureFilePermissions(tokensFile, logger);
+            String txt = Files.readString(tokensFile, StandardCharsets.UTF_8);
+            if (txt == null || txt.isBlank()) return;
+            Type type = new TypeToken<Map<String, Token>>(){}.getType();
+            Map<String, Token> loaded = GSON.fromJson(txt, type);
+            if (loaded != null) {
+                tokens.clear();
+                tokens.putAll(loaded);
+                if (logger != null) logger.log("INFO", "Loaded " + tokens.size() + " tokens from: " + tokensFile);
+            }
+        } catch (Exception e) {
+            if (logger != null) logger.log("WARN", "Failed to load tokens: " + e.getMessage());
+        }
     }
 
     private void loadSessions() {
@@ -325,8 +361,29 @@ public final class TokenManager {
     private final Map<String, PickupRecord> pickups = new ConcurrentHashMap<>();
 
     private void loadPickups() {
-        // Pickup persistence disabled; start with empty pickups map.
-        if (logger != null) logger.log("INFO", "Pickup persistence disabled.");
+        try {
+            if (!Files.exists(storageDir)) Files.createDirectories(storageDir);
+            if (!Files.exists(pickupsFile)) {
+                // create an empty pickups template
+                String tmpl = GSON.toJson(Collections.emptyMap());
+                Files.writeString(pickupsFile, tmpl, StandardCharsets.UTF_8);
+                ensureFilePermissions(pickupsFile, logger);
+                if (logger != null) logger.log("INFO", "Created pickups template: " + pickupsFile);
+            }
+            ensureFilePermissions(pickupsFile, logger);
+            String txt = Files.readString(pickupsFile, StandardCharsets.UTF_8);
+            if (txt == null || txt.isBlank()) return;
+            Type type = new TypeToken<Map<String, PickupRecord>>(){}.getType();
+            Map<String, PickupRecord> loaded = GSON.fromJson(txt, type);
+            if (loaded != null) {
+                pickups.clear();
+                pickups.putAll(loaded);
+                sweepExpiredPickups();
+                if (logger != null) logger.log("INFO", "Loaded " + pickups.size() + " pickup records from: " + pickupsFile);
+            }
+        } catch (Exception e) {
+            if (logger != null) logger.log("WARN", "Failed to load pickups: " + e.getMessage());
+        }
     }
 
     public void shutdown() {
@@ -355,74 +412,43 @@ public final class TokenManager {
         try {
             String txt = GSON.toJson(pickups);
             Files.writeString(pickupsFile, txt, StandardCharsets.UTF_8);
+            setOwnerOnlyPerms(pickupsFile);
         } catch (IOException e) {
             if (logger != null) logger.log("WARN", "Failed to persist pickups: " + e.getMessage());
         }
     }
 
-    private synchronized void persistSessions() {
+    private synchronized void persistTokens() {
         try {
-            String txt = GSON.toJson(nonceCache);
-            Files.writeString(sessionsFile, txt, StandardCharsets.UTF_8);
+            String txt = GSON.toJson(tokens);
+            Files.writeString(tokensFile, txt, StandardCharsets.UTF_8);
+            setOwnerOnlyPerms(tokensFile);
         } catch (IOException e) {
-            if (logger != null) logger.log("WARN", "Failed to persist sessions: " + e.getMessage());
+            if (logger != null) logger.log("WARN", "Failed to persist tokens: " + e.getMessage());
         }
     }
 
     public boolean verifyHmac(String tokenId, String timestampStr, String nonce, String signature, String method, String path, String canonicalBody, long allowedSkewSeconds) {
-        // Strict verification using a provided canonical body string. This
-        // expects the caller to have produced the exact canonical JSON string
-        // (Python: json.dumps(..., sort_keys=True, separators=(",",":"), ensure_ascii=True)).
-        if (tokenId == null || signature == null || timestampStr == null || nonce == null) {
-            if (logger != null) logger.log("DEBUG", "verifyHmac: missing auth field(s)");
-            return false;
-        }
-
+        if (tokenId == null || signature == null) return false;
         Token tk = tokens.get(tokenId);
-        if (tk == null) { if (logger != null) logger.log("DEBUG", "verifyHmac: token not found: " + tokenId); return false; }
-        if (tk.revoked) { if (logger != null) logger.log("DEBUG", "verifyHmac: token revoked: " + tokenId); return false; }
-
-        long ts;
-        try { ts = Long.parseLong(timestampStr); } catch (NumberFormatException e) { if (logger != null) logger.log("DEBUG", "verifyHmac: invalid timestamp: " + timestampStr); return false; }
-        long now = Instant.now().getEpochSecond();
-        if (Math.abs(now - ts) > allowedSkewSeconds) { if (logger != null) logger.log("DEBUG", "verifyHmac: timestamp skew (now=" + now + ", ts=" + ts + ")"); return false; }
-
-        Long existing = nonceCache.putIfAbsent(nonce, ts + allowedSkewSeconds);
-        if (existing != null) { if (logger != null) logger.log("DEBUG", "verifyHmac: nonce replay: " + nonce); return false; }
-
-        if (nonceCache.size() > 1000) {
-            long cutoff = now - (allowedSkewSeconds * 2);
-            Iterator<Map.Entry<String, Long>> it = nonceCache.entrySet().iterator();
-            while (it.hasNext()) {
-                Map.Entry<String, Long> e = it.next();
-                if (e.getValue() < now || e.getValue() < cutoff) it.remove();
-            }
-            persistSessions();
-        } else {
-            persistSessions();
-        }
+        if (tk == null) return false;
+        if (tk.revoked) return false;
 
         String normalizedPath = normalizePath(path);
         String methodName = method == null ? "" : method.trim().toUpperCase();
         String bodyStr = canonicalBody == null ? "" : canonicalBody;
-        String canonicalMsg = methodName + "\n" + normalizedPath + "\n" + timestampStr + "\n" + nonce + "\n" + bodyStr;
-
+        String canonicalMsg = methodName + "\n" + normalizedPath + "\n" + (timestampStr == null ? "" : timestampStr) + "\n" + (nonce == null ? "" : nonce) + "\n" + bodyStr;
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
             byte[] key = deriveTokenKey(tk.id, tk.salt);
             SecretKeySpec keySpec = new SecretKeySpec(key, "HmacSHA256");
             mac.init(keySpec);
             String expected = bytesToHex(mac.doFinal(canonicalMsg.getBytes(StandardCharsets.UTF_8)));
-            if (expected.equalsIgnoreCase(signature)) return true;
-            if (logger != null) {
-                logger.log("DEBUG", "HMAC mismatch for token='" + tk.id + "' providedSig='" + signature + "' expected='" + expected + "'");
-                logger.log("DEBUG", "canonical='" + canonicalMsg + "'");
-            }
-        } catch (NoSuchAlgorithmException | InvalidKeyException e) {
+            return expected.equalsIgnoreCase(signature);
+        } catch (Exception e) {
             if (logger != null) logger.log("ERROR", "HMAC verification failed: " + e.getMessage());
             return false;
         }
-        return false;
     }
 
     public enum VerifyResult {
@@ -444,29 +470,9 @@ public final class TokenManager {
         Token tk = tokens.get(tokenId);
         if (tk == null) return VerifyResult.NO_TOKEN;
         if (tk.revoked) return VerifyResult.REVOKED;
-        long ts;
-        try { ts = Long.parseLong(timestampStr); } catch (NumberFormatException e) { return VerifyResult.BAD_TIMESTAMP; }
-        long now = Instant.now().getEpochSecond();
-        if (Math.abs(now - ts) > allowedSkewSeconds) return VerifyResult.BAD_TIMESTAMP;
-
-        Long existing = nonceCache.putIfAbsent(nonce, ts + allowedSkewSeconds);
-        if (existing != null) return VerifyResult.NONCE_REPLAY;
-
-        if (nonceCache.size() > 1000) {
-            long cutoff = now - (allowedSkewSeconds * 2);
-            Iterator<Map.Entry<String, Long>> it = nonceCache.entrySet().iterator();
-            while (it.hasNext()) {
-                Map.Entry<String, Long> e = it.next();
-                if (e.getValue() < now || e.getValue() < cutoff) it.remove();
-            }
-            persistSessions();
-        } else {
-            persistSessions();
-        }
-
         try {
             String normalizedPath = normalizePath(path);
-            String msgCanonical = (method == null ? "" : method.trim().toUpperCase()) + "\n" + normalizedPath + "\n" + timestampStr + "\n" + nonce + "\n" + (canonicalBody == null ? "" : canonicalBody);
+            String msgCanonical = (method == null ? "" : method.trim().toUpperCase()) + "\n" + normalizedPath + "\n" + (timestampStr == null ? "" : timestampStr) + "\n" + (nonce == null ? "" : nonce) + "\n" + (canonicalBody == null ? "" : canonicalBody);
             javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
             byte[] key = deriveTokenKey(tk.id, tk.salt);
             javax.crypto.spec.SecretKeySpec ks = new javax.crypto.spec.SecretKeySpec(key, "HmacSHA256");
@@ -505,12 +511,12 @@ public final class TokenManager {
         public String id;
         public String salt;
         public boolean revoked = false;
-        public long expiry = 0;
         public java.util.List<String> permissions = new java.util.ArrayList<>();
-        public int maxSkew = -1;
+        public String policyId;
+        public long createdAt = 0L;
     }
 
-    public Token createToken(String id, long expirySeconds, List<String> permissions) {
+    public Token createToken(String id, List<String> permissions) {
         String effectiveId = id != null && !id.isBlank() ? id : java.util.UUID.randomUUID().toString().replaceAll("-", "");
         // enforce uniqueness: do not allow creating a token with an id that
         // already exists or that is pending pickup
@@ -532,11 +538,8 @@ public final class TokenManager {
         t.id = effectiveId;
         t.salt = saltHex;
         t.revoked = false;
-        if (expirySeconds > 0) {
-            t.expiry = Instant.now().getEpochSecond() + expirySeconds;
-        } else if (expirySeconds == 0) {
-            t.expiry = 0L;
-        }
+        // No expiry field in canonical spec
+        t.createdAt = Instant.now().getEpochSecond();
         if (permissions != null) {
             t.permissions = new java.util.ArrayList<>(permissions);
         }
@@ -546,8 +549,8 @@ public final class TokenManager {
         return t;
     }
 
-    public Token createToken(long ttlSeconds, List<String> permissions) {
-        return createToken(null, ttlSeconds, permissions);
+    public Token createToken(List<String> permissions) {
+        return createToken(null, permissions);
     }
 
     /**
@@ -558,14 +561,14 @@ public final class TokenManager {
         if (tokenId == null || tokenId.isBlank()) return;
         Token t = tokens.get(tokenId);
         if (t == null) return;
+        t.policyId = policyId;
         persistTokens();
     }
 
-    public void persistTokenPolicyState(String tokenId, List<String> permissions, int maxSkew) {
+    public void persistTokenPolicyState(String tokenId, List<String> permissions) {
         Token t = tokens.get(tokenId);
         if (t == null) return;
         t.permissions = permissions == null ? new java.util.ArrayList<>() : new java.util.ArrayList<>(permissions);
-        t.maxSkew = maxSkew;
         persistTokens();
     }
 
@@ -591,7 +594,7 @@ public final class TokenManager {
         byte[] salt = new byte[16];
         new java.security.SecureRandom().nextBytes(salt);
         t.salt = bytesToHex(salt);
-        // update expiry remains the same
+        // no expiry field
         persistTokens();
         return t;
     }
@@ -675,8 +678,8 @@ public final class TokenManager {
         public String tokenId;
     }
 
-    public synchronized IssueResult issueTokenWithPickup(String id, long expirySeconds, List<String> permissions, int pickupTtlSeconds) {
-        Token t = createToken(id, expirySeconds, permissions);
+    public synchronized IssueResult issueTokenWithPickup(String id, List<String> permissions, int pickupTtlSeconds) {
+        Token t = createToken(id, permissions);
         if (t == null) return null;
         // derive token secret (plaintext) from master key and salt/token id
         byte[] key = deriveTokenKey(t.id, t.salt);

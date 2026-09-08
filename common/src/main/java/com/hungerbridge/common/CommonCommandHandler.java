@@ -31,19 +31,7 @@ public final class CommonCommandHandler {
                     if (ok) addSuccess(out, bridgeServer, "Reloaded config from disk."); else addError(out, bridgeServer, "Reload failed.");
                     return out;
                 }
-                case "audit": {
-                    com.hungerbridge.common.Config cfg = bridgeServer != null ? bridgeServer.getConfig() : null;
-                    com.hungerbridge.common.log.AuditLogger al = cfg != null ? cfg.getAuditLogger() : null;
-                    int n = 50;
-                    if (args.length >= 2) {
-                        try { n = Integer.parseInt(args[1]); } catch (NumberFormatException ignored) {}
-                    }
-                    if (al == null) { addError(out, bridgeServer, "Audit logger not initialized."); return out; }
-                    java.util.List<String> lines = al.tail(n);
-                    if (lines.isEmpty()) { out.add("No audit entries."); return out; }
-                    out.addAll(lines);
-                    return out;
-                }
+                
                 case "token":
                 case "tokens": {
                     // token subcommands: list, create <tokenId> <policyId> [expiry], revoke <id>, rotate <id>
@@ -56,39 +44,44 @@ public final class CommonCommandHandler {
                     String sub = args[1].toLowerCase();
                     switch (sub) {
                         case "list": {
-                            // Tokens are disabled; no-op list.
-                            out.add("[]");
+                            if (tm == null) { addError(out, bridgeServer, "Token manager unavailable."); return out; }
+                            Map<String, TokenManager.Token> map = tm.listTokens();
+                            if (map.isEmpty()) { out.add("No tokens."); return out; }
+                            for (TokenManager.Token t : map.values()) {
+                                out.add(t.id + " (policy=" + t.policyId + ", revoked=" + t.revoked + ")");
+                            }
                             return out;
                         }
                         case "create": {
-                            // Tokens disabled: acknowledge creation request but do not create tokens.
-                            if (args.length < 4) { addError(out, bridgeServer, "Usage: token create <tokenId> <policyId> [expiry]"); return out; }
+                            if (args.length < 4) { addError(out, bridgeServer, "Usage: token create <tokenId> <policyId>"); return out; }
+                            if (tm == null) { addError(out, bridgeServer, "Token manager unavailable."); return out; }
                             String tokenId = args[2];
                             String policyId = args[3];
-                            long expiry = 0L;
                             com.hungerbridge.common.TokensConfig tc = cfg != null ? cfg.getTokensConfig() : null;
                             if (tc != null && !tc.hasPolicy(policyId)) { addError(out, bridgeServer, "Unknown policy id: " + policyId); return out; }
-                            if (args.length >= 5) {
-                                try { expiry = Long.parseLong(args[4]); } catch (NumberFormatException nfe) { addError(out, bridgeServer, "Invalid expiry value."); return out; }
-                            } else {
-                                if (tc != null) {
-                                    var p = tc.getPolicy(policyId);
-                                    if (p != null) expiry = p.defaultExpirySeconds;
-                                }
-                            }
-                            addSuccess(out, bridgeServer, "Created token: " + tokenId + " (no-op)");
+
+                            TokenManager.IssueResult res = tm.issueTokenWithPickup(tokenId, null, 300);
+                            if (res == null) { addError(out, bridgeServer, "Failed to create token."); return out; }
+                            // bind policy
+                            tm.setTokenPolicyId(res.tokenId, policyId);
+                            // Do NOT print secret. Provide pickup URL.
+                            addSuccess(out, bridgeServer, "Token created. Retrieve it at: /pickup/" + res.pickupId);
                             return out;
                         }
                         case "revoke": {
-                            // No-op revoke.
                             if (args.length < 3) { addError(out, bridgeServer, "Usage: token revoke <id>"); return out; }
-                            addSuccess(out, bridgeServer, "Revoked token: " + args[2] + " (no-op)");
+                            if (tm == null) { addError(out, bridgeServer, "Token manager unavailable."); return out; }
+                            boolean ok = tm.revokeToken(args[2]);
+                            if (!ok) { addError(out, bridgeServer, "Token not found: " + args[2]); return out; }
+                            addSuccess(out, bridgeServer, "Revoked token: " + args[2]);
                             return out;
                         }
-                        case "rotate": {
-                            // No-op rotate.
-                            if (args.length < 3) { addError(out, bridgeServer, "Usage: token rotate <id>"); return out; }
-                            addSuccess(out, bridgeServer, "Rotated token: " + args[2] + " (no-op)");
+                        case "remove": {
+                            if (args.length < 3) { addError(out, bridgeServer, "Usage: token remove <id>"); return out; }
+                            if (tm == null) { addError(out, bridgeServer, "Token manager unavailable."); return out; }
+                            boolean ok = tm.removeToken(args[2]);
+                            if (!ok) { addError(out, bridgeServer, "Token not found: " + args[2]); return out; }
+                            addSuccess(out, bridgeServer, "Removed token: " + args[2]);
                             return out;
                         }
                         default:

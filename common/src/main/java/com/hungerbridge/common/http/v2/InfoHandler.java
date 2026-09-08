@@ -35,7 +35,7 @@ public final class InfoHandler implements HttpHandler {
             HttpUtil.error(ex, 401, "unauthorized", "Authentication required", config);
             return;
         }
-        if (!HttpUtil.checkAcl(ex, config, "info")) {
+        if (!HttpUtil.checkAcl(ex, config, "server.meta")) {
             HttpUtil.error(ex, 403, "forbidden", "Token not permitted to access info", config);
             return;
         }

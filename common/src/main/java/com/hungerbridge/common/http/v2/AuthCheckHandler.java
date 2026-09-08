@@ -23,29 +23,46 @@ public final class AuthCheckHandler implements HttpHandler {
 
     @Override
     public void handle(HttpExchange ex) throws IOException {
-        if (!HttpUtil.auth(ex, config)) {
+        // Perform a detailed verification to return precise error reasons
+        TokenManager tm = config.getTokenManager();
+        String tokenId = ex.getRequestHeaders().getFirst("X-Auth-Id");
+        String ts = ex.getRequestHeaders().getFirst("X-Auth-Timestamp");
+        String nonce = ex.getRequestHeaders().getFirst("X-Auth-Nonce");
+        String sig = ex.getRequestHeaders().getFirst("X-Auth-Signature");
+        TokenManager.VerifyResult vr = tm.verifyHmacDetailed(tokenId, ts, nonce, sig, ex.getRequestMethod(), ex.getRequestURI().getPath(), "", 0L);
+        if (vr == TokenManager.VerifyResult.NO_TOKEN) {
+            HttpUtil.writeJson(ex, 200, Json.obj("ok", false, "error", "unauthenticated"));
+            return;
+        }
+        if (vr == TokenManager.VerifyResult.REVOKED) {
+            HttpUtil.writeJson(ex, 200, Json.obj("ok", false, "error", "revoked"));
+            return;
+        }
+        if (vr != TokenManager.VerifyResult.OK) {
             HttpUtil.error(ex, 401, "unauthorized", "Authentication required", config);
             return;
         }
 
-        Object tok = ex.getAttribute("hb.auth.token");
-        if (!(tok instanceof TokenManager.Token)) {
-            HttpUtil.error(ex, 500, "server_error", "token metadata unavailable", config);
+        TokenManager.Token t = tm.listTokens().get(tokenId);
+        if (t == null) { HttpUtil.writeJson(ex, 200, Json.obj("ok", false, "error", "unauthenticated")); return; }
+
+        // enforce permission node for auth.check
+        if (!HttpUtil.checkAcl(ex, config, "auth.check")) {
+            HttpUtil.error(ex, 403, "forbidden", "Token not permitted to check auth", config);
             return;
         }
-        TokenManager.Token t = (TokenManager.Token) tok;
 
-        JsonObject out = new JsonObject();
-        out.addProperty("id", t.id);
-        out.addProperty("revoked", t.revoked);
-        out.addProperty("expiry", t.expiry);
-        out.addProperty("max_skew", t.maxSkew);
-        if (t.permissions != null && !t.permissions.isEmpty()) {
-            JsonArray la = new JsonArray();
-            for (String s : t.permissions) la.add(s);
-            out.add("permissions", la);
+        // collect permissions from policy if present
+        java.util.List<String> perms = new java.util.ArrayList<>();
+        if (t.policyId != null && config.getTokensConfig() != null) {
+            var pol = config.getTokensConfig().getPolicy(t.policyId);
+            if (pol != null) perms.addAll(pol.permissions);
         }
+        if (perms.isEmpty() && t.permissions != null) perms.addAll(t.permissions);
 
-        HttpUtil.writeJson(ex, 200, Json.obj("ok", true, "token", out));
+        JsonArray pa = new JsonArray();
+        for (String p : perms) pa.add(p);
+
+        HttpUtil.writeJson(ex, 200, Json.obj("ok", true, "tokenId", t.id, "policyId", t.policyId, "permissions", pa));
     }
 }

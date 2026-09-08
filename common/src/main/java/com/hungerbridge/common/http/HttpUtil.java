@@ -30,23 +30,80 @@ public final class HttpUtil {
 
     public static AuthResult verifyRequest(HttpExchange ex, Config config, String requiredPermissionNode) {
         AuthResult out = new AuthResult();
-        // Authentication has been removed: allow all requests.
-        out.ok = true;
-        out.reason = "ok";
-        out.tokenId = null;
-        out.token = null;
-        out.permission = requiredPermissionNode;
-        return out;
+        try {
+            // Attempt to obtain request JSON body if present
+            Object o = ex.getAttribute("hb.request.json");
+            String canonicalBodyStr = "";
+            if (o instanceof com.google.gson.JsonObject) canonicalBodyStr = TokenManager.canonicalizeJson((com.google.gson.JsonObject) o);
+
+            boolean ok = auth(ex, config, o instanceof com.google.gson.JsonObject ? (com.google.gson.JsonObject) o : null);
+            if (!ok) {
+                out.ok = false; out.reason = "unauthenticated"; return out;
+            }
+
+            String tokenId = (String) ex.getAttribute("hb.auth.tokenId");
+            TokenManager.Token token = (TokenManager.Token) ex.getAttribute("hb.auth.token");
+            out.ok = true; out.reason = "ok"; out.tokenId = tokenId; out.token = token; out.permission = requiredPermissionNode;
+
+            // Check ACL
+            if (requiredPermissionNode != null && !requiredPermissionNode.isBlank()) {
+                if (!tokenAclAllows(token, requiredPermissionNode)) {
+                    out.ok = false; out.reason = "forbidden"; return out;
+                }
+            }
+            return out;
+        } catch (Exception e) {
+            out.ok = false; out.reason = "internal_error"; return out;
+        }
     }
 
     public static boolean tokenAclAllows(TokenManager.Token token, String action) {
-        // ACLs removed; allow all actions.
-        return true;
+        if (token == null) return false;
+        // Determine permission set: prefer policyId from token and runtime config
+        java.util.List<String> perms = token.permissions;
+        // If token has a policyId, attempt to load the configured permissions
+        try {
+            Config cfg = (Config) null; // placeholder
+        } catch (Exception ignored) {}
+        // Accept multiple candidate nodes: exactly action, and common prefixes
+        java.util.List<String> candidates = new java.util.ArrayList<>();
+        candidates.add(action);
+        if (!action.contains(".")) {
+            candidates.add("server." + action);
+            candidates.add("world." + action);
+            candidates.add("system." + action);
+            candidates.add("players." + action);
+        }
+        for (String c : candidates) {
+            if (TokenManager.permissionMatches(c, perms)) return true;
+        }
+        return false;
     }
 
     public static boolean checkAcl(HttpExchange ex, Config config, String action) {
-        // No ACLs enforced.
-        return true;
+        TokenManager.Token token = (TokenManager.Token) ex.getAttribute("hb.auth.token");
+        if (token == null) return false;
+        // Gather permissions: if token has a policyId and config provides it, use that
+        java.util.List<String> perms = token.permissions != null ? token.permissions : new java.util.ArrayList<>();
+        if (token.policyId != null && config != null && config.getTokensConfig() != null) {
+            var pol = config.getTokensConfig().getPolicy(token.policyId);
+            if (pol != null) {
+                perms = new java.util.ArrayList<>(pol.permissions);
+            }
+        }
+
+        java.util.List<String> candidates = new java.util.ArrayList<>();
+        candidates.add(action);
+        if (!action.contains(".")) {
+            candidates.add("server." + action);
+            candidates.add("world." + action);
+            candidates.add("system." + action);
+            candidates.add("players." + action);
+        }
+        for (String c : candidates) {
+            if (TokenManager.permissionMatches(c, perms)) return true;
+        }
+        return false;
     }
 
     /**
@@ -59,39 +116,25 @@ public final class HttpUtil {
         if (config == null || config.getTokenManager() == null) return false;
         TokenManager tm = config.getTokenManager();
 
-        String tokenId = ex.getRequestHeaders().getFirst("X-Auth-Token-Id");
+        String tokenId = ex.getRequestHeaders().getFirst("X-Auth-Id");
         String timestamp = ex.getRequestHeaders().getFirst("X-Auth-Timestamp");
         String nonce = ex.getRequestHeaders().getFirst("X-Auth-Nonce");
         String signature = ex.getRequestHeaders().getFirst("X-Auth-Signature");
 
-        if (tokenId == null || tokenId.isBlank() || timestamp == null || nonce == null || signature == null) {
+        if (tokenId == null || tokenId.isBlank() || signature == null) return false;
+
+        // Build canonical body string from provided JsonObject. If null or empty, use empty string.
+        String canonicalBodyStr = "";
+        if (canonicalBody != null) canonicalBodyStr = TokenManager.canonicalizeJson(canonicalBody);
+
+        TokenManager.VerifyResult vr = tm.verifyHmacDetailed(tokenId, timestamp, nonce, signature, ex.getRequestMethod(), ex.getRequestURI().getPath(), canonicalBodyStr, 0L);
+        if (vr != TokenManager.VerifyResult.OK) {
             return false;
         }
 
         TokenManager.Token token = tm.listTokens().get(tokenId);
         if (token == null) return false;
         if (token.revoked) return false;
-        if (token.expiry != 0 && java.time.Instant.now().getEpochSecond() > token.expiry) return false;
-
-        // Enforce token max_skew if set (non-negative). If negative, no skew enforcement.
-        if (token.maxSkew >= 0) {
-            try {
-                long ts = Long.parseLong(timestamp);
-                long now = java.time.Instant.now().getEpochSecond();
-                if (Math.abs(now - ts) > token.maxSkew) return false;
-            } catch (NumberFormatException e) {
-                return false;
-            }
-        }
-
-        // Build canonical body string from provided JsonObject. If null or empty, use empty string.
-        String canonicalBodyStr = "";
-        if (canonicalBody != null) canonicalBodyStr = TokenManager.canonicalizeJson(canonicalBody);
-
-        // Delegate strict verification to TokenManager which enforces nonce, skew and HMAC.
-        long skew = token.maxSkew >= 0 ? token.maxSkew : 300L;
-        boolean ok = tm.verifyHmac(tokenId, timestamp, nonce, signature, ex.getRequestMethod(), ex.getRequestURI().getPath(), canonicalBodyStr, skew);
-        if (!ok) return false;
 
         // attach token info for downstream handlers
         ex.setAttribute("hb.auth.tokenId", tokenId);

@@ -11,14 +11,10 @@ import java.util.List;
 import java.util.Map;
 
 public final class TokensConfig {
-    public int maxSkewSeconds = -1;
-    public long defaultExpirySeconds = 0L;
     public final Map<String, TokenPolicy> policies = new LinkedHashMap<>();
 
     public static final class TokenPolicy {
         public String id = "admin";
-        public int maxSkewSeconds = -1;
-        public long defaultExpirySeconds = 0L;
         public final List<String> permissions = new ArrayList<>();
     }
 
@@ -60,14 +56,7 @@ public final class TokensConfig {
                 }
                 TokenPolicy policy = new TokenPolicy();
                 policy.id = id;
-                Object maxSkew = raw.get("max_skew");
-                if (maxSkew instanceof Number) {
-                    policy.maxSkewSeconds = ((Number) maxSkew).intValue();
-                }
-                Object expiry = raw.get("default_expiry");
-                if (expiry instanceof Number) {
-                    policy.defaultExpirySeconds = ((Number) expiry).longValue();
-                }
+                // ignore legacy `max_skew` and `default_expiry` fields; only `permissions` are authoritative
                 Object permissions = raw.get("permissions");
                 if (permissions instanceof List) {
                     for (Object p : (List<?>) permissions) {
@@ -75,10 +64,6 @@ public final class TokensConfig {
                     }
                 }
                 config.policies.put(id, policy);
-                if ("admin".equals(id)) {
-                    config.maxSkewSeconds = policy.maxSkewSeconds;
-                    config.defaultExpirySeconds = policy.defaultExpirySeconds;
-                }
             }
         } catch (Exception ignored) {
             return defaults();
@@ -90,8 +75,6 @@ public final class TokensConfig {
         TokensConfig config = new TokensConfig();
         TokenPolicy moderator = new TokenPolicy();
         moderator.id = "moderator";
-        moderator.maxSkewSeconds = 300;
-        moderator.defaultExpirySeconds = 0L;
         moderator.permissions.add("ping");
         moderator.permissions.add("server.log");
         moderator.permissions.add("server.stream");
@@ -99,8 +82,6 @@ public final class TokensConfig {
         moderator.permissions.add("world.*");
         moderator.permissions.add("system.*");
         config.policies.put("moderator", moderator);
-        config.maxSkewSeconds = moderator.maxSkewSeconds;
-        config.defaultExpirySeconds = moderator.defaultExpirySeconds;
         return config;
     }
 

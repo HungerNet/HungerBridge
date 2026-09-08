@@ -17,8 +17,7 @@ public final class PolicySemanticsTest {
     public void emptyPermissionsPolicyDeniesAllActions() throws IOException {
         Path dir = Files.createTempDirectory("hb-policy-deny-all");
         Files.writeString(dir.resolve("config.yaml"), "port: 1913\n");
-        Files.writeString(dir.resolve("security.yaml"), "ip_list:\n  mode: blacklist\n  list: []\nrate_limits:\n  token_rps: 5\n  token_burst: 10\n  ip_rps: 20\n  ip_burst: 40\n audit_retention_days: 14\n");
-        Files.writeString(dir.resolve("policies.yaml"), "policies:\n  - id: locked\n    default_expiry: 0\n    max_skew: -1\n    permissions: []\n");
+        Files.writeString(dir.resolve("policies.yaml"), "policies:\n  - id: locked\n    permissions: []\n");
 
         Config config = Config.load(dir, (l, m) -> {});
         TokenManager tm = new TokenManager(dir, null);

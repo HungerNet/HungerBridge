@@ -15,7 +15,6 @@ public final class FabricCommandRegistrar {
 
         cmd.executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[0]));
 
-        cmd.then(net.minecraft.commands.Commands.literal("status").executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"status"})));
         cmd.then(net.minecraft.commands.Commands.literal("reload").executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"reload"})));
 
         // audit (with optional numeric arg)
@@ -28,13 +27,6 @@ public final class FabricCommandRegistrar {
                 })
         ));
 
-        cmd.then(net.minecraft.commands.Commands.literal("config").executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"config"})));
-
-        // help
-        cmd.then(net.minecraft.commands.Commands.literal("help").executes(ctx -> {
-            return runHandler(bridgeServer, ctx.getSource(), new String[]{"help"});
-        }));
-
         // token
         var token = net.minecraft.commands.Commands.literal("token");
         token.executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"token"}));
@@ -42,34 +34,14 @@ public final class FabricCommandRegistrar {
         token.then(net.minecraft.commands.Commands.literal("help").executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"token", "help"})));
 
         var createLiteral = net.minecraft.commands.Commands.literal("create");
-        createLiteral.executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"token", "create"}));
         var idArg = net.minecraft.commands.Commands.argument("id", StringArgumentType.word());
-        // support: id
-        createLiteral.then(idArg.executes(ctx -> {
+        var policyArg = net.minecraft.commands.Commands.argument("policy", StringArgumentType.word());
+        // token create <id> <policy>
+        createLiteral.then(idArg.then(policyArg.executes(ctx -> {
             String id = StringArgumentType.getString(ctx, "id");
-            return runHandler(bridgeServer, ctx.getSource(), new String[]{"token", "create", id});
-        }));
-        // support: id name
-        var nameArg = net.minecraft.commands.Commands.argument("name", StringArgumentType.word());
-        createLiteral.then(idArg.then(nameArg.executes(ctx -> {
-            String id = StringArgumentType.getString(ctx, "id");
-            String nameVal1 = StringArgumentType.getString(ctx, "name");
-            return runHandler(bridgeServer, ctx.getSource(), new String[]{"token", "create", id, nameVal1});
+            String policy = StringArgumentType.getString(ctx, "policy");
+            return runHandler(bridgeServer, ctx.getSource(), new String[]{"token", "create", id, policy});
         })));
-        // support: id expiry
-        var expiryArg = net.minecraft.commands.Commands.argument("expiry", IntegerArgumentType.integer(0));
-        createLiteral.then(idArg.then(expiryArg.executes(ctx -> {
-            String id = StringArgumentType.getString(ctx, "id");
-            int expiry = IntegerArgumentType.getInteger(ctx, "expiry");
-            return runHandler(bridgeServer, ctx.getSource(), new String[]{"token", "create", id, String.valueOf(expiry)});
-        })));
-        // support: id name expiry
-        createLiteral.then(idArg.then(nameArg.then(expiryArg.executes(ctx -> {
-            String id = StringArgumentType.getString(ctx, "id");
-            String nameVal2 = StringArgumentType.getString(ctx, "name");
-            int expiry = IntegerArgumentType.getInteger(ctx, "expiry");
-            return runHandler(bridgeServer, ctx.getSource(), new String[]{"token", "create", id, nameVal2, String.valueOf(expiry)});
-        }))));
 
         token.then(createLiteral);
 
@@ -80,10 +52,10 @@ public final class FabricCommandRegistrar {
             })
         ));
 
-        token.then(net.minecraft.commands.Commands.literal("rotate").executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"token", "rotate"})).then(
+        token.then(net.minecraft.commands.Commands.literal("remove").executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"token", "remove"})).then(
             net.minecraft.commands.Commands.argument("id", StringArgumentType.word()).executes(ctx -> {
                 String id = StringArgumentType.getString(ctx, "id");
-                return runHandler(bridgeServer, ctx.getSource(), new String[]{"token", "rotate", id});
+                return runHandler(bridgeServer, ctx.getSource(), new String[]{"token", "remove", id});
             })
         ));
 

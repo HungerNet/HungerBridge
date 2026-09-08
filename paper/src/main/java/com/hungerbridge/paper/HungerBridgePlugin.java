@@ -51,17 +51,7 @@ public final class HungerBridgePlugin extends JavaPlugin {
         TokenManager tm = new TokenManager(configDir, logger);
         config.setTokenManager(tm);
 
-        // initialize audit logger and rate limiter
-        com.hungerbridge.common.log.AuditLogger al = new com.hungerbridge.common.log.AuditLogger(configDir, logger);
-        com.hungerbridge.common.security.RateLimiter rl = new com.hungerbridge.common.security.RateLimiter(configDir, logger);
-        config.setAuditLogger(al);
-        config.setRateLimiter(rl);
-        // load optional security config (ip lists)
-        com.hungerbridge.common.security.SecurityConfig sc = com.hungerbridge.common.security.SecurityConfig.load(configDir);
-        config.setSecurityConfig(sc);
-        if (sc != null && rl != null) {
-            rl.setLimits(sc.tokenRps, sc.tokenBurst, sc.ipRps, sc.ipBurst);
-        }
+        // auditing, IP lists and rate limiting removed
 
         config.setPlatform("paper");
         config.setMinecraftVersion(Bukkit.getVersion());

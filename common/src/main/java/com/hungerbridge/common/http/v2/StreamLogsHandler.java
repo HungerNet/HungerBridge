@@ -30,7 +30,7 @@ public final class StreamLogsHandler implements HttpHandler {
             HttpUtil.error(ex, 401, "unauthorized", "Authentication required", config);
             return;
         }
-        if (!HttpUtil.checkAcl(ex, config, "stream")) {
+        if (!HttpUtil.checkAcl(ex, config, "server.stream")) {
             HttpUtil.error(ex, 403, "forbidden", "Token not permitted to access stream", config);
             return;
         }

@@ -55,10 +55,8 @@ public final class TokenHandler implements HttpHandler {
             // body is already read above into `body`
             String policyId = body != null && body.has("policyId") ? body.get("policyId").getAsString() : null;
             String tokenId = body != null && body.has("tokenId") ? body.get("tokenId").getAsString() : null;
-            long expiry = 0L;
             List<String> permissions = null;
             if (body != null) {
-                if (body.has("expiry")) expiry = body.get("expiry").getAsLong();
                 if (body.has("whitelist") || body.has("blacklist") || body.has("list") || body.has("list_mode")) {
                     HttpUtil.error(ex, 400, "legacy_fields", "legacy ACL list fields are unsupported; use permissions", config);
                     return;
@@ -80,15 +78,14 @@ public final class TokenHandler implements HttpHandler {
                 return;
             }
 
-            TokenManager.IssueResult res = tm.issueTokenWithPickup(tokenId, expiry, permissions, 300);
+            TokenManager.IssueResult res = tm.issueTokenWithPickup(tokenId, permissions, 300);
             if (res == null) { HttpUtil.error(ex, 500, "create_failed", "failed to create token", config); return; }
             TokenManager.PickupRecord pr = tm.consumePickup(res.pickupId);
             if (pr == null) { HttpUtil.error(ex, 500, "create_failed", "failed to retrieve token secret", config); return; }
             JsonObject resp = Json.obj(
                 "ok", true,
                 "id", res.tokenId,
-                "secret", pr.secret,
-                "expiry", expiry
+                "secret", pr.secret
             );
             HttpUtil.writeJson(ex, 200, resp);
             return;
@@ -120,9 +117,7 @@ public final class TokenHandler implements HttpHandler {
         for (TokenManager.Token t : map.values()) {
                 JsonObject o = Json.obj(
                     "id", t.id,
-                    "revoked", t.revoked,
-                    "expiry", t.expiry,
-                    "max_skew", t.maxSkew
+                    "revoked", t.revoked
                 );
             if (t.permissions != null && !t.permissions.isEmpty()) {
                 JsonArray la = new JsonArray();

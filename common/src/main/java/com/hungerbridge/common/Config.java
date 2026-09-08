@@ -29,9 +29,7 @@ public final class Config {
     private String minecraftVersion = "unknown";
     private String bridgeVersion;
     private TokenManager tokenManager;
-    private com.hungerbridge.common.security.RateLimiter rateLimiter;
-    private com.hungerbridge.common.log.AuditLogger auditLogger;
-    private com.hungerbridge.common.security.SecurityConfig securityConfig;
+    
     private com.hungerbridge.common.TokensConfig tokensConfig;
 
     public Config(
@@ -100,18 +98,10 @@ public final class Config {
             int port = ((Number) root.getOrDefault("port", 1913)).intValue();
 
             // validate auxiliary configs and log status
-            com.hungerbridge.common.security.SecurityConfig sc = null;
             com.hungerbridge.common.TokensConfig tc = null;
             try {
-                sc = com.hungerbridge.common.security.SecurityConfig.load(configDir);
-                if (logger != null) logger.log("INFO", "Loaded security.yaml (mode=" + (sc != null ? sc.ipListMode : "unknown") + ")");
-            } catch (Exception e) {
-                if (logger != null) logger.log("WARN", "Failed to parse security.yaml: " + e.getMessage());
-            }
-
-            try {
                 tc = com.hungerbridge.common.TokensConfig.load(configDir);
-                if (logger != null) logger.log("INFO", "Loaded token policy (max_skew=" + tc.maxSkewSeconds + ")");
+                if (logger != null) logger.log("INFO", "Loaded token policies");
             } catch (Exception ignored) {}
 
             Map<String, Object> players = (Map<String, Object>) root.getOrDefault("players", new LinkedHashMap<>());
@@ -125,7 +115,6 @@ public final class Config {
                 );
 
                 // attach parsed auxiliary configs
-                if (sc != null) cfg.setSecurityConfig(sc);
                 cfg.setTokensConfig(tc != null ? tc : com.hungerbridge.common.TokensConfig.defaults());
 
                 return cfg;
@@ -137,12 +126,7 @@ public final class Config {
 
     public void setTokenManager(TokenManager tm) { this.tokenManager = tm; }
     public TokenManager getTokenManager() { return tokenManager; }
-    public void setRateLimiter(com.hungerbridge.common.security.RateLimiter rl) { this.rateLimiter = rl; }
-    public com.hungerbridge.common.security.RateLimiter getRateLimiter() { return rateLimiter; }
-    public void setAuditLogger(com.hungerbridge.common.log.AuditLogger al) { this.auditLogger = al; }
-    public com.hungerbridge.common.log.AuditLogger getAuditLogger() { return auditLogger; }
-    public void setSecurityConfig(com.hungerbridge.common.security.SecurityConfig sc) { this.securityConfig = sc; }
-    public com.hungerbridge.common.security.SecurityConfig getSecurityConfig() { return securityConfig; }
+    
 
     public void setTokensConfig(com.hungerbridge.common.TokensConfig tc) { this.tokensConfig = tc; }
     public com.hungerbridge.common.TokensConfig getTokensConfig() { return tokensConfig; }
@@ -154,7 +138,7 @@ public final class Config {
         java.util.List<String> existed = new java.util.ArrayList<>();
 
         if (autogenRoot != null && Files.exists(autogenRoot)) {
-            for (String fileName : java.util.List.of("config.yaml", "security.yaml", "policies.yaml")) {
+            for (String fileName : java.util.List.of("config.yaml", "policies.yaml")) {
                 Path source = autogenRoot.resolve(fileName);
                 Path target = runtimeConfigDir.resolve(fileName);
                 if (!Files.exists(source)) continue;

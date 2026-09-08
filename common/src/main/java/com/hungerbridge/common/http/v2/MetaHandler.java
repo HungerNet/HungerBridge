@@ -29,7 +29,7 @@ public final class MetaHandler implements HttpHandler {
             HttpUtil.error(ex, 401, "unauthorized", "Authentication required", config);
             return;
         }
-        if (!HttpUtil.checkAcl(ex, config, "meta")) {
+        if (!HttpUtil.checkAcl(ex, config, "server.meta")) {
             HttpUtil.error(ex, 403, "forbidden", "Token not permitted to access meta", config);
             return;
         }

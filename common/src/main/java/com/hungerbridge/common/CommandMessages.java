@@ -8,10 +8,10 @@ import java.util.StringJoiner;
 
 public final class CommandMessages {
 
-    public static final String HEADER = "HungerBridge Commands: reload, audit, token";
+    public static final String HEADER = "HungerBridge Commands: reload, token";
     public static final String USAGE = "Usage: /hungerbridge <subcommand> [args]";
-    public static final String SUBCOMMANDS = "Subcommands: reload, audit [n], token";
-    public static final String TOKENS_SUB = "Tokens Subcommands: list, create <tokenId> <policyId> [expiry], revoke <id>, rotate <id>";
+    public static final String SUBCOMMANDS = "Subcommands: reload, token";
+    public static final String TOKENS_SUB = "Tokens Subcommands: list, create <tokenId> <policyId>, revoke <id>, remove <id>";
 
     // ANSI color codes - always enabled for Minecraft/console commands per plan
     public static final String ANSI_RESET = "\u001B[0m";

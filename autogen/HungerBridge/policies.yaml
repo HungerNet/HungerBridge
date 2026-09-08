@@ -1,6 +1,4 @@
 policies:
   - id: admin
-    default_expiry: 0
-    max_skew: -1
     permissions:
       - "*"

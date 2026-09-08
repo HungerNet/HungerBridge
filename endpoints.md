@@ -31,73 +31,23 @@ The server-side utilities implement the same contract through the shared `JsonRe
 ## 2. Auth and permissions
 
 Most endpoints require signed HMAC headers:
-
-- `X-Auth-Token-Id`
-- `X-Auth-Timestamp`
-- `X-Auth-Nonce`
+ `X-Auth-Id`
 - `X-Auth-Signature`
 
 The server verifies the request method, path, body, and timestamp skew using the configured token manager. Requests without valid auth return `401` with `{"ok":false,...}`. Permission failures are `403`.
 
-For admin routes, the token must be allowed for the relevant ACL action. Generic token permission metadata is available from:
+<!-- /world/events/* removed from v3 API -->
 
-- `GET /auth/check`
-
----
-
-## 3. Common examples
-
-### Basic curl example
-
-```bash
-TOKEN_ID="admin"
-TOKEN_SECRET="<secret>"
-TS=$(date +%s)
-NONCE=$(openssl rand -hex 16)
-MSG="GET\n/ping\n${TS}\n${NONCE}\n"
-SIG=$(printf '%s' "$MSG" | openssl dgst -sha256 -hmac "$TOKEN_SECRET" -binary | xxd -p -c 256)
-
-curl -sS \
-  -H "Content-Type: application/json" \
-  -H "Accept: application/json" \
-  -H "X-Auth-Token-Id: $TOKEN_ID" \
-  -H "X-Auth-Timestamp: $TS" \
-  -H "X-Auth-Nonce: $NONCE" \
-  -H "X-Auth-Signature: $SIG" \
-  http://localhost:1913/ping
-```
-
-### Python BridgeClient example
-
-```python
-from hungerlib.bridgeclient import BridgeClient
-
-client = BridgeClient(
-    "http://localhost:1913",
-    token_id="admin",
-    token_secret="<secret>",
-)
-
-print(client.ping())
-print(client.auth_check())
-```
-
----
-
-## 4. Endpoint catalog
-
-<details>
-<summary><b>/ping</b> — basic health check</summary>
-
+</details>
+<!-- admin endpoints removed -->
 - Method: `GET`
 - Auth: required
 - Purpose: low-cost liveness check for infrastructure and monitoring.
 - Success example:
 
 ```bash
-curl -sS -H "X-Auth-Token-Id: admin" -H "X-Auth-Timestamp: $(date +%s)" -H "X-Auth-Nonce: $(openssl rand -hex 16)" -H "X-Auth-Signature: <sig>" http://localhost:1913/ping
+curl -sS -H "X-Auth-Id: admin" -H "X-Auth-Timestamp: $(date +%s)" -H "X-Auth-Nonce: $(openssl rand -hex 16)" -H "X-Auth-Signature: <sig>" http://localhost:1913/ping
 ```
-
 ```python
 client.ping()
 ```
@@ -108,10 +58,6 @@ client.ping()
 { "ok": true, "timestamp": 1712345678 }
 ```
 
-</details>
-
-<details>
-<summary><b>/auth/check</b> — inspect token permissions</summary>
 
 - Method: `GET`
 - Auth: required
@@ -119,19 +65,14 @@ client.ping()
 - Purpose: validate the active token, its policy, expiry, and effective permissions.
 
 ```bash
-curl -sS -H "X-Auth-Token-Id: admin" -H "X-Auth-Timestamp: $(date +%s)" -H "X-Auth-Nonce: $(openssl rand -hex 16)" -H "X-Auth-Signature: <sig>" http://localhost:1913/auth/check
+curl -sS -H "X-Auth-Id: admin" -H "X-Auth-Timestamp: $(date +%s)" -H "X-Auth-Nonce: $(openssl rand -hex 16)" -H "X-Auth-Signature: <sig>" http://localhost:1913/auth/check
 ```
-
 ```python
 client.auth_check()
 ```
 
 - Response includes `permissions` with the token ID, policy, and allowed/blocked actions.
 
-</details>
-
-<details>
-<summary><b>/server/run</b> — run a console command</summary>
 
 - Method: `POST`
 - Auth: required
@@ -143,38 +84,20 @@ curl -sS -X POST http://localhost:1913/server/run \
   -H "Content-Type: application/json" \
   -d '{"command":"say hello from HungerBridge","silent":false,"show_console":true}'
 ```
-
 ```python
 client.runCommand("say hello from HungerBridge", show_console=True, silent=False)
 ```
 
 - Response envelope typically includes `"output"` as a list when not silent.
 
-</details>
-
-<details>
-<summary><b>/server/run-batch</b> — run multiple commands in one request</summary>
 
 - Method: `POST`
 - Auth: required
 - Action: `run`
 - Purpose: submit a batch of commands for processing with one authenticated request.
 
-```bash
-curl -sS -X POST http://localhost:1913/server/run-batch \
-  -H "Content-Type: application/json" \
-  -d '{"commands":["say batch 1","say batch 2"]}'
-```
+<!-- /server/run-batch removed from v3 API -->
 
-```python
-# Mirror the underlying request with a raw POST if needed:
-client._post('server/run-batch', {"commands": ["say batch 1", "say batch 2"]})
-```
-
-</details>
-
-<details>
-<summary><b>/server/stop</b> — stop the server</summary>
 
 - Method: `POST`
 - Auth: required
@@ -191,10 +114,6 @@ curl -sS -X POST http://localhost:1913/server/stop \
 client.stop_server()
 ```
 
-</details>
-
-<details>
-<summary><b>/server/restart</b> — restart the server</summary>
 
 - Method: `POST`
 - Auth: required
@@ -211,10 +130,6 @@ curl -sS -X POST http://localhost:1913/server/restart \
 client.restart_server()
 ```
 
-</details>
-
-<details>
-<summary><b>/server/log</b> — write a log entry</summary>
 
 - Method: `POST`
 - Auth: required
@@ -231,10 +146,6 @@ curl -sS -X POST http://localhost:1913/server/log \
 client.log("hello from bridge", level="info")
 ```
 
-</details>
-
-<details>
-<summary><b>/server/meta</b> — bridge metadata</summary>
 
 - Method: `GET`
 - Auth: required
@@ -248,11 +159,6 @@ curl -sS http://localhost:1913/server/meta
 ```python
 client.server_meta()
 ```
-
-</details>
-
-<details>
-<summary><b>/server/stream</b> — live server log stream</summary>
 
 - Method: `GET`
 - Auth: required
@@ -268,10 +174,6 @@ curl -N "http://localhost:1913/server/stream?history=50"
 client.stream.connect(history=50)
 ```
 </details>
-</details>
-
-<details>
-<summary><b>/system/uptime</b> — system uptime</summary>
 
 - Method: `GET`
 - Auth: required
@@ -286,9 +188,6 @@ curl -sS http://localhost:1913/system/uptime
 client.system_uptime()
 ```
 
-</details>
-
-<details>
 <summary><b>/system/cpu</b> — CPU stats</summary>
 
 - Method: `GET`
@@ -303,9 +202,6 @@ curl -sS http://localhost:1913/system/cpu
 client.system_cpu()
 ```
 
-</details>
-
-<details>
 <summary><b>/system/memory</b> — memory stats</summary>
 
 - Method: `GET`
@@ -320,9 +216,6 @@ curl -sS http://localhost:1913/system/memory
 client.system_memory()
 ```
 
-</details>
-
-<details>
 <summary><b>/system/disk</b> — disk stats</summary>
 
 - Method: `GET`
@@ -337,9 +230,6 @@ curl -sS http://localhost:1913/system/disk
 client.system_disk()
 ```
 
-</details>
-
-<details>
 <summary><b>/players/list</b> — list online players</summary>
 
 - Method: `GET`
@@ -354,47 +244,8 @@ curl -sS http://localhost:1913/players/list
 client.players_list()
 ```
 
-</details>
+<!-- /players/kick and /players/ban removed from v3 API -->
 
-<details>
-<summary><b>/players/kick</b> — kick a player</summary>
-
-- Method: `POST`
-- Auth: required
-- Action: `players.kick`
-
-```bash
-curl -sS -X POST http://localhost:1913/players/kick \
-  -H "Content-Type: application/json" \
-  -d '{"player":"Steve","reason":"Maintenance"}'
-```
-
-```python
-client.player_kick("Steve", reason="Maintenance")
-```
-
-</details>
-
-<details>
-<summary><b>/players/ban</b> — ban a player</summary>
-
-- Method: `POST`
-- Auth: required
-- Action: `players.ban`
-
-```bash
-curl -sS -X POST http://localhost:1913/players/ban \
-  -H "Content-Type: application/json" \
-  -d '{"player":"Steve","reason":"Rule break","duration":3600}'
-```
-
-```python
-client.player_ban("Steve", reason="Rule break", duration=3600)
-```
-
-</details>
-
-<details>
 <summary><b>/world/tps</b> — tick performance</summary>
 
 - Method: `GET`
@@ -409,9 +260,6 @@ curl -sS http://localhost:1913/world/tps
 client.world_tps()
 ```
 
-</details>
-
-<details>
 <summary><b>/world/mspt</b> — mspt summary</summary>
 
 - Method: `GET`
@@ -426,9 +274,6 @@ curl -sS http://localhost:1913/world/mspt
 client.world_mspt()
 ```
 
-</details>
-
-<details>
 <summary><b>/world/chunks</b> — chunk stats</summary>
 
 - Method: `GET`
@@ -443,9 +288,6 @@ curl -sS http://localhost:1913/world/chunks
 client.world_chunks()
 ```
 
-</details>
-
-<details>
 <summary><b>/world/time</b> — world time</summary>
 
 - Method: `GET`
@@ -460,9 +302,6 @@ curl -sS http://localhost:1913/world/time
 client.world_time()
 ```
 
-</details>
-
-<details>
 <summary><b>/world/weather</b> — world weather state</summary>
 
 - Method: `GET`
@@ -477,75 +316,7 @@ curl -sS http://localhost:1913/world/weather
 client.world_weather()
 ```
 
-</details>
-
-<details>
-<summary><b>/world/events/join</b> — player join events</summary>
-
-- Method: `GET`
-- Auth: required
-- Action: `world.events.join`
-
-```bash
-curl -sS http://localhost:1913/world/events/join
-```
-
-```python
-client.world_event_join()
-```
-
-</details>
-
-<details>
-<summary><b>/world/events/leave</b> — player leave events</summary>
-
-- Method: `GET`
-- Auth: required
-- Action: `world.events.leave`
-
-```bash
-curl -sS http://localhost:1913/world/events/leave
-```
-
-```python
-client.world_event_leave()
-```
-
-</details>
-
-<details>
-<summary><b>/world/events/chat</b> — chat events</summary>
-
-- Method: `GET`
-- Auth: required
-- Action: `world.events.chat`
-
-```bash
-curl -sS http://localhost:1913/world/events/chat
-```
-
-```python
-client.world_event_chat()
-```
+<!-- /world/events/* removed from v3 API -->
 
 </details>
 <!-- admin endpoints removed -->
-
----
-
-## 5. Compatibility notes
-
-- The canonical v3 tree is the authoritative API surface. HungerBridge and clients should target the v3 routes listed above.
-
-## 6. Error behavior
-
-Expected failure patterns:
-
-- `401 unauthorized` — invalid or missing signed auth headers
-- `403 forbidden` — token is valid but missing ACL permission
-- `404 not_found` — unknown action or resource
-- `405 method_not_allowed` — wrong HTTP verb
-- `429 rate_limited` — rate limiter rejected the request
-- `500 internal` — backend failure or unexpected error
-
-The Python client raises `HungerBridgeError` on those HTTP failures so callers can react consistently.

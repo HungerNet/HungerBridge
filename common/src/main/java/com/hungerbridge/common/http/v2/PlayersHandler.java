@@ -39,11 +39,11 @@ public final class PlayersHandler implements HttpHandler {
             HttpUtil.error(ex, 401, "unauthorized", "Authentication required", config);
             return;
         }
-        if (!HttpUtil.checkAcl(ex, config, "players")) {
+        if (!HttpUtil.checkAcl(ex, config, "players.list")) {
             HttpUtil.error(ex, 403, "forbidden", "Token not permitted to access players list", config);
             return;
         }
-        if (!HttpUtil.rateLimit(ex, config, "players")) return;
+        if (!HttpUtil.rateLimit(ex, config, "players.list")) return;
 
         int max = config.getPlayersMaxList();
 

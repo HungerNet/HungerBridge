@@ -11,8 +11,7 @@ public final class RuntimeConfigSeeder {
         Files.createDirectories(runtimeConfigDir);
         ensureDirectoryPermissions(runtimeConfigDir);
         writeIfMissing(runtimeConfigDir.resolve("config.yaml"), "port: 1913\n\nplayers:\n  max-list: 50\n");
-        writeIfMissing(runtimeConfigDir.resolve("security.yaml"), "ip_list:\n  mode: blacklist\n  list: []\n\nrate_limits:\n  token_rps: 5.0\n  token_burst: 10.0\n  ip_rps: 20.0\n  ip_burst: 40.0\n\naudit_retention_days: 14\n");
-        writeIfMissing(runtimeConfigDir.resolve("policies.yaml"), "policies:\n  - id: moderator\n    default_expiry: 0\n    max_skew: 300\n    permissions:\n      - ping\n      - server.log\n      - server.stream\n      - server.run\n      - world.*\n      - system.*\n");
+        writeIfMissing(runtimeConfigDir.resolve("policies.yaml"), "policies:\n  - id: moderator\n    permissions:\n      - ping\n      - server.log\n      - server.stream\n      - server.run\n      - world.*\n      - system.*\n");
     }
 
     private static void writeIfMissing(Path path, String content) throws IOException {

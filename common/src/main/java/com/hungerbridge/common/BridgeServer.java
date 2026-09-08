@@ -1,6 +1,6 @@
 package com.hungerbridge.common;
 
-import com.hungerbridge.common.http.v2.InfoHandler;
+// InfoHandler and StatusHandler removed per canonical API surface
 import com.hungerbridge.common.http.v2.LogHandler;
 import com.hungerbridge.common.http.v2.PingHandler;
 import com.hungerbridge.common.http.v2.PlayersHandler;
@@ -57,8 +57,7 @@ public final class BridgeServer {
         endpoints.add("/auth/check");
         server.createContext("/server/run", new RunHandler(config, logger, executor));
         endpoints.add("/server/run");
-        server.createContext("/server/run-batch", new com.hungerbridge.common.http.v2.RunBatchHandler(config, logger, executor));
-        endpoints.add("/server/run-batch");
+        
         server.createContext("/server/stop", new com.hungerbridge.common.http.v2.ServerStopHandler(config, logger, this));
         endpoints.add("/server/stop");
         server.createContext("/server/restart", new com.hungerbridge.common.http.v2.ServerRestartHandler(config, logger, this));
@@ -79,10 +78,6 @@ public final class BridgeServer {
         endpoints.add("/system/disk");
         server.createContext("/players/list", new com.hungerbridge.common.http.v2.PlayersListHandler(config, logger, executor));
         endpoints.add("/players/list");
-        server.createContext("/players/kick", new com.hungerbridge.common.http.v2.PlayerKickHandler(config, logger, executor));
-        endpoints.add("/players/kick");
-        server.createContext("/players/ban", new com.hungerbridge.common.http.v2.PlayerBanHandler(config, logger, executor));
-        endpoints.add("/players/ban");
         server.createContext("/world/tps", new com.hungerbridge.common.http.v2.WorldTpsHandler(config, logger, executor));
         endpoints.add("/world/tps");
         server.createContext("/world/mspt", new com.hungerbridge.common.http.v2.WorldMsptHandler(config, logger, executor));
@@ -93,19 +88,9 @@ public final class BridgeServer {
         endpoints.add("/world/time");
         server.createContext("/world/weather", new com.hungerbridge.common.http.v2.WorldWeatherHandler(config, logger, executor));
         endpoints.add("/world/weather");
-        server.createContext("/world/events/join", new com.hungerbridge.common.http.v2.WorldJoinEventHandler(config, logger));
-        endpoints.add("/world/events/join");
-        server.createContext("/world/events/leave", new com.hungerbridge.common.http.v2.WorldLeaveEventHandler(config, logger));
-        endpoints.add("/world/events/leave");
-        server.createContext("/world/events/chat", new com.hungerbridge.common.http.v2.WorldChatEventHandler(config, logger));
-        endpoints.add("/world/events/chat");
-        server.createContext("/tokens/pickup", new com.hungerbridge.common.http.v2.PickupHandler(config));
-        endpoints.add("/tokens/pickup/{id}");
+        server.createContext("/pickup", new com.hungerbridge.common.http.v2.PickupHandler(config));
+        endpoints.add("/pickup/{id}");
         // legacy aliases removed: prefer canonical v3 routes (e.g. /world/tps, /players/list)
-        server.createContext("/server/info", new InfoHandler(config, logger));
-        endpoints.add("/server/info");
-        server.createContext("/server/status", new StatusHandler(config, logger));
-        endpoints.add("/server/status");
 
         server.start();
         if (logger != null) logger.log("INFO", "HungerBridge HTTP server started on port " + config.getPort());
@@ -141,20 +126,8 @@ public final class BridgeServer {
 
     public synchronized boolean reloadConfig() {
         try {
-            com.hungerbridge.common.security.SecurityConfig sc = com.hungerbridge.common.security.SecurityConfig.load(configDir);
             com.hungerbridge.common.TokensConfig tc = com.hungerbridge.common.TokensConfig.load(configDir);
-            config.setSecurityConfig(sc);
             config.setTokensConfig(tc);
-            // update rate limiter if present
-            try {
-                com.hungerbridge.common.security.RateLimiter rl = config.getRateLimiter();
-                if (rl != null && sc != null) rl.setLimits(sc.tokenRps, sc.tokenBurst, sc.ipRps, sc.ipBurst);
-            } catch (Exception ignored) {}
-            // prune audit logs
-            try {
-                com.hungerbridge.common.log.AuditLogger al = config.getAuditLogger();
-                if (al != null && sc != null) al.pruneOldLogs(sc.auditRetentionDays);
-            } catch (Exception ignored) {}
             if (logger != null) logger.log("INFO", "Reloaded runtime config from disk.");
             return true;
         } catch (Exception e) {
