@@ -35,7 +35,8 @@ public final class RunHandler implements HttpHandler {
             HttpUtil.error(ex, 405, "method_not_allowed", "Use POST", config);
             return;
         }
-        if (!HttpUtil.auth(ex, config)) {
+        JsonObject json = HttpUtil.readJson(ex);
+        if (!HttpUtil.auth(ex, config, json)) {
             HttpUtil.error(ex, 401, "unauthorized", "Authentication required", config);
             return;
         }
@@ -45,7 +46,6 @@ public final class RunHandler implements HttpHandler {
         }
         if (!HttpUtil.rateLimit(ex, config, "run")) return;
 
-        JsonObject json = HttpUtil.readJson(ex);
         if (json == null || !json.has("command")) {
             HttpUtil.error(ex, 400, "bad_request", "Missing field: command", config);
             return;

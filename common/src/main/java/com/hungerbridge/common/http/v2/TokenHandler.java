@@ -31,7 +31,8 @@ public final class TokenHandler implements HttpHandler {
 
     @Override
     public void handle(HttpExchange ex) throws IOException {
-        if (!HttpUtil.auth(ex, config)) {
+        JsonObject body = HttpUtil.readJson(ex);
+        if (!HttpUtil.auth(ex, config, body)) {
             HttpUtil.error(ex, 401, "unauthorized", "Authentication required", config);
             return;
         }
@@ -51,7 +52,7 @@ public final class TokenHandler implements HttpHandler {
         }
 
         if ("POST".equalsIgnoreCase(method)) {
-            JsonObject body = HttpUtil.readJson(ex);
+            // body is already read above into `body`
             String policyId = body != null && body.has("policyId") ? body.get("policyId").getAsString() : null;
             String tokenId = body != null && body.has("tokenId") ? body.get("tokenId").getAsString() : null;
             long expiry = 0L;

@@ -27,7 +27,8 @@ public final class ServerRestartHandler implements HttpHandler {
             HttpUtil.error(ex, 405, "method_not_allowed", "Use POST", config);
             return;
         }
-        if (!HttpUtil.auth(ex, config)) {
+        JsonObject payload = HttpUtil.readJson(ex);
+        if (!HttpUtil.auth(ex, config, payload)) {
             HttpUtil.error(ex, 401, "unauthorized", "Authentication required", config);
             return;
         }
@@ -37,7 +38,6 @@ public final class ServerRestartHandler implements HttpHandler {
         }
         if (!HttpUtil.rateLimit(ex, config, "server.restart")) return;
 
-        JsonObject payload = HttpUtil.readJson(ex);
         boolean delayed = payload != null && payload.has("delay") && payload.get("delay").getAsInt() > 0;
         if (logger != null) logger.log("INFO", "Restart requested via API" + (delayed ? " with delay" : ""));
         HttpUtil.writeJson(ex, 200, Json.obj("ok", true, "restart", true, "delayed", delayed));

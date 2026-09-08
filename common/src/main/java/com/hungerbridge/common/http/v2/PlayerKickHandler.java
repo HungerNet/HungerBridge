@@ -28,7 +28,8 @@ public final class PlayerKickHandler implements HttpHandler {
             HttpUtil.error(ex, 405, "method_not_allowed", "Use POST", config);
             return;
         }
-        if (!HttpUtil.auth(ex, config)) {
+        JsonObject json = HttpUtil.readJson(ex);
+        if (!HttpUtil.auth(ex, config, json)) {
             HttpUtil.error(ex, 401, "unauthorized", "Authentication required", config);
             return;
         }
@@ -38,7 +39,6 @@ public final class PlayerKickHandler implements HttpHandler {
         }
         if (!HttpUtil.rateLimit(ex, config, "players.kick")) return;
 
-        JsonObject json = HttpUtil.readJson(ex);
         if (json == null || !json.has("player")) {
             HttpUtil.error(ex, 400, "bad_request", "Missing field: player", config);
             return;

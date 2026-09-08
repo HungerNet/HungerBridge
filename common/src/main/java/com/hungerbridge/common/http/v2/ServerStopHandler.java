@@ -27,7 +27,8 @@ public final class ServerStopHandler implements HttpHandler {
             HttpUtil.error(ex, 405, "method_not_allowed", "Use POST", config);
             return;
         }
-        if (!HttpUtil.auth(ex, config)) {
+        JsonObject payload = HttpUtil.readJson(ex);
+        if (!HttpUtil.auth(ex, config, payload)) {
             HttpUtil.error(ex, 401, "unauthorized", "Authentication required", config);
             return;
         }
@@ -37,7 +38,6 @@ public final class ServerStopHandler implements HttpHandler {
         }
         if (!HttpUtil.rateLimit(ex, config, "server.stop")) return;
 
-        JsonObject payload = HttpUtil.readJson(ex);
         boolean force = payload != null && payload.has("force") && payload.get("force").getAsBoolean();
         if (logger != null) logger.log("INFO", "Stop requested via API");
         if (bridgeServer != null) {
