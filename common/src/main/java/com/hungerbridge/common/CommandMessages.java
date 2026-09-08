@@ -11,7 +11,7 @@ public final class CommandMessages {
     public static final String HEADER = "HungerBridge Commands: reload, status, audit, token, ip, config";
     public static final String USAGE = "Usage: /hungerbridge <subcommand> [args]";
     public static final String SUBCOMMANDS = "Subcommands: reload, status, audit [n], token, ip, config";
-    public static final String TOKENS_SUB = "Tokens Subcommands: list, create <id> [expiry], revoke <id>, rotate <id>";
+    public static final String TOKENS_SUB = "Tokens Subcommands: list, create <tokenId> <policyId> [expiry], revoke <id>, rotate <id>";
 
     // ANSI color codes - always enabled for Minecraft/console commands per plan
     public static final String ANSI_RESET = "\u001B[0m";

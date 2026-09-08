@@ -75,13 +75,13 @@ public final class CommonCommandHandler {
                             break;
                         case "create": {
                             if (args.length < 4 || (args.length >= 4 && args[2].equalsIgnoreCase("help"))) {
-                                out.add("Usage: /hungerbridge token create <policyId> <tokenId> [expiry]");
+                                out.add("Usage: /hungerbridge token create <tokenId> <policyId> [expiry]");
                                 out.add("Example: /hungerbridge token create admin mytoken 3600");
                                 break;
                             }
 
-                            String policyId = args[2];
-                            String tokenId = args.length >= 4 ? args[3] : null;
+                            String tokenId = args[2];
+                            String policyId = args.length >= 4 ? args[3] : null;
                             long expiry = 0L;
                             if (args.length >= 5) {
                                 try { expiry = Long.parseLong(args[4]); } catch (NumberFormatException ignored) {}
