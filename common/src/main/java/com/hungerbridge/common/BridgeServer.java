@@ -28,7 +28,6 @@ public final class BridgeServer {
 
     private HttpServer server;
     private ExecutorService pool;
-    private AdminService adminService;
 
     public BridgeServer(Path configDir, Config config, Logger logger, CommandExecutor executor) {
         this.configDir = configDir;
@@ -51,8 +50,6 @@ public final class BridgeServer {
 
         // endpoints (root-level API)
         java.util.List<String> endpoints = new java.util.ArrayList<>();
-        AdminService admin = new AdminService(configDir, config, logger, this);
-        this.adminService = admin;
 
         server.createContext("/ping", new PingHandler(config, logger));
         endpoints.add("/ping");
@@ -104,40 +101,6 @@ public final class BridgeServer {
         endpoints.add("/world/events/chat");
         server.createContext("/tokens/pickup", new com.hungerbridge.common.http.v2.PickupHandler(config));
         endpoints.add("/tokens/pickup/{id}");
-        server.createContext("/admin/token/list", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_list"));
-        endpoints.add("/admin/token/list");
-        server.createContext("/admin/token/create", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_create"));
-        endpoints.add("/admin/token/create");
-        server.createContext("/admin/token/issue", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_create"));
-        endpoints.add("/admin/token/issue");
-        server.createContext("/admin/token/revoke", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_revoke"));
-        endpoints.add("/admin/token/revoke");
-        server.createContext("/admin/token/remove", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_remove"));
-        endpoints.add("/admin/token/remove");
-        server.createContext("/admin/token/rotate", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "tokens_rotate"));
-        endpoints.add("/admin/token/rotate");
-        server.createContext("/admin/status", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "status"));
-        endpoints.add("/admin/status");
-        server.createContext("/admin/reload", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "reload"));
-        endpoints.add("/admin/reload");
-        server.createContext("/admin/audit", new com.hungerbridge.common.http.v2.AdminHandler(admin, config, "audit"));
-        endpoints.add("/admin/audit");
-        server.createContext("/admin/config/get/main", new com.hungerbridge.common.http.v2.AdminConfigGetHandler(admin, config, "main"));
-        endpoints.add("/admin/config/get/main");
-        server.createContext("/admin/config/get/security", new com.hungerbridge.common.http.v2.AdminConfigGetHandler(admin, config, "security"));
-        endpoints.add("/admin/config/get/security");
-        server.createContext("/admin/config/get/tokens", new com.hungerbridge.common.http.v2.AdminConfigGetHandler(admin, config, "tokens"));
-        endpoints.add("/admin/config/get/tokens");
-        server.createContext("/admin/config/update/main", new com.hungerbridge.common.http.v2.AdminConfigUpdateHandler(admin, config, "main"));
-        endpoints.add("/admin/config/update/main");
-        server.createContext("/admin/config/update/security", new com.hungerbridge.common.http.v2.AdminConfigUpdateHandler(admin, config, "security"));
-        endpoints.add("/admin/config/update/security");
-        server.createContext("/admin/config/update/tokens", new com.hungerbridge.common.http.v2.AdminConfigUpdateHandler(admin, config, "tokens"));
-        endpoints.add("/admin/config/update/tokens");
-        server.createContext("/admin/token/meta", new com.hungerbridge.common.http.v2.AdminTokenMetaHandler(admin, config));
-        endpoints.add("/admin/token/meta");
-        server.createContext("/admin/audit/purge", new com.hungerbridge.common.http.v2.AdminAuditPurgeHandler(admin, config));
-        endpoints.add("/admin/audit/purge");
         // legacy aliases removed: prefer canonical v3 routes (e.g. /world/tps, /players/list)
         server.createContext("/server/info", new InfoHandler(config, logger));
         endpoints.add("/server/info");
@@ -168,10 +131,6 @@ public final class BridgeServer {
         } catch (Exception ignored) {}
 
         logger.log("INFO", "HungerBridge HTTP server stopped.");
-    }
-
-    public AdminService getAdminService() {
-        return adminService;
     }
 
     public Logger getLogger() {

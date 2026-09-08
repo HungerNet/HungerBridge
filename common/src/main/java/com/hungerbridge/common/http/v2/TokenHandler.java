@@ -17,10 +17,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * /tokens
- * - GET: list tokens (requires authenticated admin token)
- * - POST: create token (requires authenticated admin token)
- * - DELETE /tokens/{id}: revoke token (requires authenticated admin token)
+ * /tokens (legacy management endpoints)
  */
 public final class TokenHandler implements HttpHandler {
 
@@ -36,10 +33,6 @@ public final class TokenHandler implements HttpHandler {
     public void handle(HttpExchange ex) throws IOException {
         if (!HttpUtil.auth(ex, config)) {
             HttpUtil.error(ex, 401, "unauthorized", "Authentication required", config);
-            return;
-        }
-        if (!HttpUtil.checkAcl(ex, config, "admin")) {
-            HttpUtil.error(ex, 403, "forbidden", "Admin rights required", config);
             return;
         }
 

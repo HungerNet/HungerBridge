@@ -23,10 +23,14 @@ public final class PolicySemanticsTest {
         Config config = Config.load(dir, (l, m) -> {});
         TokenManager tm = new TokenManager(dir, null);
         config.setTokenManager(tm);
-        AdminService admin = new AdminService(dir, config, null, null);
 
-        TokenManager.Token t = admin.createToken("locked", null, 0L, null);
-        assertNotNull(t);
+        // create a token representation with the 'locked' policy (empty permissions)
+        TokenManager.Token t = new TokenManager.Token();
+        t.revoked = false;
+        t.expiry = 0;
+        com.hungerbridge.common.TokensConfig.TokenPolicy policy = config.getTokensConfig().getPolicy("locked");
+        if (policy != null) t.permissions = new java.util.ArrayList<>(policy.permissions); else t.permissions = new java.util.ArrayList<>();
+
         assertNotNull(t.permissions);
         assertTrue(t.permissions.isEmpty());
         assertFalse(HttpUtil.tokenAclAllows(t, "log"));

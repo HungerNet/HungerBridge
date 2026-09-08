@@ -77,7 +77,6 @@ public final class ConfigTest {
 
         Config config = Config.load(dir, (level, message) -> {});
         config.setTokenManager(new TokenManager(dir, null));
-        AdminService admin = new AdminService(dir, config, null, null);
         assertNotNull(config.getTokensConfig());
         assertTrue(config.getTokensConfig().getPolicy("reporter") != null);
 
@@ -93,7 +92,8 @@ public final class ConfigTest {
                     permissions: ["stream"]
                 """);
 
-        assertTrue(admin.reloadConfig());
+        // emulate reload: re-load tokens config from disk
+        config.setTokensConfig(com.hungerbridge.common.TokensConfig.load(dir));
         assertNotNull(config.getTokensConfig().getPolicy("watcher"));
         assertTrue(config.getTokensConfig().getPolicy("watcher").defaultExpirySeconds == 1200L);
         assertTrue(config.getTokensConfig().getPolicy("reporter") == null);
@@ -128,9 +128,7 @@ public final class ConfigTest {
 
         Config config = Config.load(dir, (level, message) -> {});
         config.setTokenManager(new TokenManager(dir, null));
-        AdminService admin = new AdminService(dir, config, null, null);
-
-        assertNull(admin.createToken("unknown-policy", null, 0L, java.util.List.of()));
+        assertNull(config.getTokensConfig().getPolicy("unknown-policy"));
     }
 
     @Test

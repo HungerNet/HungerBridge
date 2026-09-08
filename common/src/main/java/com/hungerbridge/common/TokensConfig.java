@@ -23,7 +23,7 @@ public final class TokensConfig {
     }
 
     public TokenPolicy getPolicy(String policyId) {
-        if (policyId == null || policyId.isBlank()) return policies.get("admin");
+        if (policyId == null || policyId.isBlank()) return null;
         return policies.get(policyId);
     }
 
@@ -88,11 +88,6 @@ public final class TokensConfig {
 
     public static TokensConfig defaults() {
         TokensConfig config = new TokensConfig();
-        TokenPolicy admin = new TokenPolicy();
-        admin.id = "admin";
-        admin.maxSkewSeconds = -1;
-        admin.defaultExpirySeconds = 0L;
-        admin.permissions.add("*");
         TokenPolicy moderator = new TokenPolicy();
         moderator.id = "moderator";
         moderator.maxSkewSeconds = 300;
@@ -103,11 +98,9 @@ public final class TokensConfig {
         moderator.permissions.add("server.run");
         moderator.permissions.add("world.*");
         moderator.permissions.add("system.*");
-        moderator.permissions.add("admin.audit");
-        config.policies.put("admin", admin);
         config.policies.put("moderator", moderator);
-        config.maxSkewSeconds = admin.maxSkewSeconds;
-        config.defaultExpirySeconds = admin.defaultExpirySeconds;
+        config.maxSkewSeconds = moderator.maxSkewSeconds;
+        config.defaultExpirySeconds = moderator.defaultExpirySeconds;
         return config;
     }
 

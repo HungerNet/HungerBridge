@@ -1,6 +1,5 @@
 package com.hungerbridge.paper;
 
-import com.hungerbridge.common.AdminService;
 import com.hungerbridge.common.CommonCommandHandler;
 import com.hungerbridge.common.CommandMessages;
 import com.hungerbridge.common.BridgeServer;
@@ -39,11 +38,7 @@ public final class HbCommand implements CommandExecutor {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        AdminService admin = bridgeServer.getAdminService();
-        if (admin == null) {
-            send(sender, CommandMessages.error("Admin service is not available."));
-            return true;
-        }
+        // Admin CLI removed; delegate to common handler which no longer depends on AdminService.
         if (args.length == 0) {
             send(sender, CommandMessages.HEADER);
             send(sender, "Use '/hungerbridge help' for more details or '/hungerbridge token' for the token subcommands.");

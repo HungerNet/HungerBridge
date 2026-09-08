@@ -183,25 +183,9 @@ public final class TokenManager {
 
         this.masterKey = loadOrCreateMasterKey();
         loadTokens();
-        // If no tokens exist, bootstrap a root admin token and log its secret once.
-        if (tokens.isEmpty()) {
-            String rootId = "root";
-            byte[] salt = new byte[16];
-            new java.security.SecureRandom().nextBytes(salt);
-            String saltHex = bytesToHex(salt);
-            Token t = new Token();
-            t.id = rootId;
-            t.salt = saltHex;
-            t.revoked = false;
-            t.expiry = 0L;
-            t.permissions = new java.util.ArrayList<>(java.util.List.of("*"));
-            t.maxSkew = -1;
-            tokens.put(rootId, t);
-            persistTokens();
-            byte[] derived = deriveTokenKey(rootId, salt);
-            String secretHex = bytesToHex(derived);
-            if (logger != null) logger.log("INFO", "Bootstrapped root token id='root' secret(hex)='" + secretHex + "' — record this value now; it will not be stored");
-        }
+        // If no tokens exist, leave the token store empty. Tokens should be
+        // provisioned explicitly via operator tooling; do not auto-bootstrap
+        // a privileged token.
         loadSessions();
         loadPickups();
 

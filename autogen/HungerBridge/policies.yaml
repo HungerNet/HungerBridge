@@ -15,4 +15,3 @@ policies:
       - server.run
       - world.*
       - system.*
-      - admin.audit
