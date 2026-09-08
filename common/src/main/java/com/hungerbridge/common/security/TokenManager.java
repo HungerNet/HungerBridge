@@ -107,7 +107,14 @@ public final class TokenManager {
 
     public static String canonicalizeJson(JsonElement element) {
         if (element == null || element.isJsonNull()) return "null";
-        if (element.isJsonPrimitive()) return element.toString();
+        if (element.isJsonPrimitive()) {
+            var prim = element.getAsJsonPrimitive();
+            if (prim.isString()) {
+                return quoteJsonString(prim.getAsString());
+            }
+            // numbers and booleans: rely on GSON representation
+            return prim.toString();
+        }
         if (element.isJsonArray()) {
             StringBuilder sb = new StringBuilder("[");
             boolean first = true;
@@ -127,12 +134,40 @@ public final class TokenManager {
         boolean first = true;
         for (Map.Entry<String, JsonElement> entry : sorted.entrySet()) {
             if (!first) sb.append(',');
-            sb.append(GSON.toJson(entry.getKey()));
+            sb.append(quoteJsonString(entry.getKey()));
             sb.append(':');
             sb.append(canonicalizeJson(entry.getValue()));
             first = false;
         }
         sb.append('}');
+        return sb.toString();
+    }
+
+    // Quote a Java string using JSON string escaping and ensure ASCII output
+    private static String quoteJsonString(String s) {
+        if (s == null) return "\"\"";
+        StringBuilder sb = new StringBuilder();
+        sb.append('"');
+        int len = s.length();
+        for (int i = 0; i < len; i++) {
+            char c = s.charAt(i);
+            switch (c) {
+                case '"': sb.append("\\\""); break;
+                case '\\': sb.append("\\\\"); break;
+                case '\b': sb.append("\\b"); break;
+                case '\f': sb.append("\\f"); break;
+                case '\n': sb.append("\\n"); break;
+                case '\r': sb.append("\\r"); break;
+                case '\t': sb.append("\\t"); break;
+                default:
+                    if (c < 0x20 || c > 0x7f) {
+                        sb.append(String.format("\\u%04x", (int) c));
+                    } else {
+                        sb.append(c);
+                    }
+            }
+        }
+        sb.append('"');
         return sb.toString();
     }
 
@@ -379,12 +414,14 @@ public final class TokenManager {
         }
     }
 
-    public boolean verifyHmac(String tokenId, String timestampStr, String nonce, String signature, String method, String path, String body, long allowedSkewSeconds) {
-        // Detailed validation with early debug logs for root-cause diagnosis.
-        if (tokenId == null) { if (logger != null) logger.log("DEBUG", "verifyHmac: missing tokenId"); return false; }
-        if (signature == null) { if (logger != null) logger.log("DEBUG", "verifyHmac: missing signature"); return false; }
-        if (timestampStr == null) { if (logger != null) logger.log("DEBUG", "verifyHmac: missing timestamp"); return false; }
-        if (nonce == null) { if (logger != null) logger.log("DEBUG", "verifyHmac: missing nonce"); return false; }
+    public boolean verifyHmac(String tokenId, String timestampStr, String nonce, String signature, String method, String path, String canonicalBody, long allowedSkewSeconds) {
+        // Strict verification using a provided canonical body string. This
+        // expects the caller to have produced the exact canonical JSON string
+        // (Python: json.dumps(..., sort_keys=True, separators=(",",":"), ensure_ascii=True)).
+        if (tokenId == null || signature == null || timestampStr == null || nonce == null) {
+            if (logger != null) logger.log("DEBUG", "verifyHmac: missing auth field(s)");
+            return false;
+        }
 
         Token tk = tokens.get(tokenId);
         if (tk == null) { if (logger != null) logger.log("DEBUG", "verifyHmac: token not found: " + tokenId); return false; }
@@ -410,28 +447,21 @@ public final class TokenManager {
             persistSessions();
         }
 
-        String rawBody = body == null ? "" : body;
-        String canonicalBody = canonicalizeBodyForHmac(rawBody);
         String normalizedPath = normalizePath(path);
         String methodName = method == null ? "" : method.trim().toUpperCase();
-        String canonicalMsg = methodName + "\n" + normalizedPath + "\n" + timestampStr + "\n" + nonce + "\n" + canonicalBody;
-        String rawMsg = methodName + "\n" + normalizedPath + "\n" + timestampStr + "\n" + nonce + "\n" + rawBody.trim();
+        String bodyStr = canonicalBody == null ? "" : canonicalBody;
+        String canonicalMsg = methodName + "\n" + normalizedPath + "\n" + timestampStr + "\n" + nonce + "\n" + bodyStr;
+
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
             byte[] key = deriveTokenKey(tk.id, tk.salt);
             SecretKeySpec keySpec = new SecretKeySpec(key, "HmacSHA256");
             mac.init(keySpec);
-            String expectedCanonical = bytesToHex(mac.doFinal(canonicalMsg.getBytes(StandardCharsets.UTF_8)));
-            if (expectedCanonical.equalsIgnoreCase(signature)) return true;
-            if (!rawMsg.equals(canonicalMsg)) {
-                mac.reset();
-                mac.init(keySpec);
-                String expectedRaw = bytesToHex(mac.doFinal(rawMsg.getBytes(StandardCharsets.UTF_8)));
-                if (expectedRaw.equalsIgnoreCase(signature)) return true;
-                if (logger != null) {
-                    String derivedHex = bytesToHex(key);
-                    logger.log("DEBUG", "HMAC mismatch for token='" + tk.id + "' providedSig='" + signature + "' derivedKey='" + derivedHex + "' expectedCanonical='" + expectedCanonical + "' expectedRaw='" + expectedRaw + "'");
-                }
+            String expected = bytesToHex(mac.doFinal(canonicalMsg.getBytes(StandardCharsets.UTF_8)));
+            if (expected.equalsIgnoreCase(signature)) return true;
+            if (logger != null) {
+                logger.log("DEBUG", "HMAC mismatch for token='" + tk.id + "' providedSig='" + signature + "' expected='" + expected + "'");
+                logger.log("DEBUG", "canonical='" + canonicalMsg + "'");
             }
         } catch (NoSuchAlgorithmException | InvalidKeyException e) {
             if (logger != null) logger.log("ERROR", "HMAC verification failed: " + e.getMessage());
@@ -454,7 +484,7 @@ public final class TokenManager {
     /**
      * Detailed HMAC verification returning a VerifyResult for precise failure reasons.
      */
-    public VerifyResult verifyHmacDetailed(String tokenId, String timestampStr, String nonce, String signature, String method, String path, String body, long allowedSkewSeconds) {
+    public VerifyResult verifyHmacDetailed(String tokenId, String timestampStr, String nonce, String signature, String method, String path, String canonicalBody, long allowedSkewSeconds) {
         if (tokenId == null) return VerifyResult.NO_TOKEN;
         Token tk = tokens.get(tokenId);
         if (tk == null) return VerifyResult.NO_TOKEN;
@@ -467,7 +497,6 @@ public final class TokenManager {
         Long existing = nonceCache.putIfAbsent(nonce, ts + allowedSkewSeconds);
         if (existing != null) return VerifyResult.NONCE_REPLAY;
 
-        // persist/cleanup as before
         if (nonceCache.size() > 1000) {
             long cutoff = now - (allowedSkewSeconds * 2);
             Iterator<Map.Entry<String, Long>> it = nonceCache.entrySet().iterator();
@@ -481,23 +510,14 @@ public final class TokenManager {
         }
 
         try {
-            String rawBody = body == null ? "" : body;
-            String canonicalBody = canonicalizeBodyForHmac(rawBody);
             String normalizedPath = normalizePath(path);
-            String msgCanonical = (method == null ? "" : method.trim().toUpperCase()) + "\n" + normalizedPath + "\n" + timestampStr + "\n" + nonce + "\n" + canonicalBody;
-            String rawMsg = (method == null ? "" : method.trim().toUpperCase()) + "\n" + normalizedPath + "\n" + timestampStr + "\n" + nonce + "\n" + rawBody.trim();
+            String msgCanonical = (method == null ? "" : method.trim().toUpperCase()) + "\n" + normalizedPath + "\n" + timestampStr + "\n" + nonce + "\n" + (canonicalBody == null ? "" : canonicalBody);
             javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
             byte[] key = deriveTokenKey(tk.id, tk.salt);
             javax.crypto.spec.SecretKeySpec ks = new javax.crypto.spec.SecretKeySpec(key, "HmacSHA256");
             mac.init(ks);
             String exp = bytesToHex(mac.doFinal(msgCanonical.getBytes(StandardCharsets.UTF_8)));
             if (exp.equalsIgnoreCase(signature)) return VerifyResult.OK;
-            if (!rawMsg.equals(msgCanonical)) {
-                mac.reset();
-                mac.init(ks);
-                String expRaw = bytesToHex(mac.doFinal(rawMsg.getBytes(StandardCharsets.UTF_8)));
-                if (expRaw.equalsIgnoreCase(signature)) return VerifyResult.OK;
-            }
             return VerifyResult.BAD_SIGNATURE;
         } catch (Exception e) {
             if (logger != null) logger.log("ERROR", "HMAC verification error: " + e.getMessage());

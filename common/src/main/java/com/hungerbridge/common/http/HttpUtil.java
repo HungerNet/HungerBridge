@@ -191,24 +191,12 @@ public final class HttpUtil {
 
         // Build canonical body string from provided JsonObject. If null or empty, use empty string.
         String canonicalBodyStr = "";
-        try {
-            if (canonicalBody != null) canonicalBodyStr = TokenManager.canonicalizeJson(canonicalBody);
-        } catch (Exception ignored) {
-            canonicalBodyStr = "";
-        }
+        if (canonicalBody != null) canonicalBodyStr = TokenManager.canonicalizeJson(canonicalBody);
 
-        String normalizedPath = TokenManager.normalizePath(ex.getRequestURI().getPath());
-        String methodName = ex.getRequestMethod() == null ? "" : ex.getRequestMethod().trim().toUpperCase();
-        String canonicalMsg = methodName + "\n" + normalizedPath + "\n" + timestamp + "\n" + nonce + "\n" + canonicalBodyStr;
-
-        // Derive per-token secret and verify HMAC
-        try {
-            byte[] key = tm.deriveTokenSecret(token);
-            String expected = TokenManager.hmacHex(key, canonicalMsg);
-            if (!expected.equalsIgnoreCase(signature)) return false;
-        } catch (Exception e) {
-            return false;
-        }
+        // Delegate strict verification to TokenManager which enforces nonce, skew and HMAC.
+        long skew = token.maxSkew >= 0 ? token.maxSkew : 300L;
+        boolean ok = tm.verifyHmac(tokenId, timestamp, nonce, signature, ex.getRequestMethod(), ex.getRequestURI().getPath(), canonicalBodyStr, skew);
+        if (!ok) return false;
 
         // attach token info for downstream handlers
         ex.setAttribute("hb.auth.tokenId", tokenId);
