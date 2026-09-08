@@ -26,17 +26,7 @@ public final class HttpUtil {
         public TokenManager.Token token;
     }
 
-    public static boolean auth(HttpExchange ex, Config config) {
-        AuthResult result = verifyRequest(ex, config, null);
-        if (result == null || !result.ok) {
-            return false;
-        }
-        ex.setAttribute("hb.auth.tokenId", result.tokenId);
-        if (result.token != null) {
-            ex.setAttribute("hb.auth.token", result.token);
-        }
-        return true;
-    }
+    
 
     public static AuthResult verifyRequest(HttpExchange ex, Config config, String requiredPermissionNode) {
         AuthResult out = new AuthResult();
@@ -164,6 +154,82 @@ public final class HttpUtil {
         return tokenAclAllows(token, action);
     }
 
+    /**
+     * New HKIM/HMAC auth entrypoint.
+     *
+     * NOTE: This method does NOT read the request body. The caller (handler)
+     * must pass the already-parsed canonical JSON body as `canonicalBody`.
+     */
+    public static boolean auth(HttpExchange ex, Config config, com.google.gson.JsonObject canonicalBody) {
+        if (config == null || config.getTokenManager() == null) return false;
+        TokenManager tm = config.getTokenManager();
+
+        String tokenId = ex.getRequestHeaders().getFirst("X-Auth-Token-Id");
+        String timestamp = ex.getRequestHeaders().getFirst("X-Auth-Timestamp");
+        String nonce = ex.getRequestHeaders().getFirst("X-Auth-Nonce");
+        String signature = ex.getRequestHeaders().getFirst("X-Auth-Signature");
+
+        if (tokenId == null || tokenId.isBlank() || timestamp == null || nonce == null || signature == null) {
+            return false;
+        }
+
+        TokenManager.Token token = tm.listTokens().get(tokenId);
+        if (token == null) return false;
+        if (token.revoked) return false;
+        if (token.expiry != 0 && java.time.Instant.now().getEpochSecond() > token.expiry) return false;
+
+        // Enforce token max_skew if set (non-negative). If negative, no skew enforcement.
+        if (token.maxSkew >= 0) {
+            try {
+                long ts = Long.parseLong(timestamp);
+                long now = java.time.Instant.now().getEpochSecond();
+                if (Math.abs(now - ts) > token.maxSkew) return false;
+            } catch (NumberFormatException e) {
+                return false;
+            }
+        }
+
+        // Build canonical body string from provided JsonObject. If null or empty, use empty string.
+        String canonicalBodyStr = "";
+        try {
+            if (canonicalBody != null) canonicalBodyStr = TokenManager.canonicalizeJson(canonicalBody);
+        } catch (Exception ignored) {
+            canonicalBodyStr = "";
+        }
+
+        String normalizedPath = TokenManager.normalizePath(ex.getRequestURI().getPath());
+        String methodName = ex.getRequestMethod() == null ? "" : ex.getRequestMethod().trim().toUpperCase();
+        String canonicalMsg = methodName + "\n" + normalizedPath + "\n" + timestamp + "\n" + nonce + "\n" + canonicalBodyStr;
+
+        // Derive per-token secret and verify HMAC
+        try {
+            byte[] key = tm.deriveTokenSecret(token);
+            String expected = TokenManager.hmacHex(key, canonicalMsg);
+            if (!expected.equalsIgnoreCase(signature)) return false;
+        } catch (Exception e) {
+            return false;
+        }
+
+        // attach token info for downstream handlers
+        ex.setAttribute("hb.auth.tokenId", tokenId);
+        ex.setAttribute("hb.auth.token", token);
+        return true;
+    }
+
+    /**
+     * Backwards-compatible wrapper that obtains a pre-parsed JSON object from the
+     * request attributes and delegates to the new auth method. This wrapper does
+     * NOT read the request body from the stream.
+     */
+    public static boolean auth(HttpExchange ex, Config config) {
+        Object o = ex.getAttribute("hb.request.json");
+        if (o instanceof com.google.gson.JsonObject) {
+            return auth(ex, config, (com.google.gson.JsonObject) o);
+        }
+        // If pre-parsed JSON is not available, do not attempt to read the body here.
+        return false;
+    }
+
     public static boolean rateLimit(HttpExchange ex, Config config, String action) throws IOException {
         if (config == null || config.getRateLimiter() == null) return true;
         String ip = ex.getRemoteAddress() != null ? ex.getRemoteAddress().getAddress().getHostAddress() : "unknown";
@@ -183,13 +249,17 @@ public final class HttpUtil {
         String cached = (String) ex.getAttribute("hb.request.body");
         if (cached != null) {
             if (cached.isEmpty()) return null;
-            return JsonParser.parseString(cached).getAsJsonObject();
+            com.google.gson.JsonObject parsed = JsonParser.parseString(cached).getAsJsonObject();
+            ex.setAttribute("hb.request.json", parsed);
+            return parsed;
         }
         try (InputStream in = ex.getRequestBody()) {
             String body = new String(in.readAllBytes(), StandardCharsets.UTF_8).trim();
             if (body.isEmpty()) return null;
             ex.setAttribute("hb.request.body", body);
-            return JsonParser.parseString(body).getAsJsonObject();
+            com.google.gson.JsonObject parsed = JsonParser.parseString(body).getAsJsonObject();
+            ex.setAttribute("hb.request.json", parsed);
+            return parsed;
         }
     }
 
