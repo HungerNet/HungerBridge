@@ -136,4 +136,6 @@ public final class BridgeServer {
     public Logger getLogger() {
         return logger;
     }
+
+    public Config getConfig() { return config; }
 }
