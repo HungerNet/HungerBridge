@@ -621,9 +621,6 @@ public final class TokenManager {
     public Map<String, Token> listTokens() {
         return Collections.unmodifiableMap(tokens);
     }
-    private void persistTokens() {
-        // No-op: token persistence disabled.
-    }
 
     public byte[] deriveTokenKey(String tokenId, String saltHex) {
         byte[] saltBytes = saltHex == null ? null : hexToBytes(saltHex);
