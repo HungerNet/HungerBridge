@@ -30,128 +30,23 @@ public final class HttpUtil {
 
     public static AuthResult verifyRequest(HttpExchange ex, Config config, String requiredPermissionNode) {
         AuthResult out = new AuthResult();
-        if (config == null || config.getTokenManager() == null) {
-            out.ok = false;
-            out.reason = "no_token";
-            return out;
-        }
-
-        TokenManager tm = config.getTokenManager();
-        String tokenId = ex.getRequestHeaders().getFirst("X-Auth-Token-Id");
-        String timestamp = ex.getRequestHeaders().getFirst("X-Auth-Timestamp");
-        String nonce = ex.getRequestHeaders().getFirst("X-Auth-Nonce");
-        String signature = ex.getRequestHeaders().getFirst("X-Auth-Signature");
-
-        if (tokenId == null || tokenId.isBlank()) {
-            out.ok = false;
-            out.reason = "no_token";
-            return out;
-        }
-
-        TokenManager.Token token = tm.listTokens().get(tokenId);
-        if (token == null) {
-            out.ok = false;
-            out.reason = "no_token";
-            return out;
-        }
-
-        out.tokenId = tokenId;
-        out.token = token;
-        out.permission = requiredPermissionNode;
-
-        if (token.revoked) {
-            out.ok = false;
-            out.reason = "revoked";
-            return out;
-        }
-        if (token.expiry != 0 && Instant.now().getEpochSecond() > token.expiry) {
-            out.ok = false;
-            out.reason = "expired";
-            return out;
-        }
-        if (timestamp == null || nonce == null || signature == null) {
-            out.ok = false;
-            out.reason = "bad_signature";
-            return out;
-        }
-
-        long skewLimit = token.maxSkew >= 0 ? token.maxSkew : 300L;
-        long now = Instant.now().getEpochSecond();
-        try {
-            long ts = Long.parseLong(timestamp);
-            if (Math.abs(now - ts) > skewLimit) {
-                out.ok = false;
-                out.reason = "skew_violation";
-                return out;
-            }
-        } catch (NumberFormatException e) {
-            out.ok = false;
-            out.reason = "bad_signature";
-            return out;
-        }
-
-        String body = (String) ex.getAttribute("hb.request.body");
-        if (body == null) {
-            try (InputStream in = ex.getRequestBody()) {
-                body = new String(in.readAllBytes(), StandardCharsets.UTF_8).trim();
-                ex.setAttribute("hb.request.body", body);
-            } catch (IOException e) {
-                out.ok = false;
-                out.reason = "bad_signature";
-                return out;
-            }
-        }
-
-        String canonical = TokenManager.canonicalRequest(
-                ex.getRequestMethod(),
-                TokenManager.normalizePath(ex.getRequestURI().getPath()),
-                timestamp,
-                nonce,
-                body == null ? "" : body
-        );
-        byte[] secret = tm.deriveTokenSecret(token);
-        String expected = TokenManager.hmacHex(secret, canonical);
-        if (!expected.equalsIgnoreCase(signature)) {
-            out.ok = false;
-            out.reason = "bad_signature";
-            return out;
-        }
-
-        if (requiredPermissionNode != null) {
-            List<String> perms = token.permissions == null ? List.of() : token.permissions;
-            if (!TokenManager.permissionMatches(requiredPermissionNode, perms)) {
-                out.ok = false;
-                out.reason = "denied_by_permissions";
-                out.permission = requiredPermissionNode;
-                return out;
-            }
-        }
-
+        // Authentication has been removed: allow all requests.
         out.ok = true;
         out.reason = "ok";
+        out.tokenId = null;
+        out.token = null;
+        out.permission = requiredPermissionNode;
         return out;
     }
 
     public static boolean tokenAclAllows(TokenManager.Token token, String action) {
-        if (token == null || token.revoked) {
-            return false;
-        }
-        if (token.expiry != 0 && Instant.now().getEpochSecond() > token.expiry) {
-            return false;
-        }
-        if (token.permissions == null || token.permissions.isEmpty()) {
-            return false;
-        }
-        return TokenManager.permissionMatches(action, token.permissions);
+        // ACLs removed; allow all actions.
+        return true;
     }
 
     public static boolean checkAcl(HttpExchange ex, Config config, String action) {
-        Object tokenObj = ex.getAttribute("hb.auth.token");
-        if (!(tokenObj instanceof TokenManager.Token)) {
-            return false;
-        }
-        TokenManager.Token token = (TokenManager.Token) tokenObj;
-        return tokenAclAllows(token, action);
+        // No ACLs enforced.
+        return true;
     }
 
     /**
@@ -219,17 +114,7 @@ public final class HttpUtil {
     }
 
     public static boolean rateLimit(HttpExchange ex, Config config, String action) throws IOException {
-        if (config == null || config.getRateLimiter() == null) return true;
-        String ip = ex.getRemoteAddress() != null ? ex.getRemoteAddress().getAddress().getHostAddress() : "unknown";
-        String tokenId = (String) ex.getAttribute("hb.auth.tokenId");
-        if (!config.getRateLimiter().allowRequestForIp(ip)) {
-            error(ex, 429, "rate_limited", "Rate limit exceeded", config);
-            return false;
-        }
-        if (!config.getRateLimiter().allowRequestForToken(tokenId)) {
-            error(ex, 429, "rate_limited", "Rate limit exceeded", config);
-            return false;
-        }
+        // Rate limiting removed; always allow.
         return true;
     }
 

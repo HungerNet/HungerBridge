@@ -56,63 +56,39 @@ public final class CommonCommandHandler {
                     String sub = args[1].toLowerCase();
                     switch (sub) {
                         case "list": {
-                            if (tm == null) { addError(out, bridgeServer, "Token manager not initialized."); return out; }
-                            Map<String, com.hungerbridge.common.security.TokenManager.Token> map = tm.listTokens();
-                            java.util.List<String[]> rows = new java.util.ArrayList<>();
-                            for (var t : map.values()) {
-                                rows.add(new String[]{t.id, String.valueOf(t.revoked), String.valueOf(t.expiry), String.valueOf(t.maxSkew)});
-                            }
-                            out.addAll(CommandMessages.formatTable(rows, new String[]{"id","revoked","expiry","max_skew"}));
+                            // Tokens are disabled; no-op list.
+                            out.add("[]");
                             return out;
                         }
                         case "create": {
-                            if (tm == null || cfg == null) { addError(out, bridgeServer, "Token manager not initialized."); return out; }
+                            // Tokens disabled: acknowledge creation request but do not create tokens.
                             if (args.length < 4) { addError(out, bridgeServer, "Usage: token create <tokenId> <policyId> [expiry]"); return out; }
                             String tokenId = args[2];
                             String policyId = args[3];
                             long expiry = 0L;
-                            com.hungerbridge.common.TokensConfig tc = cfg.getTokensConfig();
+                            com.hungerbridge.common.TokensConfig tc = cfg != null ? cfg.getTokensConfig() : null;
                             if (tc != null && !tc.hasPolicy(policyId)) { addError(out, bridgeServer, "Unknown policy id: " + policyId); return out; }
                             if (args.length >= 5) {
                                 try { expiry = Long.parseLong(args[4]); } catch (NumberFormatException nfe) { addError(out, bridgeServer, "Invalid expiry value."); return out; }
                             } else {
-                                // if omitted, use policy default if available
                                 if (tc != null) {
                                     var p = tc.getPolicy(policyId);
                                     if (p != null) expiry = p.defaultExpirySeconds;
                                 }
                             }
-                            TokenManager.IssueResult res = tm.issueTokenWithPickup(tokenId, expiry, null, 300);
-                            if (res == null) { addError(out, bridgeServer, "Failed to create token."); return out; }
-                            TokenManager.PickupRecord pr = tm.consumePickup(res.pickupId);
-                            if (pr == null) { addError(out, bridgeServer, "Failed to retrieve token secret."); return out; }
-                            com.google.gson.JsonObject resp = com.hungerbridge.common.Json.obj(
-                                "ok", true,
-                                "id", res.tokenId,
-                                "secret", pr.secret,
-                                "expiry", expiry
-                            );
-                            out.add(com.hungerbridge.common.Json.stringify(resp));
+                            addSuccess(out, bridgeServer, "Created token: " + tokenId + " (no-op)");
                             return out;
                         }
                         case "revoke": {
-                            if (tm == null) { addError(out, bridgeServer, "Token manager not initialized."); return out; }
+                            // No-op revoke.
                             if (args.length < 3) { addError(out, bridgeServer, "Usage: token revoke <id>"); return out; }
-                            String id = args[2];
-                            boolean ok = tm.revokeToken(id);
-                            if (!ok) { addError(out, bridgeServer, "Token not found: " + id); return out; }
-                            addSuccess(out, bridgeServer, "Revoked token: " + id);
+                            addSuccess(out, bridgeServer, "Revoked token: " + args[2] + " (no-op)");
                             return out;
                         }
                         case "rotate": {
-                            if (tm == null) { addError(out, bridgeServer, "Token manager not initialized."); return out; }
+                            // No-op rotate.
                             if (args.length < 3) { addError(out, bridgeServer, "Usage: token rotate <id>"); return out; }
-                            String id = args[2];
-                            TokenManager.IssueResult ir = tm.rotateTokenWithPickup(id, 300);
-                            if (ir == null) { addError(out, bridgeServer, "Failed to rotate token: " + id); return out; }
-                            TokenManager.PickupRecord pr = tm.consumePickup(ir.pickupId);
-                            if (pr == null) { addError(out, bridgeServer, "Failed to retrieve rotated token secret."); return out; }
-                            out.add(CommandMessages.rotatedToken(ir.tokenId, pr.secret));
+                            addSuccess(out, bridgeServer, "Rotated token: " + args[2] + " (no-op)");
                             return out;
                         }
                         default:

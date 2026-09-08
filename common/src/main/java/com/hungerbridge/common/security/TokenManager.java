@@ -304,40 +304,14 @@ public final class TokenManager {
     }
 
     private void loadTokens() {
-        try {
-            if (!Files.exists(tokensFile)) {
-                Files.write(tokensFile, GSON.toJson(Collections.singletonMap("tokens", Collections.emptyList())).getBytes(StandardCharsets.UTF_8));
-                if (logger != null) logger.log("INFO", "Created tokens file: " + tokensFile);
-                return;
-            }
-            String txt = Files.readString(tokensFile, StandardCharsets.UTF_8);
-            Type t = new TypeToken<Map<String, List<Token>>>(){}.getType();
-            Map<String, List<Token>> root = GSON.fromJson(txt, t);
-            if (root == null) return;
-            List<Token> list = root.getOrDefault("tokens", Collections.emptyList());
-            for (Token tk : list) {
-                tokens.put(tk.id, tk);
-            }
-        } catch (Exception e) {
-            if (logger != null) logger.log("WARN", "Failed to load tokens: " + e.getMessage());
-        }
+        // Token persistence removed; start with empty token set.
+        if (logger != null) logger.log("INFO", "Token persistence disabled; running without tokens.");
     }
 
     private void loadSessions() {
         // sessions.json currently stores nonce cache expiries to survive restarts.
-        try {
-            if (!Files.exists(sessionsFile)) {
-                // create an empty sessions file to make the layout consistent
-                Files.writeString(sessionsFile, "{}", StandardCharsets.UTF_8);
-                if (logger != null) logger.log("INFO", "Created sessions file: " + sessionsFile);
-            } else if (logger != null) logger.log("INFO", "Using sessions file: " + sessionsFile);
-            String txt = Files.readString(sessionsFile, StandardCharsets.UTF_8);
-            Type t = new TypeToken<Map<String, Long>>(){}.getType();
-            Map<String, Long> sess = GSON.fromJson(txt, t);
-            if (sess != null) nonceCache.putAll(sess);
-        } catch (Exception e) {
-            if (logger != null) logger.log("WARN", "Failed to load sessions: " + e.getMessage());
-        }
+        // Session persistence disabled; do not load nonce cache from disk.
+        if (logger != null) logger.log("INFO", "Session persistence disabled.");
     }
 
     // pickups: temporary records storing plaintext secrets until consumed or expired
@@ -351,27 +325,8 @@ public final class TokenManager {
     private final Map<String, PickupRecord> pickups = new ConcurrentHashMap<>();
 
     private void loadPickups() {
-        try {
-            if (!Files.exists(pickupsFile)) {
-                Files.writeString(pickupsFile, "{}", StandardCharsets.UTF_8);
-                if (logger != null) logger.log("INFO", "Created pickups file: " + pickupsFile);
-                return;
-            }
-            String txt = Files.readString(pickupsFile, StandardCharsets.UTF_8);
-            java.lang.reflect.Type t = new com.google.gson.reflect.TypeToken<Map<String, PickupRecord>>(){}.getType();
-            Map<String, PickupRecord> m = GSON.fromJson(txt, t);
-            if (m != null) {
-                long now = Instant.now().getEpochSecond();
-                for (var e : m.entrySet()) {
-                    PickupRecord pr = e.getValue();
-                    if (pr.expiresAt >= now) pickups.put(e.getKey(), pr);
-                }
-                // persist cleaned pickups (remove expired ones)
-                persistPickups();
-            }
-        } catch (Exception e) {
-            if (logger != null) logger.log("WARN", "Failed to load pickups: " + e.getMessage());
-        }
+        // Pickup persistence disabled; start with empty pickups map.
+        if (logger != null) logger.log("INFO", "Pickup persistence disabled.");
     }
 
     public void shutdown() {
@@ -663,26 +618,13 @@ public final class TokenManager {
     public Map<String, Token> listTokens() {
         return Collections.unmodifiableMap(tokens);
     }
-
     private void persistTokens() {
-        try {
-            Map<String, Object> root = new HashMap<>();
-            root.put("tokens", tokens.values());
-            String txt = GSON.toJson(root);
-            Files.writeString(tokensFile, txt, StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            logger.log("WARN", "Failed to persist tokens: " + e.getMessage());
-        }
+        // No-op: token persistence disabled.
     }
 
-    // Derive per-token HMAC key using HKDF(SHA256) with masterKey, salt and tokenId as info
-    private byte[] deriveTokenKey(String tokenId, String saltHex) {
-        byte[] salt = hexToBytes(saltHex);
-        return deriveTokenKey(tokenId, salt);
-    }
-
-    public byte[] deriveTokenKey(String tokenId, byte[] salt) {
-        return hkdfExpand(hkdfExtract(masterKey, salt), (tokenId).getBytes(StandardCharsets.UTF_8), 32);
+    public byte[] deriveTokenKey(String tokenId, String saltHex) {
+        byte[] saltBytes = saltHex == null ? null : hexToBytes(saltHex);
+        return hkdfExpand(hkdfExtract(masterKey, saltBytes), (tokenId).getBytes(StandardCharsets.UTF_8), 32);
     }
 
     private static byte[] hkdfExtract(byte[] ikm, byte[] salt) {
