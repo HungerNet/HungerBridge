@@ -32,6 +32,17 @@ public final class LogHandler implements HttpHandler {
             return;
         }
 
+        // Read raw body for debug (populate cached attribute for HttpUtil.readJson)
+        String rawBody = null;
+        try {
+            byte[] bytes = ex.getRequestBody().readAllBytes();
+            rawBody = bytes == null ? null : new String(bytes, java.nio.charset.StandardCharsets.UTF_8).trim();
+            if (rawBody != null && !rawBody.isEmpty()) {
+                ex.setAttribute("hb.request.body", rawBody);
+                if (logger != null) logger.log("INFO", "[RAW-BODY] " + rawBody);
+            }
+        } catch (Exception ignored) {}
+
         JsonObject json = HttpUtil.readJson(ex);
         if (!HttpUtil.auth(ex, config, json)) {  // pass canonical body into auth
             HttpUtil.error(ex, 401, "unauthorized", "Authentication required", config);
