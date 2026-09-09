@@ -478,6 +478,16 @@ public final class TokenManager {
             javax.crypto.spec.SecretKeySpec ks = new javax.crypto.spec.SecretKeySpec(key, "HmacSHA256");
             mac.init(ks);
             String exp = bytesToHex(mac.doFinal(msgCanonical.getBytes(StandardCharsets.UTF_8)));
+            // DEBUG: log verification attempt
+            if (logger != null) {
+                logger.log("INFO", "[HMAC-DEBUG] tokenId=" + tokenId + " salt=" + tk.salt);
+                logger.log("INFO", "[HMAC-DEBUG] derived_key_hex=" + bytesToHex(key));
+                logger.log("INFO", "[HMAC-DEBUG] original_path=" + path + " normalized_path=" + normalizedPath);
+                logger.log("INFO", "[HMAC-DEBUG] canonical_string=" + msgCanonical.replace("\n", "\\n"));
+                logger.log("INFO", "[HMAC-DEBUG] expected_sig=" + exp);
+                logger.log("INFO", "[HMAC-DEBUG] received_sig=" + signature);
+                logger.log("INFO", "[HMAC-DEBUG] match=" + exp.equalsIgnoreCase(signature));
+            }
             if (exp.equalsIgnoreCase(signature)) return VerifyResult.OK;
             return VerifyResult.BAD_SIGNATURE;
         } catch (Exception e) {
