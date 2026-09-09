@@ -163,8 +163,9 @@ public final class HttpUtil {
         if (o instanceof com.google.gson.JsonObject) {
             return auth(ex, config, (com.google.gson.JsonObject) o);
         }
-        // If pre-parsed JSON is not available, do not attempt to read the body here.
-        return false;
+        // If pre-parsed JSON is not available (common for GET requests),
+        // perform authentication with a null canonical body (empty body string).
+        return auth(ex, config, null);
     }
 
     public static boolean rateLimit(HttpExchange ex, Config config, String action) throws IOException {

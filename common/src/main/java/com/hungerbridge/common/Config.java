@@ -171,6 +171,25 @@ public final class Config {
         }
         candidates.add(Path.of(".").toAbsolutePath().resolve("autogen").resolve("HungerBridge"));
 
+        // Also attempt to locate autogen relative to the code location (useful when
+        // the JVM working directory is not the project root, e.g. when running from
+        // a container or a different process cwd).
+        try {
+            java.net.URI codeUri = Config.class.getProtectionDomain().getCodeSource().getLocation().toURI();
+            Path codeLoc = Path.of(codeUri).toAbsolutePath();
+            Path cur = codeLoc;
+            for (int i = 0; i < 6 && cur != null; i++) {
+                Path candidate = cur.resolve("autogen").resolve("HungerBridge");
+                candidates.add(candidate);
+                cur = cur.getParent();
+            }
+        } catch (Exception ignored) {}
+
+        // Common repo layout fallback
+        try {
+            candidates.add(Path.of("/home/container/HungerBridge").resolve("autogen").resolve("HungerBridge"));
+        } catch (Exception ignored) {}
+
         for (Path candidate : candidates) {
             if (Files.exists(candidate) && Files.isDirectory(candidate)) {
                 return candidate;

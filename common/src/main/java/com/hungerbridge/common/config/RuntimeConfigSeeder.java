@@ -10,8 +10,8 @@ public final class RuntimeConfigSeeder {
     public static void seed(Path runtimeConfigDir) throws IOException {
         Files.createDirectories(runtimeConfigDir);
         ensureDirectoryPermissions(runtimeConfigDir);
-        writeIfMissing(runtimeConfigDir.resolve("config.yaml"), "port: 1913\n\nplayers:\n  max-list: 50\n");
-        writeIfMissing(runtimeConfigDir.resolve("policies.yaml"), "policies:\n  - id: moderator\n    permissions:\n      - ping\n      - server.log\n      - server.stream\n      - server.run\n      - world.*\n      - system.*\n");
+        writeIfMissing(runtimeConfigDir.resolve("config.yaml"), "# HungerBridge core configuration.\n#\n# port:\n#   TCP port that the HungerBridge HTTP server listens on. Default 1913.\n# players.max-list:\n#   Maximum number of player entries returned by the /players endpoint. This\n#   is a safety bound so very large server populations do not overwhelm clients.\n\nport: 1913\n\nplayers:\n  max-list: 50\n");
+        writeIfMissing(runtimeConfigDir.resolve("policies.yaml"), "policies:\n  - id: admin\n    permissions:\n      - '*'\n");
     }
 
     private static void writeIfMissing(Path path, String content) throws IOException {
