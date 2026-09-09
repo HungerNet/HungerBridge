@@ -37,12 +37,16 @@ public final class HungerBridgePlugin extends JavaPlugin {
                     try { Thread.currentThread().setName("HungerBridge"); } catch (Exception ignored) {}
                 }
                 org.apache.logging.log4j.Logger raw = org.apache.logging.log4j.LogManager.getLogger("HungerBridge");
-                switch (level.toUpperCase()) {
-                    case "WARN": raw.warn(message); break;
-                    case "ERROR": raw.error(message); break;
-                    case "DEBUG": raw.debug(message); break;
-                    default: raw.info(message); break;
+                String resolved = level == null ? "INFO" : level.trim();
+                org.apache.logging.log4j.Level lvl = org.apache.logging.log4j.Level.getLevel(resolved.toUpperCase());
+                if (lvl == null) {
+                    try {
+                        lvl = org.apache.logging.log4j.Level.forName(resolved.toUpperCase(), 450);
+                    } catch (Exception ignored2) {
+                        lvl = org.apache.logging.log4j.Level.INFO;
+                    }
                 }
+                raw.log(lvl, message);
             } finally {
                 try { Thread.currentThread().setName(prev); } catch (Exception ignored) {}
             }
@@ -66,7 +70,11 @@ public final class HungerBridgePlugin extends JavaPlugin {
         // NOTE: PaperServerInfoProvider exists but is NOT passed into BridgeServer anymore.
         PaperServerInfoProvider infoProvider = new PaperServerInfoProvider(getServer());
 
-        bridgeServer = new BridgeServer(configDir, config, logger, executor);
+        bridgeServer = new BridgeServer(configDir, config, logger, executor, () -> {
+            if (getServer() != null && getServer().isRunning()) {
+                Bukkit.shutdown();
+            }
+        });
         hbAdapter = logger;
         // Start the bridge server on a dedicated thread named "HungerBridge"
         bridgeThread = new Thread(() -> {

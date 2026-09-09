@@ -41,7 +41,7 @@ public final class ServerStopHandler implements HttpHandler {
         boolean force = payload != null && payload.has("force") && payload.get("force").getAsBoolean();
         if (logger != null) logger.log("INFO", "Stop requested via API");
         if (bridgeServer != null) {
-            bridgeServer.stop();
+            bridgeServer.stopMinecraftServer();
         }
         HttpUtil.writeJson(ex, 200, Json.obj("ok", true, "stopped", true, "force", force));
     }

@@ -7,7 +7,6 @@ public interface PlatformServerBridge {
     void runCommand(String command);
     List<String> runCommandCapture(String command, boolean showConsole);
     default void stopServer() {}
-    default void restartServer() {}
     default Map<String, Object> getServerMeta() { return Map.of(); }
     default String getLogTail(int lines) { return ""; }
     default List<Map<String, Object>> listPlayers() { return List.of(); }

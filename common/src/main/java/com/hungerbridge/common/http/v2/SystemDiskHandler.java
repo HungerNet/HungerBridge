@@ -39,7 +39,14 @@ public final class SystemDiskHandler implements HttpHandler {
         File root = new File(".");
         long total = root.getTotalSpace();
         long free = root.getFreeSpace();
-        JsonObject resp = Json.obj("ok", true, "total_bytes", total, "free_bytes", free, "used_bytes", total - free);
+        long usable = root.getUsableSpace();
+        JsonObject resp = Json.obj(
+                "ok", true,
+                "total_bytes", total,
+                "free_bytes", free,
+                "usable_bytes", usable,
+                "used_bytes", Math.max(0L, total - free)
+        );
         HttpUtil.writeJson(ex, 200, resp);
     }
 }

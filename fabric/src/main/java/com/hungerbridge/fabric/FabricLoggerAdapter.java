@@ -30,12 +30,11 @@ public final class FabricLoggerAdapter implements Logger {
                 try { Thread.currentThread().setName("HungerBridge"); } catch (Exception ignored) {}
             }
 
-            Level lvl = Level.getLevel(level);
+            String levelName = level == null ? "INFO" : level.trim();
+            Level lvl = Level.getLevel(levelName.toUpperCase());
             if (lvl == null) {
-                // create a dynamic level with priority above INFO
-                int priority = Level.INFO.intLevel() + 50;
                 try {
-                    lvl = Level.forName(level, priority);
+                    lvl = Level.forName(levelName.toUpperCase(), 450);
                 } catch (Exception e) {
                     lvl = Level.INFO;
                 }

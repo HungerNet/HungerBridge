@@ -14,7 +14,6 @@ public interface PlatformBridge {
         return runCommandCapture(command, false);
     }
     default void stopServer() {}
-    default void restartServer() {}
     default Map<String, Object> getServerMeta() { return Map.of(); }
     default List<Map<String, Object>> listPlayers() { return List.of(); }
     default boolean kickPlayer(String player, String reason) { return false; }

@@ -25,15 +25,21 @@ public final class BridgeServer {
     private final Config config;
     private final Logger logger;
     private final CommandExecutor executor;
+    private final Runnable minecraftStopHandler;
 
     private HttpServer server;
     private ExecutorService pool;
 
     public BridgeServer(Path configDir, Config config, Logger logger, CommandExecutor executor) {
+        this(configDir, config, logger, executor, null);
+    }
+
+    public BridgeServer(Path configDir, Config config, Logger logger, CommandExecutor executor, Runnable minecraftStopHandler) {
         this.configDir = configDir;
         this.config = config;
         this.logger = logger;
         this.executor = executor;
+        this.minecraftStopHandler = minecraftStopHandler;
     }
 
     public synchronized void start() {
@@ -60,8 +66,6 @@ public final class BridgeServer {
         
         server.createContext("/server/stop", new com.hungerbridge.common.http.v2.ServerStopHandler(config, logger, this));
         endpoints.add("/server/stop");
-        server.createContext("/server/restart", new com.hungerbridge.common.http.v2.ServerRestartHandler(config, logger, this));
-        endpoints.add("/server/restart");
         server.createContext("/server/log", new LogHandler(config, logger));
         endpoints.add("/server/log");
         server.createContext("/server/meta", new com.hungerbridge.common.http.v2.MetaHandler(config, logger));
@@ -116,6 +120,12 @@ public final class BridgeServer {
         } catch (Exception ignored) {}
 
         logger.log("INFO", "HungerBridge HTTP server stopped.");
+    }
+
+    public void stopMinecraftServer() {
+        if (minecraftStopHandler != null) {
+            minecraftStopHandler.run();
+        }
     }
 
     public Logger getLogger() {

@@ -78,25 +78,17 @@ curl -sS -X POST http://localhost:1913/server/run -H "Content-Type: application/
 output = client.runCommand('say hello', show_console=True, silent=False)
 ```
 
-`/server/stop` — graceful stop
+`/server/stop` — stop the Minecraft server
 
 ```bash
 curl -sS -X POST http://localhost:1913/server/stop -H "Content-Type: application/json" -d '{}'
 ```
 
 ```python
-client.stopServer()   # returns ok boolean
+client.stopServer()   # stops the Minecraft server; does not stop the HTTP bridge
 ```
 
-`/server/restart` — restart
-
-```bash
-curl -sS -X POST http://localhost:1913/server/restart -H "Content-Type: application/json" -d '{}'
-```
-
-```python
-client.restartServer()  # returns ok boolean
-```
+> Restart is no longer supported. The `/server/restart` endpoint has been removed.
 
 `/server/log` — emit bridge log
 

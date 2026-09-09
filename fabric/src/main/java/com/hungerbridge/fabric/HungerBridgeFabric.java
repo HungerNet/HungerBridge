@@ -139,7 +139,11 @@ public final class HungerBridgeFabric implements DedicatedServerModInitializer {
 
         CommandExecutor executor = new FabricCommandExecutor(server);
 
-        bridgeServer = new BridgeServer(configDir, config, logger, executor);
+        bridgeServer = new BridgeServer(configDir, config, logger, executor, () -> {
+            if (mcServer != null) {
+                mcServer.stop(false);
+            }
+        });
         // Start the bridge server on a dedicated thread named "HungerBridge"
         bridgeThread = new Thread(() -> {
             try {

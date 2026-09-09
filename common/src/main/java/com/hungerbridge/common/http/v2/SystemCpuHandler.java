@@ -41,9 +41,26 @@ public final class SystemCpuHandler implements HttpHandler {
         double load = -1.0;
         try {
             if (os instanceof com.sun.management.OperatingSystemMXBean sun) {
-                load = sun.getProcessCpuLoad();
+                double processLoad = sun.getProcessCpuLoad();
+                if (processLoad >= 0.0) {
+                    load = processLoad;
+                } else {
+                    load = sun.getSystemCpuLoad();
+                }
             }
-        } catch (Exception ignored) {}
+            if (load < 0.0) {
+                double avg = os.getSystemLoadAverage();
+                if (avg >= 0.0) {
+                    int processors = Math.max(1, Runtime.getRuntime().availableProcessors());
+                    load = avg / processors;
+                }
+            }
+            if (load < 0.0) {
+                load = 0.0;
+            }
+        } catch (Exception ignored) {
+            load = 0.0;
+        }
 
         JsonObject resp = Json.obj("ok", true, "cpu_load", load, "processors", Runtime.getRuntime().availableProcessors());
         HttpUtil.writeJson(ex, 200, resp);
