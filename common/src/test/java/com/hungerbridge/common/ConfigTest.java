@@ -24,7 +24,7 @@ public final class ConfigTest {
                 """);
 
 
-        Config config = Config.load(dir, (level, message) -> {
+        Config config = Config.load(dir, (level, thread, message) -> {
         });
 
         assertTrue(config.getPlayersMaxList() == 10);
@@ -47,7 +47,7 @@ public final class ConfigTest {
                     permissions: ["ping", "info"]
                 """);
 
-        Config config = Config.load(dir, (level, message) -> {});
+        Config config = Config.load(dir, (level, thread, message) -> {});
         config.setTokenManager(new TokenManager(dir, null));
         assertNotNull(config.getTokensConfig());
         assertTrue(config.getTokensConfig().getPolicy("reporter") != null);
@@ -84,7 +84,7 @@ public final class ConfigTest {
                     permissions: ["*"]
                 """);
 
-        Config config = Config.load(dir, (level, message) -> {});
+        Config config = Config.load(dir, (level, thread, message) -> {});
         config.setTokenManager(new TokenManager(dir, null));
         assertNull(config.getTokensConfig().getPolicy("unknown-policy"));
     }
