@@ -12,12 +12,12 @@ import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
 import java.util.Map;
 
-public final class WorldChunksHandler implements HttpHandler {
+public final class WorldEntitiesHandler implements HttpHandler {
     private final Config config;
     private final Logger logger;
     private final CommandExecutor executor;
 
-    public WorldChunksHandler(Config config, Logger logger, CommandExecutor executor) {
+    public WorldEntitiesHandler(Config config, Logger logger, CommandExecutor executor) {
         this.config = config;
         this.logger = logger;
         this.executor = executor;
@@ -33,13 +33,13 @@ public final class WorldChunksHandler implements HttpHandler {
             HttpUtil.error(ex, 401, "unauthorized", "Authentication required", config);
             return;
         }
-        if (!HttpUtil.checkAcl(ex, config, "world.chunks")) {
-            HttpUtil.error(ex, 403, "forbidden", "Token not permitted to access chunks", config);
+        if (!HttpUtil.checkAcl(ex, config, "world.entities")) {
+            HttpUtil.error(ex, 403, "forbidden", "Token not permitted to access entities", config);
             return;
         }
-        if (!HttpUtil.rateLimit(ex, config, "world.chunks")) return;
+        if (!HttpUtil.rateLimit(ex, config, "world.entities")) return;
 
-        Map<String, Integer> counts = executor.getWorldChunkCounts();
+        Map<String, Integer> counts = executor.getWorldEntityCounts();
         int total = 0;
         for (Integer value : counts.values()) {
             total += value == null ? 0 : value;

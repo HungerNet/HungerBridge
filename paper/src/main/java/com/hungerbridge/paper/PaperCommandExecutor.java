@@ -3,11 +3,14 @@ package com.hungerbridge.paper;
 import com.hungerbridge.common.CommandExecutor;
 import com.hungerbridge.common.platform.CommandCapture;
 import org.bukkit.Bukkit;
+import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 public final class PaperCommandExecutor implements CommandExecutor {
@@ -94,5 +97,31 @@ public final class PaperCommandExecutor implements CommandExecutor {
             names.add(p.getName());
         }
         return names;
+    }
+
+    @Override
+    public Map<String, Integer> getWorldChunkCounts() {
+        Map<String, Integer> counts = new HashMap<>();
+        for (World world : Bukkit.getWorlds()) {
+            counts.put(normalizeWorldKey(world.getName()), world.getChunkCount());
+        }
+        return counts;
+    }
+
+    @Override
+    public Map<String, Integer> getWorldEntityCounts() {
+        Map<String, Integer> counts = new HashMap<>();
+        for (World world : Bukkit.getWorlds()) {
+            counts.put(normalizeWorldKey(world.getName()), world.getEntities().size());
+        }
+        return counts;
+    }
+
+    private static String normalizeWorldKey(String worldName) {
+        if (worldName == null || worldName.isBlank()) return "world";
+        if ("world".equals(worldName)) return "world";
+        if ("world_nether".equals(worldName)) return "world_nether";
+        if ("world_the_end".equals(worldName)) return "world_the_end";
+        return worldName;
     }
 }

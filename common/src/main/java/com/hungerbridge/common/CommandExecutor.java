@@ -2,6 +2,7 @@ package com.hungerbridge.common;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Interface for executing server commands from the HTTP bridge.
@@ -75,5 +76,19 @@ public interface CommandExecutor {
      */
     default List<String> getOnlinePlayerNames() {
         return Collections.emptyList();
+    }
+
+    /**
+     * Loaded chunk counts by world name.
+     */
+    default Map<String, Integer> getWorldChunkCounts() {
+        return Collections.emptyMap();
+    }
+
+    /**
+     * Entity counts by world name.
+     */
+    default Map<String, Integer> getWorldEntityCounts() {
+        return Collections.emptyMap();
     }
 }

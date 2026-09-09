@@ -9,6 +9,12 @@ It exposes a small, secure HTTP API:
  - `POST /server/run` — execute a command as console (with optional silent mode)
  - `POST /server/log` — write raw text to the server console
  - `GET /ping` — health check
+ - `GET /system/memory` — heap and non-heap memory statistics
+ - `GET /system/gc` — garbage collector metrics
+ - `GET /system/threads` — JVM thread usage
+ - `GET /system/network` — network throughput snapshot
+ - `GET /world/chunks` — chunk totals by world
+ - `GET /world/entities` — entity totals by world
 
 HungerBridge works identically on:
 

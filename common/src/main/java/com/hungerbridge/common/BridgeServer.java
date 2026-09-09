@@ -78,6 +78,12 @@ public final class BridgeServer {
         endpoints.add("/system/cpu");
         server.createContext("/system/memory", new com.hungerbridge.common.http.v2.SystemMemoryHandler(config, logger));
         endpoints.add("/system/memory");
+        server.createContext("/system/gc", new com.hungerbridge.common.http.v2.SystemGcHandler(config, logger));
+        endpoints.add("/system/gc");
+        server.createContext("/system/threads", new com.hungerbridge.common.http.v2.SystemThreadsHandler(config, logger));
+        endpoints.add("/system/threads");
+        server.createContext("/system/network", new com.hungerbridge.common.http.v2.SystemNetworkHandler(config, logger));
+        endpoints.add("/system/network");
         server.createContext("/system/disk", new com.hungerbridge.common.http.v2.SystemDiskHandler(config, logger));
         endpoints.add("/system/disk");
         server.createContext("/players/list", new com.hungerbridge.common.http.v2.PlayersListHandler(config, logger, executor));
@@ -88,6 +94,8 @@ public final class BridgeServer {
         endpoints.add("/world/mspt");
         server.createContext("/world/chunks", new com.hungerbridge.common.http.v2.WorldChunksHandler(config, logger, executor));
         endpoints.add("/world/chunks");
+        server.createContext("/world/entities", new com.hungerbridge.common.http.v2.WorldEntitiesHandler(config, logger, executor));
+        endpoints.add("/world/entities");
         server.createContext("/world/time", new com.hungerbridge.common.http.v2.WorldTimeHandler(config, logger, executor));
         endpoints.add("/world/time");
         server.createContext("/world/weather", new com.hungerbridge.common.http.v2.WorldWeatherHandler(config, logger, executor));

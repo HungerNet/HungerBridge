@@ -1,7 +1,6 @@
 package com.hungerbridge.common.http.v2;
 
 import com.google.gson.JsonObject;
-import com.hungerbridge.common.CommandExecutor;
 import com.hungerbridge.common.Config;
 import com.hungerbridge.common.Json;
 import com.hungerbridge.common.Logger;
@@ -10,17 +9,16 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 
 import java.io.IOException;
-import java.util.Map;
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadMXBean;
 
-public final class WorldChunksHandler implements HttpHandler {
+public final class SystemThreadsHandler implements HttpHandler {
     private final Config config;
     private final Logger logger;
-    private final CommandExecutor executor;
 
-    public WorldChunksHandler(Config config, Logger logger, CommandExecutor executor) {
+    public SystemThreadsHandler(Config config, Logger logger) {
         this.config = config;
         this.logger = logger;
-        this.executor = executor;
     }
 
     @Override
@@ -33,24 +31,18 @@ public final class WorldChunksHandler implements HttpHandler {
             HttpUtil.error(ex, 401, "unauthorized", "Authentication required", config);
             return;
         }
-        if (!HttpUtil.checkAcl(ex, config, "world.chunks")) {
-            HttpUtil.error(ex, 403, "forbidden", "Token not permitted to access chunks", config);
+        if (!HttpUtil.checkAcl(ex, config, "system.threads")) {
+            HttpUtil.error(ex, 403, "forbidden", "Token not permitted to access threads", config);
             return;
         }
-        if (!HttpUtil.rateLimit(ex, config, "world.chunks")) return;
+        if (!HttpUtil.rateLimit(ex, config, "system.threads")) return;
 
-        Map<String, Integer> counts = executor.getWorldChunkCounts();
-        int total = 0;
-        for (Integer value : counts.values()) {
-            total += value == null ? 0 : value;
-        }
-
+        ThreadMXBean threads = ManagementFactory.getThreadMXBean();
         JsonObject resp = Json.obj(
                 "ok", true,
-                "total", total,
-                "world", counts.getOrDefault("world", 0),
-                "world_nether", counts.getOrDefault("world_nether", 0),
-                "world_the_end", counts.getOrDefault("world_the_end", 0)
+                "current", threads.getThreadCount(),
+                "peak", threads.getPeakThreadCount(),
+                "daemon", threads.getDaemonThreadCount()
         );
         HttpUtil.writeJson(ex, 200, resp);
     }

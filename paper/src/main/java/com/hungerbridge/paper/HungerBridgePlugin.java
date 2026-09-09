@@ -72,18 +72,7 @@ public final class HungerBridgePlugin extends JavaPlugin {
 
         bridgeServer = new BridgeServer(configDir, config, logger, executor, () -> {
             if (getServer() != null) {
-                try {
-                    var server = getServer();
-                    if (server != null && server.getOnlinePlayers().size() >= 0) {
-                        Bukkit.shutdown();
-                    }
-                } catch (Throwable ignored) {
-                    try {
-                        Bukkit.shutdown();
-                    } catch (Throwable ignored2) {
-                        // Some Paper versions provide a narrower Server API; a plain shutdown is the safe fallback.
-                    }
-                }
+                Bukkit.shutdown();
             }
         });
         hbAdapter = logger;

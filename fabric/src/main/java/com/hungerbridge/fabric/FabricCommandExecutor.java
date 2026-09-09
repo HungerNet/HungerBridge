@@ -4,11 +4,14 @@ import com.hungerbridge.common.CommandExecutor;
 import com.hungerbridge.common.platform.CommandCapture;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 public final class FabricCommandExecutor implements CommandExecutor {
@@ -83,5 +86,34 @@ public final class FabricCommandExecutor implements CommandExecutor {
             names.add(name.getString());
         }
         return names;
+    }
+
+    @Override
+    public Map<String, Integer> getWorldChunkCounts() {
+        Map<String, Integer> counts = new HashMap<>();
+        for (ServerLevel level : server.getAllLevels()) {
+            String key = normalizeWorldKey(level.dimension().location().toString());
+            counts.put(key, level.getChunkSource().getLoadedChunks());
+        }
+        return counts;
+    }
+
+    @Override
+    public Map<String, Integer> getWorldEntityCounts() {
+        Map<String, Integer> counts = new HashMap<>();
+        for (ServerLevel level : server.getAllLevels()) {
+            String key = normalizeWorldKey(level.dimension().location().toString());
+            counts.put(key, level.getEntityCount());
+        }
+        return counts;
+    }
+
+    private static String normalizeWorldKey(String worldKey) {
+        if (worldKey == null || worldKey.isBlank()) return "world";
+        String key = worldKey.replace("minecraft:", "");
+        if ("overworld".equals(key)) return "world";
+        if ("the_nether".equals(key)) return "world_nether";
+        if ("the_end".equals(key)) return "world_the_end";
+        return key;
     }
 }

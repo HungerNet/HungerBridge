@@ -142,15 +142,67 @@ curl -sS http://localhost:1913/system/cpu
 client.getSystemCpu('usage')    # e.g. 'usage', 'cores', etc.
 ```
 
-`/system/memory` — memory metrics
+`/system/memory` — heap + non-heap memory metrics
 
 ```bash
 curl -sS http://localhost:1913/system/memory
 ```
 
 ```python
-client.getSystemMemory('total')
+client.getMemoryStats()['used']
 ```
+
+Response fields:
+- `used_bytes`, `total_bytes`, `free_bytes`, `max_bytes`
+- `nonheap_used`, `nonheap_committed`, `nonheap_max`
+
+`/system/gc` — GC statistics
+
+```bash
+curl -sS http://localhost:1913/system/gc
+```
+
+```python
+client.getSystemGc()
+```
+
+Response fields:
+- `gc_type` — selected GC implementation name (G1, ZGC, Shenandoah, etc.)
+- `gc_count` — total collections across all GC beans
+- `gc_time_ms` — cumulative GC time
+- `last_gc_pause_ms` — latest pause duration record
+- `avg_gc_pause_ms` — average pause time across tracked collections
+
+`/system/threads` — JVM thread counts
+
+```bash
+curl -sS http://localhost:1913/system/threads
+```
+
+```python
+client.getSystemThreads()
+```
+
+Response fields:
+- `current` — current live thread count
+- `peak` — highest thread count observed
+- `daemon` — daemon thread count
+
+`/system/network` — current network throughput snapshot
+
+```bash
+curl -sS http://localhost:1913/system/network
+```
+
+```python
+client.getSystemNetwork()
+```
+
+Response fields:
+- `bytes_in_per_sec`
+- `bytes_out_per_sec`
+- `total_bytes_in`
+- `total_bytes_out`
 
 `/system/disk` — disk metrics
 
@@ -182,15 +234,37 @@ curl -sS http://localhost:1913/world/mspt
 client.getMSPT()
 ```
 
-`/world/chunks` — chunk stats
+`/world/chunks` — per-world chunk counts
 
 ```bash
 curl -sS http://localhost:1913/world/chunks
 ```
 
 ```python
-client.getLoadedChunks()
+client.getWorldChunks()
 ```
+
+Response fields:
+- `total` — combined chunk count across all loaded worlds
+- `world` — overworld chunk count
+- `world_nether` — nether chunk count
+- `world_the_end` — end chunk count
+
+`/world/entities` — per-world entity counts
+
+```bash
+curl -sS http://localhost:1913/world/entities
+```
+
+```python
+client.getWorldEntities()
+```
+
+Response fields:
+- `total` — combined entity count across all loaded worlds
+- `world` — overworld entity count
+- `world_nether` — nether entity count
+- `world_the_end` — end entity count
 
 `/world/time` — world time
 

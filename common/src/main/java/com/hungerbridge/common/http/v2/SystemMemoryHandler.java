@@ -36,16 +36,23 @@ public final class SystemMemoryHandler implements HttpHandler {
         if (!HttpUtil.rateLimit(ex, config, "system.memory")) return;
 
         var heap = java.lang.management.ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
+        var nonHeap = java.lang.management.ManagementFactory.getMemoryMXBean().getNonHeapMemoryUsage();
         long used = heap.getUsed();
         long total = heap.getCommitted();
         long max = heap.getMax();
         long free = Math.max(0L, total - used);
+        long nonheapUsed = nonHeap.getUsed();
+        long nonheapCommitted = nonHeap.getCommitted();
+        long nonheapMax = nonHeap.getMax();
         JsonObject resp = Json.obj(
                 "ok", true,
                 "used_bytes", used,
                 "total_bytes", total,
                 "free_bytes", free,
-                "max_bytes", max
+                "max_bytes", max,
+                "nonheap_used", nonheapUsed,
+                "nonheap_committed", nonheapCommitted,
+                "nonheap_max", nonheapMax
         );
         HttpUtil.writeJson(ex, 200, resp);
     }
