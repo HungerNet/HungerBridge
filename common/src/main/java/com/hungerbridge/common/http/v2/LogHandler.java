@@ -55,6 +55,7 @@ public final class LogHandler implements HttpHandler {
         }
 
         String level = json.has("level") ? json.get("level").getAsString() : "info";
+        String thread = json.has("thread") ? json.get("thread").getAsString() : null;
         String msg = json.get("message").getAsString();
 
         if (!HttpUtil.checkAcl(ex, config, "server.log")) {
@@ -64,7 +65,7 @@ public final class LogHandler implements HttpHandler {
 
         if (!HttpUtil.rateLimit(ex, config, "server.log")) return;
 
-        logger.log(level.toUpperCase(), msg);
+        logger.log(level.toUpperCase(), thread, msg);
         HttpUtil.writeJson(ex, 200, Json.obj("ok", true));
     }
 }

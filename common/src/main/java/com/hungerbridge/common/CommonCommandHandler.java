@@ -61,7 +61,7 @@ public final class CommonCommandHandler {
                             if (tc != null && !tc.hasPolicy(policyId)) { addError(out, bridgeServer, "Unknown policy id: " + policyId); return out; }
 
                             TokenManager.IssueResult res = tm.issueTokenWithPickup(tokenId, null, 300);
-                            if (res == null) { addError(out, bridgeServer, "Failed to create token."); return out; }
+                            if (res == null) { return out; }
                             // bind policy
                             tm.setTokenPolicyId(res.tokenId, policyId);
                             // Do NOT print secret. Provide pickup URL.
