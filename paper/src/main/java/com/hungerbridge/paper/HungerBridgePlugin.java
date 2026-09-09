@@ -49,6 +49,7 @@ public final class HungerBridgePlugin extends JavaPlugin {
 
         // initialize token manager for HMAC token support
         TokenManager tm = new TokenManager(configDir, logger);
+        tm.setDebug(config.isDebug());
         config.setTokenManager(tm);
 
         // auditing, IP lists and rate limiting removed

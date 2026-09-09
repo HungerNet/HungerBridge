@@ -187,6 +187,7 @@ public final class TokenManager {
     private final byte[] masterKey;
 
     private final Map<String, Token> tokens = new ConcurrentHashMap<>();
+    private boolean debugEnabled = false;
 
     private static final Gson GSON = new Gson();
 
@@ -224,6 +225,8 @@ public final class TokenManager {
             }, 300, 300, TimeUnit.SECONDS);
         } catch (Exception ignored) {}
     }
+
+    public void setDebug(boolean enabled) { this.debugEnabled = enabled; }
 
     private byte[] loadOrCreateMasterKey() {
         Path mk = storageDir.resolve("master.key");
@@ -478,8 +481,8 @@ public final class TokenManager {
             javax.crypto.spec.SecretKeySpec ks = new javax.crypto.spec.SecretKeySpec(key, "HmacSHA256");
             mac.init(ks);
             String exp = bytesToHex(mac.doFinal(msgCanonical.getBytes(StandardCharsets.UTF_8)));
-            // DEBUG: log verification attempt
-            if (logger != null) {
+            // DEBUG: log verification attempt only when debug enabled
+            if (logger != null && debugEnabled) {
                 logger.log("INFO", "[HMAC-DEBUG] tokenId=" + tokenId + " salt=" + tk.salt);
                 logger.log("INFO", "[HMAC-DEBUG] derived_key_hex=" + bytesToHex(key));
                 logger.log("INFO", "[HMAC-DEBUG] original_path=" + path + " normalized_path=" + normalizedPath);

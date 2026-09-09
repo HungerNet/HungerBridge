@@ -2,11 +2,14 @@
 #
 # port:
 #   TCP port that the HungerBridge HTTP server listens on. Default 1913.
+# debug:
+#   Enable debug logging. Default false.
 # players.max-list:
 #   Maximum number of player entries returned by the /players endpoint. This
 #   is a safety bound so very large server populations do not overwhelm clients.
 
 port: 1913
+debug: false
 
 players:
   max-list: 50

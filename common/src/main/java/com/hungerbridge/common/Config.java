@@ -29,6 +29,8 @@ public final class Config {
     private String minecraftVersion = "unknown";
     private String bridgeVersion;
     private TokenManager tokenManager;
+    // runtime debug flag (controls verbose HMAC/raw-body logging)
+    private boolean debug = false;
     
     private com.hungerbridge.common.TokensConfig tokensConfig;
 
@@ -96,6 +98,7 @@ public final class Config {
             }
 
             int port = ((Number) root.getOrDefault("port", 1913)).intValue();
+            boolean debug = Boolean.parseBoolean(String.valueOf(root.getOrDefault("debug", false)));
 
             // validate auxiliary configs and log status
             com.hungerbridge.common.TokensConfig tc = null;
@@ -114,6 +117,8 @@ public final class Config {
                     bridgeVersion
                 );
 
+                cfg.debug = debug;
+
                 // attach parsed auxiliary configs
                 cfg.setTokensConfig(tc != null ? tc : com.hungerbridge.common.TokensConfig.defaults());
 
@@ -126,6 +131,8 @@ public final class Config {
 
     public void setTokenManager(TokenManager tm) { this.tokenManager = tm; }
     public TokenManager getTokenManager() { return tokenManager; }
+
+    public boolean isDebug() { return debug; }
     
 
     public void setTokensConfig(com.hungerbridge.common.TokensConfig tc) { this.tokensConfig = tc; }

@@ -39,7 +39,7 @@ public final class LogHandler implements HttpHandler {
             rawBody = bytes == null ? null : new String(bytes, java.nio.charset.StandardCharsets.UTF_8).trim();
             if (rawBody != null && !rawBody.isEmpty()) {
                 ex.setAttribute("hb.request.body", rawBody);
-                if (logger != null) logger.log("INFO", "[RAW-BODY] " + rawBody);
+                if (logger != null && config != null && config.isDebug()) logger.log("INFO", "[RAW-BODY] " + rawBody);
             }
         } catch (Exception ignored) {}
 
