@@ -80,17 +80,28 @@ public final class HttpUtil {
         return false;
     }
 
+    public static java.util.List<String> mergedPermissions(TokenManager.Token token, Config config) {
+        java.util.LinkedHashSet<String> perms = new java.util.LinkedHashSet<>();
+        if (token != null && token.permissions != null) {
+            for (String p : token.permissions) {
+                if (p != null && !p.isBlank()) perms.add(p.trim());
+            }
+        }
+        if (token != null && token.policyId != null && config != null && config.getTokensConfig() != null) {
+            var pol = config.getTokensConfig().getPolicy(token.policyId);
+            if (pol != null) {
+                for (String p : pol.permissions) {
+                    if (p != null && !p.isBlank()) perms.add(p.trim());
+                }
+            }
+        }
+        return new java.util.ArrayList<>(perms);
+    }
+
     public static boolean checkAcl(HttpExchange ex, Config config, String action) {
         TokenManager.Token token = (TokenManager.Token) ex.getAttribute("hb.auth.token");
         if (token == null) return false;
-        // Gather permissions: if token has a policyId and config provides it, use that
-        java.util.List<String> perms = token.permissions != null ? token.permissions : new java.util.ArrayList<>();
-        if (token.policyId != null && config != null && config.getTokensConfig() != null) {
-            var pol = config.getTokensConfig().getPolicy(token.policyId);
-            if (pol != null) {
-                perms = new java.util.ArrayList<>(pol.permissions);
-            }
-        }
+        java.util.List<String> perms = mergedPermissions(token, config);
 
         java.util.List<String> candidates = new java.util.ArrayList<>();
         candidates.add(action);

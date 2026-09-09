@@ -49,6 +49,23 @@ public final class PolicySemanticsTest {
     }
 
     @Test
+    public void tokenPermissionsAreMergedWithPolicyPermissions() {
+        Path dir = Files.createTempDirectory("hb-policy-merge");
+        Files.writeString(dir.resolve("config.yaml"), "port: 1913\n");
+        Files.writeString(dir.resolve("policies.yaml"), "policies:\n  - id: admin\n    permissions:\n      - '*'\n");
+
+        Config config = Config.load(dir, (l, m) -> {});
+        TokenManager.Token token = new TokenManager.Token();
+        token.policyId = "admin";
+        token.permissions = List.of("auth.check");
+
+        var merged = HttpUtil.mergedPermissions(token, config);
+        assertTrue(merged.contains("*"));
+        assertTrue(merged.contains("auth.check"));
+        assertTrue(HttpUtil.tokenAclAllows(token, "auth.check"));
+    }
+
+    @Test
     public void jsonBodyFieldOrderDoesNotAffectHmacVerification() throws Exception {
         Path dir = Files.createTempDirectory("hb-hmac-body-order");
         TokenManager tm = new TokenManager(dir, null);
