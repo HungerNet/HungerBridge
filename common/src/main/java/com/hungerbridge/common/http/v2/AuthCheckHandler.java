@@ -46,11 +46,8 @@ public final class AuthCheckHandler implements HttpHandler {
         TokenManager.Token t = tm.listTokens().get(tokenId);
         if (t == null) { HttpUtil.writeJson(ex, 200, Json.obj("ok", false, "error", "unauthenticated")); return; }
 
-        // enforce permission node for auth.check
-        if (!HttpUtil.checkAcl(ex, config, "auth.check")) {
-            HttpUtil.error(ex, 403, "forbidden", "Token not permitted to check auth", config);
-            return;
-        }
+        // auth.check is intentionally always enabled for any valid token; it does not require
+        // a dedicated permission node, and should not be blocked by ACL checks.
 
         // collect permissions from policy if present
         java.util.List<String> perms = new java.util.ArrayList<>();

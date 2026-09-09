@@ -133,26 +133,7 @@ public final class Config {
 
     private static void seedRuntimeConfigFromAutogen(Path runtimeConfigDir, Logger logger) throws IOException {
         Path autogenRoot = findAutogenTemplateDir();
-        boolean copiedAny = false;
-        java.util.List<String> created = new java.util.ArrayList<>();
-        java.util.List<String> existed = new java.util.ArrayList<>();
-
-        if (autogenRoot != null && Files.exists(autogenRoot)) {
-            for (String fileName : java.util.List.of("config.yaml", "policies.yaml")) {
-                Path source = autogenRoot.resolve(fileName);
-                Path target = runtimeConfigDir.resolve(fileName);
-                if (!Files.exists(source)) continue;
-                if (!Files.exists(target)) {
-                    Files.copy(source, target);
-                    created.add(fileName);
-                    copiedAny = true;
-                } else {
-                    existed.add(fileName);
-                }
-            }
-        }
-
-        if (!copiedAny && (autogenRoot == null || !Files.exists(autogenRoot))) {
+        if (autogenRoot == null || !Files.exists(autogenRoot)) {
             if (logger != null) {
                 logger.log("WARN", "No autogen/HungerBridge templates found; creating runtime defaults in the active config directory.");
             }
@@ -160,9 +141,20 @@ public final class Config {
             return;
         }
 
-        if (logger != null) {
-            if (!created.isEmpty()) logger.log("INFO", "Seeded runtime config from autogen/HungerBridge: " + String.join(", ", created));
-            if (!existed.isEmpty()) logger.log("INFO", "Runtime config already present: " + String.join(", ", existed));
+        java.util.List<String> copied = new java.util.ArrayList<>();
+        for (String fileName : java.util.List.of("config.yaml", "policies.yaml")) {
+            Path source = autogenRoot.resolve(fileName);
+            Path target = runtimeConfigDir.resolve(fileName);
+            if (!Files.exists(source)) continue;
+            if (Files.exists(target)) {
+                Files.delete(target);
+            }
+            Files.copy(source, target);
+            copied.add(fileName);
+        }
+
+        if (logger != null && !copied.isEmpty()) {
+            logger.log("INFO", "Copied runtime config from autogen/HungerBridge: " + String.join(", ", copied));
         }
     }
 
