@@ -13,23 +13,18 @@ public final class CommandMessages {
     public static final String SUBCOMMANDS = "Subcommands: reload, token";
     public static final String TOKENS_SUB = "Tokens Subcommands: list, create <tokenId> <policyId>, revoke <id>, remove <id>";
 
-    // ANSI color codes - always enabled for Minecraft/console commands per plan
-    public static final String ANSI_RESET = "\u001B[0m";
-    public static final String ANSI_RED = "\u001B[31m";
-    public static final String ANSI_GREEN = "\u001B[32m";
-    public static final String ANSI_YELLOW = "\u001B[33m";
-    public static final String ANSI_BOLD = "\u001B[1m";
+    // Formatting constants removed; platform controls log levels and formatting
 
     public static List<String> helpLines() {
         return List.of(USAGE, SUBCOMMANDS, TOKENS_SUB);
     }
 
     public static String createdToken(String id, String secret) {
-        return ANSI_GREEN + "Created token: " + id + ":" + secret + ANSI_RESET;
+        return "Created token: " + id + ":" + secret;
     }
 
     public static String rotatedToken(String id, String secret) {
-        return ANSI_GREEN + "Rotated token: " + id + ":" + secret + ANSI_RESET;
+        return "Rotated token: " + id + ":" + secret;
     }
 
     public static String info(String message) {
@@ -37,15 +32,15 @@ public final class CommandMessages {
     }
 
     public static String success(String message) {
-        return ANSI_GREEN + "Success: " + message + ANSI_RESET;
+        return message;
     }
 
     public static String warning(String message) {
-        return ANSI_YELLOW + "Warning: " + message + ANSI_RESET;
+        return message;
     }
 
     public static String error(String message) {
-        return ANSI_RED + "Error: " + message + ANSI_RESET;
+        return message;
     }
 
     // Format a map of key -> value into human-friendly lines. Nested maps are indented.
@@ -56,7 +51,7 @@ public final class CommandMessages {
             String k = e.getKey();
             Object v = e.getValue();
             if (v instanceof Map) {
-                out.add(ANSI_BOLD + k + ":" + ANSI_RESET);
+                out.add(k + ":");
                 Map<?, ?> sub = (Map<?, ?>) v;
                 for (Map.Entry<?, ?> se : sub.entrySet()) {
                     out.add("  " + String.valueOf(se.getKey()) + ": " + String.valueOf(se.getValue()));
@@ -138,7 +133,7 @@ public final class CommandMessages {
 
     // Single-line status formatter
     public static String formatStatus(String name, Object value) {
-        return ANSI_BOLD + name + ":" + ANSI_RESET + " " + String.valueOf(value);
+        return name + ": " + String.valueOf(value);
     }
 
     // Provide a short preview of JSON strings for human consumption.
