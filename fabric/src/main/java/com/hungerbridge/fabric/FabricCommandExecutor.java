@@ -92,8 +92,8 @@ public final class FabricCommandExecutor implements CommandExecutor {
     public Map<String, Integer> getWorldChunkCounts() {
         Map<String, Integer> counts = new HashMap<>();
         for (ServerLevel level : server.getAllLevels()) {
-            String key = normalizeWorldKey(level.dimension().location().toString());
-            counts.put(key, level.getChunkSource().getLoadedChunks());
+            String key = normalizeWorldKey(getDimensionKey(level));
+            counts.put(key, getLoadedChunkCount(level));
         }
         return counts;
     }
@@ -102,10 +102,65 @@ public final class FabricCommandExecutor implements CommandExecutor {
     public Map<String, Integer> getWorldEntityCounts() {
         Map<String, Integer> counts = new HashMap<>();
         for (ServerLevel level : server.getAllLevels()) {
-            String key = normalizeWorldKey(level.dimension().location().toString());
-            counts.put(key, level.getEntityCount());
+            String key = normalizeWorldKey(getDimensionKey(level));
+            counts.put(key, getEntityCount(level));
         }
         return counts;
+    }
+
+    private static String getDimensionKey(ServerLevel level) {
+        try {
+            Object dimension = level.dimension();
+            Object keyObj = dimension.getClass().getMethod("getRegistryKey").invoke(dimension);
+            try {
+                Object location = keyObj.getClass().getMethod("location").invoke(keyObj);
+                if (location != null) return location.toString();
+            } catch (ReflectiveOperationException ignored) {
+                // Some older Fabric mappings use different accessors.
+            }
+            return String.valueOf(keyObj);
+        } catch (ReflectiveOperationException ignored) {
+            return "minecraft:overworld";
+        }
+    }
+
+    private static int getLoadedChunkCount(ServerLevel level) {
+        try {
+            Object chunkSource = level.getChunkSource();
+            var method = chunkSource.getClass().getMethod("getLoadedChunks");
+            Object value = method.invoke(chunkSource);
+            if (value instanceof Number number) return number.intValue();
+        } catch (ReflectiveOperationException ignored) {
+            // Fall back to the server-chunk-cache map size for older Fabric mappings.
+        }
+        try {
+            Object chunkSource = level.getChunkSource();
+            Object chunkMap = chunkSource.getClass().getMethod("getChunkMap").invoke(chunkSource);
+            Object size = chunkMap.getClass().getMethod("size").invoke(chunkMap);
+            if (size instanceof Number number) return number.intValue();
+        } catch (ReflectiveOperationException ignored) {
+            // No chunk count available; return zero instead of crashing the API.
+        }
+        return 0;
+    }
+
+    private static int getEntityCount(ServerLevel level) {
+        try {
+            var method = level.getClass().getMethod("getEntityCount");
+            Object value = method.invoke(level);
+            if (value instanceof Number number) return number.intValue();
+        } catch (ReflectiveOperationException ignored) {
+            // Some Fabric versions expose entity counts through a different manager API.
+        }
+        try {
+            Object entityManager = level.getClass().getMethod("getEntityManager").invoke(level);
+            var method = entityManager.getClass().getMethod("getEntityCount");
+            Object value = method.invoke(entityManager);
+            if (value instanceof Number number) return number.intValue();
+        } catch (ReflectiveOperationException ignored) {
+            // Fall back to zero rather than breaking the HTTP API.
+        }
+        return 0;
     }
 
     private static String normalizeWorldKey(String worldKey) {
