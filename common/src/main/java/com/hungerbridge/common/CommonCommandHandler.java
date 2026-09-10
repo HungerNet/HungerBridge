@@ -68,8 +68,8 @@ public final class CommonCommandHandler {
                             if (res == null) { return out; }
                             // bind policy
                             tm.setTokenPolicyId(res.tokenId, policyId);
-                            // Do NOT print secret. Provide pickup URL.
-                            addSuccess(out, bridgeServer, "Token created. Retrieve it at: /pickup/" + res.pickupId);
+                            addSuccess(out, bridgeServer, "Pickup passkey: " + res.passkey);
+                            addSuccess(out, bridgeServer, "Token created. Retrieve it at: /pickup/" + res.pickupId + "?passkey=" + res.passkey);
                             return out;
                         }
                         case "revoke": {
