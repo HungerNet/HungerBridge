@@ -12,7 +12,7 @@ public final class FabricCommandRegistrar {
 
     public static void register(CommandDispatcher<net.minecraft.commands.CommandSourceStack> dispatcher, BridgeServer bridgeServer, String name) {
         var cmd = net.minecraft.commands.Commands.literal(name)
-            .requires(src -> src.hasPermissionLevel(4));
+            .requires(src -> src.getEntity() == null);
 
         cmd.executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[0]));
 

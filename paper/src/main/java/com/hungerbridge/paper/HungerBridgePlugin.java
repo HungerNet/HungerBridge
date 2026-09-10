@@ -71,7 +71,7 @@ public final class HungerBridgePlugin extends JavaPlugin {
         // NOTE: PaperServerInfoProvider exists but is NOT passed into BridgeServer anymore.
         PaperServerInfoProvider infoProvider = new PaperServerInfoProvider(getServer());
 
-        bridgeServer = new BridgeServer(configDir, config, logger, executor, () -> {
+            bridgeServer = new BridgeServer(configDir, config, logger, executor, () -> {
             if (getServer() != null) {
                 Bukkit.shutdown();
             }
