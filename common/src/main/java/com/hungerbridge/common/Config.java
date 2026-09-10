@@ -169,9 +169,8 @@ public final class Config {
 
         if (!anyResourceFound) {
             if (logger != null) {
-                logger.log("WARN", "No bundled autogen templates found in the JAR; creating runtime defaults in the active config directory.");
+                logger.log("WARN", "No bundled autogen templates found in the JAR; HungerBridge will not generate runtime config. Operators must provide config/HungerBridge files or include autogen templates in the plugin JAR.");
             }
-            com.hungerbridge.common.config.RuntimeConfigSeeder.seed(runtimeConfigDir);
         }
     }
 
