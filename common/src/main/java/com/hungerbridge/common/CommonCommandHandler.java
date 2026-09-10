@@ -150,6 +150,18 @@ public final class CommonCommandHandler {
             Object entity = getEntity.invoke(source);
             return entity == null;
         } catch (Exception ignored) {
+            // Attempt a Bukkit console equality check via reflection so we work with
+            // different server wrappers without a direct Bukkit dependency.
+            try {
+                Class<?> bukkit = Class.forName("org.bukkit.Bukkit");
+                Object server = bukkit.getMethod("getServer").invoke(null);
+                if (server != null) {
+                    Object consoleSender = server.getClass().getMethod("getConsoleSender").invoke(server);
+                    if (consoleSender != null && consoleSender.equals(source)) return true;
+                }
+            } catch (Exception ignored2) {
+                // ignore — no Bukkit available or reflection failed
+            }
             return false;
         }
     }

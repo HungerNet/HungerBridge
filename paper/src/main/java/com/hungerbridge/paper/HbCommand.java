@@ -40,6 +40,11 @@ public final class HbCommand implements CommandExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!com.hungerbridge.common.CommonCommandHandler.isConsoleSource(sender)) {
+            try {
+                if (bridgeServer != null && bridgeServer.getLogger() != null) {
+                    bridgeServer.getLogger().log("INFO", "Rejected non-console sender: " + sender.getClass().getName());
+                }
+            } catch (Exception ignored) {}
             sender.sendMessage(style("Error: console only"));
             return true;
         }
