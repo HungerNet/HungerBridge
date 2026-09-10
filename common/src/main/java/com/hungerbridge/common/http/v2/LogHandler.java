@@ -65,7 +65,9 @@ public final class LogHandler implements HttpHandler {
 
         if (!HttpUtil.rateLimit(ex, config, "server.log")) return;
 
-        logger.log(level.toUpperCase(), thread, msg);
+        if (logger != null) {
+            logger.log(level == null ? "INFO" : level.trim(), thread, msg);
+        }
         HttpUtil.writeJson(ex, 200, Json.obj("ok", true));
     }
 }

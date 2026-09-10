@@ -93,12 +93,14 @@ client.stopServer()   # stops the Minecraft server; does not stop the HTTP bridg
 `/server/log` — emit bridge log
 
 ```bash
-curl -sS -X POST http://localhost:1913/server/log -H "Content-Type: application/json" -d '{"level":"info","message":"hello"}'
+curl -sS -X POST http://localhost:1913/server/log -H "Content-Type: application/json" -d '{"level":"BRIDGE","thread":"bridge-thread","message":"hello"}'
 ```
 
 ```python
-client.log('hello', level='info')  # returns ok boolean
+client.log('hello', level='BRIDGE', thread='bridge-thread')
 ```
+
+The `level` field accepts any string, including builtins such as `INFO`, `WARN`, `ERROR`, `DEBUG`, and `TRACE`, and custom levels such as `BRIDGE`. The server resolves each level to a real Log4J2 level, creating a dynamic level when needed with a priority above `INFO`. The optional `thread` field is used as log metadata in the emitted event, but does not rename the JVM thread itself.
 
 `/server/stream` — SSE log stream
 
@@ -142,19 +144,29 @@ curl -sS http://localhost:1913/system/cpu
 client.getSystemCpu('usage')    # e.g. 'usage', 'cores', etc.
 ```
 
-`/system/memory` — heap + non-heap memory metrics
+`/system/memory` — heap, JVM, and process memory metrics
 
 ```bash
 curl -sS http://localhost:1913/system/memory
 ```
 
 ```python
-client.getMemoryStats()['used']
+client.getMemoryStats()['heap_used']
 ```
 
 Response fields:
-- `used_bytes`, `total_bytes`, `free_bytes`, `max_bytes`
-- `nonheap_used`, `nonheap_committed`, `nonheap_max`
+- `heap_used_bytes`, `heap_committed_bytes`, `heap_max_bytes`
+- `nonheap_used_bytes`, `nonheap_committed_bytes`, `nonheap_max_bytes` (may be `null` when unbounded)
+- `jvm_used_bytes`, `jvm_committed_bytes`, `jvm_max_bytes`
+- `process_used_bytes`, `process_virtual_bytes`
+- legacy compatibility aliases: `used_bytes`, `total_bytes`, `free_bytes`, `max_bytes`
+
+Semantics:
+- `jvm_used_bytes = heap_used_bytes + nonheap_used_bytes`
+- `jvm_committed_bytes = heap_committed_bytes + nonheap_committed_bytes`
+- `jvm_max_bytes = heap_max_bytes + nonheap_max_bytes` unless `nonheap_max_bytes` is unbounded (`null` / `-1`), in which case it falls back to the heap max.
+- `nonheap_max_bytes` is reported as `null` when the JVM exposes it as unbounded (`-1`).
+- `process_used_bytes` and `process_virtual_bytes` are process-level values from the OS provider: Linux reads `/proc/self/status` or `/proc/self/statm`, Windows/macOS use JNA-backed OS APIs when available, and unsupported/failing providers return `0`.
 
 `/system/gc` — GC statistics
 
@@ -204,15 +216,22 @@ Response fields:
 - `total_bytes_in`
 - `total_bytes_out`
 
-`/system/disk` — disk metrics
+`/system/disk` — disk metrics for the server working directory only
 
 ```bash
 curl -sS http://localhost:1913/system/disk
 ```
 
 ```python
-client.getSystemDisk('total')
+client.getDiskStats()['total']
 ```
+
+This endpoint uses `new File(".")` and reports:
+- `total_bytes` = current working directory total space
+- `free_bytes` = current working directory free space
+- `usable_bytes` = current working directory usable space
+- `used_bytes` = `total_bytes - free_bytes`
+It does not inspect the host root filesystem.
 
 `/world/tps` — tick performance
 

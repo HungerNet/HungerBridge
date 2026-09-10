@@ -38,6 +38,7 @@ public final class HungerBridgePlugin extends JavaPlugin {
                 }
                 org.apache.logging.log4j.Logger raw = org.apache.logging.log4j.LogManager.getLogger("HungerBridge");
                 String resolved = level == null ? "INFO" : level.trim();
+                if (resolved.isEmpty()) resolved = "INFO";
                 org.apache.logging.log4j.Level lvl = org.apache.logging.log4j.Level.getLevel(resolved.toUpperCase());
                 if (lvl == null) {
                     try {

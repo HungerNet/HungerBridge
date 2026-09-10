@@ -37,22 +37,52 @@ public final class SystemMemoryHandler implements HttpHandler {
 
         var heap = java.lang.management.ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
         var nonHeap = java.lang.management.ManagementFactory.getMemoryMXBean().getNonHeapMemoryUsage();
-        long used = heap.getUsed();
-        long total = heap.getCommitted();
-        long max = heap.getMax();
-        long free = Math.max(0L, total - used);
-        long nonheapUsed = nonHeap.getUsed();
-        long nonheapCommitted = nonHeap.getCommitted();
-        long nonheapMax = nonHeap.getMax();
+
+        long heapUsed = Math.max(0L, heap.getUsed());
+        long heapCommitted = Math.max(0L, heap.getCommitted());
+        long heapMax = Math.max(0L, heap.getMax());
+        long heapFree = Math.max(0L, heapCommitted - heapUsed);
+
+        long nonheapUsed = Math.max(0L, nonHeap.getUsed());
+        long nonheapCommitted = Math.max(0L, nonHeap.getCommitted());
+        long nonheapMaxRaw = nonHeap.getMax();
+        Long nonheapMax = nonheapMaxRaw >= 0L ? Math.max(0L, nonheapMaxRaw) : null;
+
+        long jvmUsed = heapUsed + nonheapUsed;
+        long jvmCommitted = heapCommitted + nonheapCommitted;
+        long jvmMax = heapMax + (nonheapMax == null ? 0L : nonheapMax);
+        if (nonheapMax == null) {
+            jvmMax = heapMax;
+        }
+
+        long processUsed = 0L;
+        long processVirtual = 0L;
+        try {
+            var provider = com.hungerbridge.common.ProcessMemoryProviderFactory.create();
+            processUsed = Math.max(0L, provider.getProcessUsedBytes());
+            processVirtual = Math.max(0L, provider.getProcessVirtualBytes());
+        } catch (Exception ignored) {
+            processUsed = 0L;
+            processVirtual = 0L;
+        }
+
         JsonObject resp = Json.obj(
                 "ok", true,
-                "used_bytes", used,
-                "total_bytes", total,
-                "free_bytes", free,
-                "max_bytes", max,
-                "nonheap_used", nonheapUsed,
-                "nonheap_committed", nonheapCommitted,
-                "nonheap_max", nonheapMax
+                "heap_used_bytes", heapUsed,
+                "heap_committed_bytes", heapCommitted,
+                "heap_max_bytes", heapMax,
+                "nonheap_used_bytes", nonheapUsed,
+                "nonheap_committed_bytes", nonheapCommitted,
+                "nonheap_max_bytes", nonheapMax,
+                "jvm_used_bytes", jvmUsed,
+                "jvm_committed_bytes", jvmCommitted,
+                "jvm_max_bytes", jvmMax,
+                "process_used_bytes", processUsed,
+                "process_virtual_bytes", processVirtual,
+                "used_bytes", heapUsed,
+                "total_bytes", heapCommitted,
+                "free_bytes", heapFree,
+                "max_bytes", heapMax
         );
         HttpUtil.writeJson(ex, 200, resp);
     }
