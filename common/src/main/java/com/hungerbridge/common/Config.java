@@ -81,10 +81,10 @@ public final class Config {
                 }
             } catch (Exception ignored) {}
 
-            // Seed the platform config directory from the checked-in autogen templates.
-            // This keeps runtime config generation centralized in autogen/HungerBridge and
-            // prevents stray repo-level config/ folders from being treated as live state.
-            seedRuntimeConfigFromAutogen(configDir, logger);
+                    // Seed the platform config directory from autogen templates bundled in the
+                    // plugin JAR. Templates are used only to create missing runtime files;
+                    // existing operator-modified runtime config is never overwritten.
+                    seedRuntimeConfigFromAutogen(configDir, logger);
 
             // Load config.yaml
             Yaml yaml = new Yaml();
@@ -139,71 +139,40 @@ public final class Config {
     public com.hungerbridge.common.TokensConfig getTokensConfig() { return tokensConfig; }
 
     private static void seedRuntimeConfigFromAutogen(Path runtimeConfigDir, Logger logger) throws IOException {
-        Path autogenRoot = findAutogenTemplateDir();
-        if (autogenRoot == null || !Files.exists(autogenRoot)) {
-            if (logger != null) {
-                logger.log("WARN", "No autogen/HungerBridge templates found; creating runtime defaults in the active config directory.");
-            }
-            com.hungerbridge.common.config.RuntimeConfigSeeder.seed(runtimeConfigDir);
-            return;
-        }
-
         java.util.List<String> copied = new java.util.ArrayList<>();
+
+        // Load templates from the plugin JAR only. Use classpath resources under
+        // /autogen/*. If no bundled templates are found, fall back to the programmatic
+        // RuntimeConfigSeeder to create sensible defaults.
+        boolean anyResourceFound = false;
         for (String fileName : java.util.List.of("config.yaml", "policies.yaml")) {
-            Path source = autogenRoot.resolve(fileName);
+            String resourcePath = "/autogen/" + fileName;
+            java.net.URL resUrl = Config.class.getResource(resourcePath);
+            if (resUrl == null) continue;
+            anyResourceFound = true;
+
             Path target = runtimeConfigDir.resolve(fileName);
-            if (!Files.exists(source)) continue;
             if (Files.exists(target)) {
+                // Do not overwrite operator-managed runtime config
                 continue;
             }
-            Files.copy(source, target);
-            copied.add(fileName);
+
+            try (InputStream in = resUrl.openStream()) {
+                Files.copy(in, target);
+                copied.add(fileName);
+            }
         }
 
         if (logger != null && !copied.isEmpty()) {
-            logger.log("INFO", "Copied runtime config from autogen/HungerBridge: " + String.join(", ", copied));
+            logger.log("INFO", "Copied runtime config from bundled autogen templates: " + String.join(", ", copied));
         }
-    }
 
-    private static Path findAutogenTemplateDir() {
-        java.util.List<Path> candidates = new java.util.ArrayList<>();
-        Path userDir = Path.of(System.getProperty("user.dir", "")).toAbsolutePath();
-        Path parent = userDir.getParent();
-
-        candidates.add(userDir.resolve("autogen").resolve("HungerBridge"));
-        candidates.add(userDir.resolve("HungerBridge").resolve("autogen").resolve("HungerBridge"));
-        if (parent != null) {
-            candidates.add(parent.resolve("HungerBridge").resolve("autogen").resolve("HungerBridge"));
-            candidates.add(parent.resolve("autogen").resolve("HungerBridge"));
-        }
-        candidates.add(Path.of(".").toAbsolutePath().resolve("autogen").resolve("HungerBridge"));
-
-        // Also attempt to locate autogen relative to the code location (useful when
-        // the JVM working directory is not the project root, e.g. when running from
-        // a container or a different process cwd).
-        try {
-            java.net.URI codeUri = Config.class.getProtectionDomain().getCodeSource().getLocation().toURI();
-            Path codeLoc = Path.of(codeUri).toAbsolutePath();
-            Path cur = codeLoc;
-            for (int i = 0; i < 6 && cur != null; i++) {
-                Path candidate = cur.resolve("autogen").resolve("HungerBridge");
-                candidates.add(candidate);
-                cur = cur.getParent();
+        if (!anyResourceFound) {
+            if (logger != null) {
+                logger.log("WARN", "No bundled autogen templates found in the JAR; creating runtime defaults in the active config directory.");
             }
-        } catch (Exception ignored) {}
-
-        // Common repo layout fallback
-        try {
-            candidates.add(Path.of("/home/container/HungerBridge").resolve("autogen").resolve("HungerBridge"));
-        } catch (Exception ignored) {}
-
-        for (Path candidate : candidates) {
-            if (Files.exists(candidate) && Files.isDirectory(candidate)) {
-                return candidate;
-            }
+            com.hungerbridge.common.config.RuntimeConfigSeeder.seed(runtimeConfigDir);
         }
-
-        return null;
     }
 
 }

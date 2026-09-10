@@ -27,6 +27,12 @@ HungerBridge works identically on:
 
 Generated automatically on first run.
 
+Autogen templates are bundled inside the plugin JAR and are used only to create
+missing runtime files on first startup. Existing runtime configuration (for
+example `config.yaml` or `policies.yaml`) is never overwritten by the server
+on restart — operators should edit the live files in the `config` directory
+directly to make persistent changes.
+
 ```yaml
 port: 1913
 
