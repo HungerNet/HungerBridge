@@ -69,18 +69,33 @@ public final class LogDistributor {
             return;
         }
 
-        // record in history
+        // sanitize line for broadcasting (remove any pickup/passkey secrets)
+        String sanitized = sanitizeForBroadcast(line);
+
+        // record sanitized line in history
         synchronized (history) {
-            history.addLast(line);
+            history.addLast(sanitized);
             if (history.size() > HISTORY_MAX) {
                 history.removeFirst();
             }
         }
 
-        String payload = "data:" + escapeSse(line) + "\n\n";
+        String payload = "data:" + escapeSse(sanitized) + "\n\n";
         for (StreamConnection client : clients) {
             client.write(payload);
         }
+    }
+
+    private static String sanitizeForBroadcast(String line) {
+        if (line == null) return null;
+        String out = line;
+        // redact explicit pickup passkeys: "Pickup passkey: <hex>"
+        out = out.replaceAll("(?i)(Pickup passkey:\\s*)([0-9a-fA-F]+)", "$1[REDACTED]");
+        // redact pickup URL passkey query parameter: "/pickup/<id>?passkey=<hex>"
+        out = out.replaceAll("(?i)(/pickup/[^\\s\\?]+\\?passkey=)([0-9a-fA-F]+)", "$1[REDACTED]");
+        // redact any occurrence of "passkey=" query values
+        out = out.replaceAll("(?i)(passkey=)([0-9a-fA-F]+)", "$1[REDACTED]");
+        return out;
     }
 
     public void close() {
