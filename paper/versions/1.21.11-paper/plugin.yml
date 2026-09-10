@@ -1,15 +1,25 @@
 name: HungerBridge
-version: ${version}
-main: com.hungerbridge.paper.HungerBridgePlugin
-api-version: 1.21
-author: iFamished
 description: Multiloader HTTP bridge for Paper and Fabric.
+author: iFamished
+website: https://modrinth.com/project/hungerbridge
+
+main: com.hungerbridge.paper.HungerBridgePlugin
+version: ${version}
+api-version: 1.21.11
+
+load: STARTUP
+prefix: HungerBridge
+
 commands:
   hungerbridge:
-    permission: hungerbridge.admin
-    description: HungerBridge admin command
-    usage: /hungerbridge
+    description: HungerBridge commands
+    usage: /hungerbridge <child> <args>
     aliases: [hb]
+    permission: hungerbridge.admin
+    permission-message: You do not have permission to use this command
+
 permissions:
   hungerbridge.admin:
     default: op
+
+default-permission: op
