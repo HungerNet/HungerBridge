@@ -9,6 +9,10 @@ import java.util.Map;
 public final class CommonCommandHandler {
 
     public static List<String> handle(BridgeServer bridgeServer, String[] args) {
+        return handle(bridgeServer, null, args);
+    }
+
+    public static List<String> handle(BridgeServer bridgeServer, Object source, String[] args) {
         List<String> out = new ArrayList<>();
         // Admin CLI commands removed (HTTP /admin/* endpoints have been removed).
 
@@ -105,6 +109,42 @@ public final class CommonCommandHandler {
         }
 
         return out;
+    }
+
+    public static boolean isConsoleSource(Object source) {
+        if (source == null) {
+            return false;
+        }
+
+        String typeName = source.getClass().getName();
+        String lower = typeName.toLowerCase();
+        if (lower.contains("console") || lower.contains("dedicatedserver") || lower.contains("commandsourcestack") || lower.contains("servercommandsource")) {
+            try {
+                java.lang.reflect.Method getEntity = source.getClass().getMethod("getEntity");
+                Object entity = getEntity.invoke(source);
+                return entity == null;
+            } catch (Exception ignored) {
+                return true;
+            }
+        }
+
+        try {
+            java.lang.reflect.Method getEntity = source.getClass().getMethod("getEntity");
+            Object entity = getEntity.invoke(source);
+            return entity == null;
+        } catch (Exception ignored) {
+            try {
+                Class<?> bukkit = Class.forName("org.bukkit.Bukkit");
+                Object server = bukkit.getMethod("getServer").invoke(null);
+                if (server != null) {
+                    Object consoleSender = server.getClass().getMethod("getConsoleSender").invoke(server);
+                    if (consoleSender != null && consoleSender.equals(source)) return true;
+                }
+            } catch (Exception ignored2) {
+                // ignore
+            }
+            return false;
+        }
     }
 
     private static void addError(List<String> out, BridgeServer bridgeServer, String message) {

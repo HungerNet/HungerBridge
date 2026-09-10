@@ -68,7 +68,7 @@ public final class FabricCommandRegistrar {
     }
 
     private static int runHandler(BridgeServer bridgeServer, net.minecraft.commands.CommandSourceStack source, String[] args) {
-        java.util.List<String> lines = CommonCommandHandler.handle(bridgeServer, args);
+        java.util.List<String> lines = CommonCommandHandler.handle(bridgeServer, source, args);
         for (String line : lines) {
             ChatFormatting style = styleFor(line);
             String prev = Thread.currentThread().getName();
