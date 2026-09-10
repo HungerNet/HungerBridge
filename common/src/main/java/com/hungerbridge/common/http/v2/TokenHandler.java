@@ -80,7 +80,7 @@ public final class TokenHandler implements HttpHandler {
 
             TokenManager.IssueResult res = tm.issueTokenWithPickup(tokenId, permissions, 300);
             if (res == null) { HttpUtil.error(ex, 500, "create_failed", "failed to create token", config); return; }
-            TokenManager.PickupRecord pr = tm.consumePickup(res.pickupId);
+            TokenManager.PickupRecord pr = tm.consumePickup(res.pickupId, res.passkey);
             if (pr == null) { HttpUtil.error(ex, 500, "create_failed", "failed to retrieve token secret", config); return; }
             JsonObject resp = Json.obj(
                 "ok", true,

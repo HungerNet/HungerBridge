@@ -11,7 +11,7 @@ public final class RuntimeConfigSeeder {
         Files.createDirectories(runtimeConfigDir);
         ensureDirectoryPermissions(runtimeConfigDir);
         writeIfMissing(runtimeConfigDir.resolve("config.yaml"), "# HungerBridge core configuration.\n#\n# port:\n#   TCP port that the HungerBridge HTTP server listens on. Default 1913.\n# players.max-list:\n#   Maximum number of player entries returned by the /players endpoint. This\n#   is a safety bound so very large server populations do not overwhelm clients.\n\nport: 1913\n\nplayers:\n  max-list: 50\n");
-        writeIfMissing(runtimeConfigDir.resolve("policies.yaml"), "policies:\n  - id: admin\n    permissions:\n      - '*'\n");
+        writeIfMissing(runtimeConfigDir.resolve("policies.yaml"), "# Example least-privilege policy set.\n# Add '*' explicitly only when you intentionally want full access.\npolicies:\n  - id: default\n    permissions:\n      - 'server.info'\n      - 'player.list'\n      - 'world.read'\n");
     }
 
     private static void writeIfMissing(Path path, String content) throws IOException {

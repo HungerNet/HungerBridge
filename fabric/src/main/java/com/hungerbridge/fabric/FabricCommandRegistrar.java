@@ -11,7 +11,8 @@ import net.minecraft.network.chat.Component;
 public final class FabricCommandRegistrar {
 
     public static void register(CommandDispatcher<net.minecraft.commands.CommandSourceStack> dispatcher, BridgeServer bridgeServer, String name) {
-        var cmd = net.minecraft.commands.Commands.literal(name);
+        var cmd = net.minecraft.commands.Commands.literal(name)
+            .requires(src -> src.hasPermissionLevel(4));
 
         cmd.executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[0]));
 
@@ -68,7 +69,7 @@ public final class FabricCommandRegistrar {
     }
 
     private static int runHandler(BridgeServer bridgeServer, net.minecraft.commands.CommandSourceStack source, String[] args) {
-        java.util.List<String> lines = CommonCommandHandler.handle(bridgeServer, args);
+        java.util.List<String> lines = CommonCommandHandler.handle(bridgeServer, source, args);
         for (String line : lines) {
             ChatFormatting style = styleFor(line);
             String prev = Thread.currentThread().getName();

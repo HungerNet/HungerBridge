@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.hungerbridge.common.PolicySemanticsTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-09-08T03:51:13.958Z" hostname="bdce08eb-e372-4c24-8232-f7728e03ea13" time="0.021">
+<testsuite name="com.hungerbridge.common.PolicySemanticsTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-09-10T13:04:56.185Z" hostname="bdce08eb-e372-4c24-8232-f7728e03ea13" time="0.157">
   <properties/>
-  <testcase name="wildcardPermissionMatchesNewPermissionModel()" classname="com.hungerbridge.common.PolicySemanticsTest" time="0.001"/>
-  <testcase name="emptyPermissionsPolicyDeniesAllActions()" classname="com.hungerbridge.common.PolicySemanticsTest" time="0.006"/>
-  <testcase name="jsonBodyFieldOrderDoesNotAffectHmacVerification()" classname="com.hungerbridge.common.PolicySemanticsTest" time="0.013"/>
+  <testcase name="tokenPermissionsAreMergedWithPolicyPermissions()" classname="com.hungerbridge.common.PolicySemanticsTest" time="0.077"/>
+  <testcase name="wildcardPermissionMatchesNewPermissionModel()" classname="com.hungerbridge.common.PolicySemanticsTest" time="0.0"/>
+  <testcase name="emptyPermissionsPolicyDeniesAllActions()" classname="com.hungerbridge.common.PolicySemanticsTest" time="0.016"/>
+  <testcase name="jsonBodyFieldOrderDoesNotAffectHmacVerification()" classname="com.hungerbridge.common.PolicySemanticsTest" time="0.044"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>

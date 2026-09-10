@@ -9,6 +9,10 @@ import java.util.Map;
 public final class CommonCommandHandler {
 
     public static List<String> handle(BridgeServer bridgeServer, String[] args) {
+        return handle(bridgeServer, null, args);
+    }
+
+    public static List<String> handle(BridgeServer bridgeServer, Object source, String[] args) {
         List<String> out = new ArrayList<>();
         // Admin CLI commands removed (HTTP /admin/* endpoints have been removed).
 
@@ -27,6 +31,10 @@ public final class CommonCommandHandler {
             switch (args[0].toLowerCase()) {
                 case "reload": {
                     if (bridgeServer == null) { addError(out, bridgeServer, "Server unavailable."); return out; }
+                    if (!isConsoleSource(source)) {
+                        addError(out, bridgeServer, "console only");
+                        return out;
+                    }
                     boolean ok = bridgeServer.reloadConfig();
                     if (ok) addSuccess(out, bridgeServer, "Reloaded config from disk."); else addError(out, bridgeServer, "Reload failed.");
                     return out;
@@ -59,18 +67,26 @@ public final class CommonCommandHandler {
                             String policyId = args[3];
                             com.hungerbridge.common.TokensConfig tc = cfg != null ? cfg.getTokensConfig() : null;
                             if (tc != null && !tc.hasPolicy(policyId)) { addError(out, bridgeServer, "Unknown policy id: " + policyId); return out; }
+                            if (!isConsoleSource(source)) {
+                                addError(out, bridgeServer, "console only");
+                                return out;
+                            }
 
                             TokenManager.IssueResult res = tm.issueTokenWithPickup(tokenId, null, 300);
                             if (res == null) { return out; }
                             // bind policy
                             tm.setTokenPolicyId(res.tokenId, policyId);
-                            // Do NOT print secret. Provide pickup URL.
-                            addSuccess(out, bridgeServer, "Token created. Retrieve it at: /pickup/" + res.pickupId);
+                            addSuccess(out, bridgeServer, "Pickup passkey: " + res.passkey);
+                            addSuccess(out, bridgeServer, "Token created. Retrieve it at: /pickup/" + res.pickupId + "?passkey=" + res.passkey);
                             return out;
                         }
                         case "revoke": {
                             if (args.length < 3) { addError(out, bridgeServer, "Usage: token revoke <id>"); return out; }
                             if (tm == null) { addError(out, bridgeServer, "Token manager unavailable."); return out; }
+                            if (!isConsoleSource(source)) {
+                                addError(out, bridgeServer, "console only");
+                                return out;
+                            }
                             boolean ok = tm.revokeToken(args[2]);
                             if (!ok) { addError(out, bridgeServer, "Token not found: " + args[2]); return out; }
                             addSuccess(out, bridgeServer, "Revoked token: " + args[2]);
@@ -79,6 +95,10 @@ public final class CommonCommandHandler {
                         case "remove": {
                             if (args.length < 3) { addError(out, bridgeServer, "Usage: token remove <id>"); return out; }
                             if (tm == null) { addError(out, bridgeServer, "Token manager unavailable."); return out; }
+                            if (!isConsoleSource(source)) {
+                                addError(out, bridgeServer, "console only");
+                                return out;
+                            }
                             boolean ok = tm.removeToken(args[2]);
                             if (!ok) { addError(out, bridgeServer, "Token not found: " + args[2]); return out; }
                             addSuccess(out, bridgeServer, "Removed token: " + args[2]);
@@ -105,6 +125,23 @@ public final class CommonCommandHandler {
         }
 
         return out;
+    }
+
+    private static boolean isConsoleSource(Object source) {
+        if (source == null) {
+            return false;
+        }
+        String typeName = source.getClass().getName();
+        if (typeName.contains("ConsoleCommandSender") || typeName.contains("DedicatedServer") || typeName.contains("CommandSourceStack")) {
+            try {
+                java.lang.reflect.Method getEntity = source.getClass().getMethod("getEntity");
+                Object entity = getEntity.invoke(source);
+                return entity == null;
+            } catch (Exception ignored) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void addError(List<String> out, BridgeServer bridgeServer, String message) {

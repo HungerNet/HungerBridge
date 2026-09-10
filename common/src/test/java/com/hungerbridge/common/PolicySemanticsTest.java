@@ -19,7 +19,7 @@ public final class PolicySemanticsTest {
         Files.writeString(dir.resolve("config.yaml"), "port: 1913\n");
         Files.writeString(dir.resolve("policies.yaml"), "policies:\n  - id: locked\n    permissions: []\n");
 
-        Config config = Config.load(dir, (l, m) -> {});
+        Config config = Config.load(dir, (level, thread, message) -> {});
         TokenManager tm = new TokenManager(dir, null);
         config.setTokenManager(tm);
 
@@ -49,12 +49,12 @@ public final class PolicySemanticsTest {
     }
 
     @Test
-    public void tokenPermissionsAreMergedWithPolicyPermissions() {
+    public void tokenPermissionsAreMergedWithPolicyPermissions() throws IOException {
         Path dir = Files.createTempDirectory("hb-policy-merge");
         Files.writeString(dir.resolve("config.yaml"), "port: 1913\n");
         Files.writeString(dir.resolve("policies.yaml"), "policies:\n  - id: admin\n    permissions:\n      - '*'\n");
 
-        Config config = Config.load(dir, (l, m) -> {});
+        Config config = Config.load(dir, (level, thread, message) -> {});
         TokenManager.Token token = new TokenManager.Token();
         token.policyId = "admin";
         token.permissions = List.of("auth.check");
@@ -70,7 +70,7 @@ public final class PolicySemanticsTest {
         Path dir = Files.createTempDirectory("hb-hmac-body-order");
         TokenManager tm = new TokenManager(dir, null);
         TokenManager.IssueResult res = tm.issueTokenWithPickup("body-order", 0, null, 300);
-        var pickup = tm.consumePickup(res.pickupId);
+        var pickup = tm.consumePickup(res.pickupId, res.passkey);
         assertNotNull(pickup);
 
         String bodyCanonical = "{\"level\":\"info\",\"message\":\"hello\"}";

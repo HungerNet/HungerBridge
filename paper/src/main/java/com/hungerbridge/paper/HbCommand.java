@@ -38,7 +38,10 @@ public final class HbCommand implements CommandExecutor {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        // Admin CLI removed; delegate to common handler which no longer depends on AdminService.
+        if (!sender.hasPermission("hungerbridge.admin")) {
+            sender.sendMessage("You do not have permission to use this command");
+            return true;
+        }
         if (args.length == 0) {
             send(sender, CommandMessages.HEADER);
             send(sender, "Use '/hungerbridge help' for more details or '/hungerbridge token' for the token subcommands.");
@@ -48,7 +51,7 @@ public final class HbCommand implements CommandExecutor {
             for (String l : CommandMessages.helpLines()) send(sender, l);
             return true;
         }
-        List<String> lines = CommonCommandHandler.handle(bridgeServer, args);
+        List<String> lines = CommonCommandHandler.handle(bridgeServer, sender, args);
         for (String l : lines) send(sender, l);
         return true;
     }

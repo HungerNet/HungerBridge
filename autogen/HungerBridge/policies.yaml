@@ -1,4 +1,7 @@
+# Operators who want unrestricted access must add "*" explicitly.
 policies:
-  - id: admin
+  - id: default
     permissions:
-      - "*"
+      - "server.info"
+      - "player.list"
+      - "world.read"

@@ -154,7 +154,7 @@ public final class Config {
             Path target = runtimeConfigDir.resolve(fileName);
             if (!Files.exists(source)) continue;
             if (Files.exists(target)) {
-                Files.delete(target);
+                continue;
             }
             Files.copy(source, target);
             copied.add(fileName);

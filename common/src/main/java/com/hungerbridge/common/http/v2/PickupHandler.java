@@ -25,8 +25,6 @@ public final class PickupHandler implements HttpHandler {
             return;
         }
 
-        // rate limiting removed; pickup endpoint always allowed
-
         String path = ex.getRequestURI().getPath();
         String[] parts = path.split("/");
         if (parts.length < 3) {
@@ -34,6 +32,23 @@ public final class PickupHandler implements HttpHandler {
             return;
         }
         String pickupId = parts[parts.length - 1];
+        String passkey = null;
+        String query = ex.getRequestURI().getRawQuery();
+        if (query != null && !query.isBlank()) {
+            for (String part : query.split("&")) {
+                int eq = part.indexOf('=');
+                String key = eq >= 0 ? part.substring(0, eq) : part;
+                String val = eq >= 0 ? part.substring(eq + 1) : "";
+                if ("passkey".equalsIgnoreCase(key)) {
+                    passkey = val;
+                    break;
+                }
+            }
+        }
+        if (passkey == null || passkey.isBlank()) {
+            HttpUtil.error(ex, 401, "unauthorized", "Pickup passkey required", config);
+            return;
+        }
 
         TokenManager tm = config.getTokenManager();
         if (tm == null) {
@@ -41,9 +56,9 @@ public final class PickupHandler implements HttpHandler {
             return;
         }
 
-        TokenManager.PickupRecord pr = tm.consumePickup(pickupId);
+        TokenManager.PickupRecord pr = tm.consumePickup(pickupId, passkey);
         if (pr == null) {
-            HttpUtil.error(ex, 404, "not_found", "Pickup not found or expired", config);
+            HttpUtil.error(ex, 404, "not_found", "Pickup not found, expired, or invalid passkey", config);
             return;
         }
 
@@ -53,7 +68,6 @@ public final class PickupHandler implements HttpHandler {
                 "token_id", pr.tokenId,
                 "token_secret", pr.secret
         );
-        // pickups are single-use and returned directly; auditing removed
         HttpUtil.writeJson(ex, 200, resp);
     }
 }

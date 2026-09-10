@@ -248,6 +248,11 @@ public final class TokenManager {
     }
 
     private static Path findAutogenStorageDir(Path configDir) {
+        if (configDir != null) {
+            try {
+                return configDir.resolve("storage");
+            } catch (Exception ignored) {}
+        }
         // Prefer an autogen/HungerBridge directory near the repository root.
         try {
             Path userDir = Path.of(System.getProperty("user.dir", "")).toAbsolutePath();
@@ -356,6 +361,7 @@ public final class TokenManager {
     // pickups: temporary records storing plaintext secrets until consumed or expired
     public static final class PickupRecord {
         public String pickupId;
+        public String passkey;
         public String tokenId;
         public String secret; // plaintext, short-lived
         public long expiresAt;
@@ -527,6 +533,7 @@ public final class TokenManager {
         public java.util.List<String> permissions = new java.util.ArrayList<>();
         public String policyId;
         public long createdAt = 0L;
+        public long expiry = 0L;
     }
 
     public Token createToken(String id, List<String> permissions) {
@@ -618,8 +625,10 @@ public final class TokenManager {
         byte[] key = deriveTokenKey(t.id, t.salt);
         String secret = bytesToHex(key);
         String pickupId = java.util.UUID.randomUUID().toString();
+        String passkey = generatePickupPasskey();
         PickupRecord pr = new PickupRecord();
         pr.pickupId = pickupId;
+        pr.passkey = passkey;
         pr.tokenId = t.id;
         pr.secret = secret;
         pr.expiresAt = Instant.now().getEpochSecond() + Math.max(60, pickupTtlSeconds);
@@ -627,6 +636,7 @@ public final class TokenManager {
         persistPickups();
         IssueResult r = new IssueResult();
         r.pickupId = pickupId;
+        r.passkey = passkey;
         r.tokenId = t.id;
         return r;
     }
@@ -685,7 +695,14 @@ public final class TokenManager {
     // Returns pickupId (UUID string) or null on failure.
     public static final class IssueResult {
         public String pickupId;
+        public String passkey;
         public String tokenId;
+    }
+
+    private static String generatePickupPasskey() {
+        byte[] bytes = new byte[32];
+        new java.security.SecureRandom().nextBytes(bytes);
+        return bytesToHex(bytes);
     }
 
     public synchronized IssueResult issueTokenWithPickup(String id, List<String> permissions, int pickupTtlSeconds) {
@@ -695,10 +712,12 @@ public final class TokenManager {
         byte[] key = deriveTokenKey(t.id, t.salt);
         String secret = bytesToHex(key);
 
-        // generate pickup id
+        // generate pickup id and a high-entropy passkey required to retrieve the secret
         String pickupId = java.util.UUID.randomUUID().toString();
+        String passkey = generatePickupPasskey();
         PickupRecord pr = new PickupRecord();
         pr.pickupId = pickupId;
+        pr.passkey = passkey;
         pr.tokenId = t.id;
         pr.secret = secret;
         pr.expiresAt = Instant.now().getEpochSecond() + Math.max(60, pickupTtlSeconds);
@@ -706,14 +725,26 @@ public final class TokenManager {
         persistPickups();
         IssueResult r = new IssueResult();
         r.pickupId = pickupId;
+        r.passkey = passkey;
         r.tokenId = t.id;
         return r;
     }
 
+    public synchronized IssueResult issueTokenWithPickup(String id, int expirySeconds, List<String> permissions, int pickupTtlSeconds) {
+        return issueTokenWithPickup(id, permissions, pickupTtlSeconds);
+    }
+
     // Retrieve and consume a pickup record atomically. Returns null if not found or expired.
     public synchronized PickupRecord consumePickup(String pickupId) {
+        return consumePickup(pickupId, null);
+    }
+
+    public synchronized PickupRecord consumePickup(String pickupId, String passkey) {
         PickupRecord pr = pickups.get(pickupId);
         if (pr == null) return null;
+        if (passkey == null || passkey.isBlank() || !passkey.equals(pr.passkey)) {
+            return null;
+        }
         long now = Instant.now().getEpochSecond();
         if (pr.expiresAt < now) {
             pickups.remove(pickupId);
