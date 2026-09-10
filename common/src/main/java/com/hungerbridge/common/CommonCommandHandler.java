@@ -132,7 +132,9 @@ public final class CommonCommandHandler {
             return false;
         }
         String typeName = source.getClass().getName();
-        if (typeName.contains("ConsoleCommandSender") || typeName.contains("DedicatedServer") || typeName.contains("CommandSourceStack")) {
+        // Quick name-based checks for common console/server types
+        String lower = typeName.toLowerCase();
+        if (lower.contains("console") || lower.contains("dedicatedserver") || lower.contains("commandsourcestack") || lower.contains("servercommandsource")) {
             try {
                 java.lang.reflect.Method getEntity = source.getClass().getMethod("getEntity");
                 Object entity = getEntity.invoke(source);
@@ -141,7 +143,15 @@ public final class CommonCommandHandler {
                 return true;
             }
         }
-        return false;
+
+        // Fallback: if the object exposes a getEntity() method, treat null entity as console
+        try {
+            java.lang.reflect.Method getEntity = source.getClass().getMethod("getEntity");
+            Object entity = getEntity.invoke(source);
+            return entity == null;
+        } catch (Exception ignored) {
+            return false;
+        }
     }
 
     private static void addError(List<String> out, BridgeServer bridgeServer, String message) {
