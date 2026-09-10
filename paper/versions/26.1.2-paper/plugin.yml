@@ -6,6 +6,10 @@ author: iFamished
 description: Multiloader HTTP bridge for Paper and Fabric.
 commands:
   hungerbridge:
+    permission: hungerbridge.admin
     description: HungerBridge admin command
     usage: /hungerbridge
     aliases: [hb]
+permissions:
+  hungerbridge.admin:
+    default: op
