@@ -162,6 +162,31 @@ public final class CommonCommandHandler {
             } catch (Exception ignored2) {
                 // ignore — no Bukkit available or reflection failed
             }
+            // As a fallback, if the source exposes permission checks and the caller
+            // has operator-level permissions (or the specific admin permission),
+            // treat it as a console-equivalent source so operators can run admin
+            // commands even in environments where strict console detection fails.
+            try {
+                // Check hasPermission(String)
+                java.lang.reflect.Method hasPermStr = source.getClass().getMethod("hasPermission", String.class);
+                Object r = hasPermStr.invoke(source, "hungerbridge.admin");
+                if (r instanceof Boolean && (Boolean) r) return true;
+            } catch (Exception ignored3) {}
+
+            try {
+                // Check hasPermissionLevel(int) or hasPermission(int)
+                java.lang.reflect.Method hasPermInt = null;
+                try {
+                    hasPermInt = source.getClass().getMethod("hasPermissionLevel", int.class);
+                } catch (NoSuchMethodException e) {
+                    try { hasPermInt = source.getClass().getMethod("hasPermission", int.class); } catch (NoSuchMethodException ignored4) {}
+                }
+                if (hasPermInt != null) {
+                    Object rr = hasPermInt.invoke(source, 4);
+                    if (rr instanceof Boolean && (Boolean) rr) return true;
+                }
+            } catch (Exception ignored5) {}
+
             return false;
         }
     }
