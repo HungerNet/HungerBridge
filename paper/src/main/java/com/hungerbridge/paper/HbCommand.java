@@ -39,7 +39,7 @@ public final class HbCommand implements CommandExecutor {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (!(sender instanceof ConsoleCommandSender)) {
+        if (!com.hungerbridge.common.CommonCommandHandler.isConsoleSource(sender)) {
             sender.sendMessage(style("Error: console only"));
             return true;
         }

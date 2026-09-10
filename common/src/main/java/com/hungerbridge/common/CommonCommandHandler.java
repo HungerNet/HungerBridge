@@ -127,7 +127,7 @@ public final class CommonCommandHandler {
         return out;
     }
 
-    private static boolean isConsoleSource(Object source) {
+    public static boolean isConsoleSource(Object source) {
         if (source == null) {
             return false;
         }
