@@ -4,3 +4,4 @@ build/
 *.lock
 *.bin
 *.class
+.gradle/

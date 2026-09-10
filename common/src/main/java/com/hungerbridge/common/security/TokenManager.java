@@ -248,31 +248,20 @@ public final class TokenManager {
     }
 
     private static Path findAutogenStorageDir(Path configDir) {
+        // Prefer a storage directory inside the configured runtime config directory.
         if (configDir != null) {
             try {
                 return configDir.resolve("storage");
             } catch (Exception ignored) {}
         }
-        // Prefer an autogen/HungerBridge directory near the repository root.
+        // If no configDir is available, fall back to a safe local `./storage` directory
+        // relative to the current working directory. Do NOT search parent or host
+        // absolute paths which could be writable by an untrusted actor.
         try {
-            Path userDir = Path.of(System.getProperty("user.dir", "")).toAbsolutePath();
-            Path parent = userDir.getParent();
-            java.util.List<Path> candidates = new java.util.ArrayList<>();
-            candidates.add(userDir.resolve("autogen").resolve("HungerBridge"));
-            candidates.add(userDir.resolve("HungerBridge").resolve("autogen").resolve("HungerBridge"));
-            if (parent != null) {
-                candidates.add(parent.resolve("HungerBridge").resolve("autogen").resolve("HungerBridge"));
-                candidates.add(parent.resolve("autogen").resolve("HungerBridge"));
-            }
-            candidates.add(Path.of(".").toAbsolutePath().resolve("autogen").resolve("HungerBridge"));
-            for (Path p : candidates) {
-                try {
-                    if (p != null && java.nio.file.Files.exists(p) && java.nio.file.Files.isDirectory(p)) return p;
-                } catch (Exception ignored) {}
-            }
-        } catch (Exception ignored) {}
-        // Fallback to configDir/storage
-        try { return configDir.resolve("storage"); } catch (Exception e) { return configDir; }
+            return Path.of(".").toAbsolutePath().resolve("storage");
+        } catch (Exception e) {
+            return Path.of(".");
+        }
     }
 
     private void setOwnerOnlyPerms(Path path) {
