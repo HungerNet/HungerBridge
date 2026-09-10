@@ -4,6 +4,11 @@
 #   TCP port that the HungerBridge HTTP server listens on. Default 1913.
 # debug:
 #   Enable debug logging. Default false.
+#
+#   WARNING: When enabled, HungerBridge emits additional internal diagnostics
+#   useful for debugging HMAC verification and request handling. This may
+#   increase the amount of operational telemetry written to logs and served
+#   to SSE clients. DO NOT enable `debug: true` in production environments.
 # players.max-list:
 #   Maximum number of player entries returned by the /players endpoint. This
 #   is a safety bound so very large server populations do not overwhelm clients.

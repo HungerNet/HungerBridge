@@ -34,6 +34,10 @@ players:
   max-list: 50
 ```
 
+### Debug mode WARNING
+
+- `debug: true` enables additional internal diagnostic logging (HMAC verification diagnostics and request body markers). DO NOT enable in production. While debug outputs are now carefully filtered to avoid exposing token secrets, enabling debug mode can still increase the amount of sensitive operational telemetry recorded in logs and broadcast to connected SSE clients. Only enable debug for short-lived troubleshooting in a trusted environment.
+
 ### Streaming server logs
 
 Use the SSE stream to receive Minecraft log lines in real time:

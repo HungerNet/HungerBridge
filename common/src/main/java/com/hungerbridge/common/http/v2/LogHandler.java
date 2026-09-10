@@ -38,8 +38,9 @@ public final class LogHandler implements HttpHandler {
             byte[] bytes = ex.getRequestBody().readAllBytes();
             rawBody = bytes == null ? null : new String(bytes, java.nio.charset.StandardCharsets.UTF_8).trim();
             if (rawBody != null && !rawBody.isEmpty()) {
+                // Cache body for potential downstream use but never log raw request bodies
                 ex.setAttribute("hb.request.body", rawBody);
-                if (logger != null && config != null && config.isDebug()) logger.log("INFO", "[RAW-BODY] " + rawBody);
+                if (logger != null && config != null && config.isDebug()) logger.log("INFO", "[RAW-BODY] (present, suppressed)");
             }
         } catch (Exception ignored) {}
 

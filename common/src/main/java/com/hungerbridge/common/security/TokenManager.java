@@ -489,12 +489,10 @@ public final class TokenManager {
             String exp = bytesToHex(mac.doFinal(msgCanonical.getBytes(StandardCharsets.UTF_8)));
             // DEBUG: log verification attempt only when debug enabled
             if (logger != null && debugEnabled) {
+                // Safe debug output: log only non-secret diagnostics.
                 logger.log("INFO", "[HMAC-DEBUG] tokenId=" + tokenId + " salt=" + tk.salt);
-                logger.log("INFO", "[HMAC-DEBUG] derived_key_hex=" + bytesToHex(key));
                 logger.log("INFO", "[HMAC-DEBUG] original_path=" + path + " normalized_path=" + normalizedPath);
                 logger.log("INFO", "[HMAC-DEBUG] canonical_string=" + msgCanonical.replace("\n", "\\n"));
-                logger.log("INFO", "[HMAC-DEBUG] expected_sig=" + exp);
-                logger.log("INFO", "[HMAC-DEBUG] received_sig=" + signature);
                 logger.log("INFO", "[HMAC-DEBUG] match=" + exp.equalsIgnoreCase(signature));
             }
             if (exp.equalsIgnoreCase(signature)) return VerifyResult.OK;
