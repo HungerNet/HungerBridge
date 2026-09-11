@@ -7,6 +7,7 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(MinecraftServer.class)
 public abstract class MinecraftServerMixin {
@@ -41,7 +42,7 @@ public abstract class MinecraftServerMixin {
     }
 
     @Inject(method = "reloadResources", at = @At("HEAD"))
-    private void hungerbridge$onReload(CallbackInfo ci) {
+    private void hungerbridge$onReload(CallbackInfoReturnable<?> cir) {
         try {
             HungerBridgeFabric.onServerReload((MinecraftServer)(Object)this);
         } catch (Throwable ignored) {}
