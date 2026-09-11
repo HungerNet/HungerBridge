@@ -56,7 +56,7 @@ public final class CommonCommandHandler {
                             Map<String, TokenManager.Token> map = tm.listTokens();
                             if (map.isEmpty()) { out.add("No tokens."); return out; }
                             for (TokenManager.Token t : map.values()) {
-                                out.add(t.id + " (policy=" + t.policyId + ", revoked=" + t.revoked + ")");
+                                out.add(t.id + " (policy=" + t.policyId + ", revoked=" + t.revoked + ", expiry=" + (t.expiry > 0 ? t.expiry : "none") + ")");
                             }
                             return out;
                         }
@@ -68,12 +68,37 @@ public final class CommonCommandHandler {
                             com.hungerbridge.common.TokensConfig tc = cfg != null ? cfg.getTokensConfig() : null;
                             if (tc != null && !tc.hasPolicy(policyId)) { addError(out, bridgeServer, "Unknown policy id: " + policyId); return out; }
 
-                            TokenManager.IssueResult res = tm.issueTokenWithPickup(tokenId, null, 300);
+                            long expirySeconds = 0L;
+                            if (args.length >= 5) {
+                                try {
+                                    expirySeconds = Long.parseLong(args[4]);
+                                } catch (NumberFormatException e) {
+                                    out.add("Invalid expiry value: " + args[4]);
+                                    return out;
+                                }
+                            } else if (tc != null && tc.getPolicy(policyId) != null && tc.getPolicy(policyId).defaultExpiry > 0L) {
+                                expirySeconds = tc.getPolicy(policyId).defaultExpiry;
+                            }
+
+                            TokenManager.IssueResult res = tm.issueTokenWithPickup(tokenId, expirySeconds, null, 300);
                             if (res == null) { return out; }
-                            // bind policy
                             tm.setTokenPolicyId(res.tokenId, policyId);
+                            if (expirySeconds > 0L) {
+                                TokenManager.Token token = tm.listTokens().get(res.tokenId);
+                                if (token != null) {
+                                    addSuccess(out, bridgeServer, "Token created with expiry: " + token.expiry + " (unix seconds)");
+                                }
+                            }
                             addSuccess(out, bridgeServer, "Pickup passkey: " + res.passkey);
                             addSuccess(out, bridgeServer, "Token created. Retrieve it at: /pickup/" + res.pickupId + "?passkey=" + res.passkey);
+                            return out;
+                        }
+                        case "rotate": {
+                            if (args.length < 3) { out.add("Usage: /hungerbridge token rotate <id>"); return out; }
+                            if (tm == null) { addError(out, bridgeServer, "Token manager unavailable."); return out; }
+                            TokenManager.Token rotated = tm.rotateToken(args[2]);
+                            if (rotated == null) { addError(out, bridgeServer, "Token not found: " + args[2]); return out; }
+                            addSuccess(out, bridgeServer, "Rotated token: " + args[2]);
                             return out;
                         }
                         case "revoke": {

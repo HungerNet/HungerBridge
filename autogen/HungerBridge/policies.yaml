@@ -1,6 +1,7 @@
 # Operators who want unrestricted access must add "*" explicitly.
 policies:
   - id: default
+    default-expiry: 0
     permissions:
       - "server.info"
       - "player.list"

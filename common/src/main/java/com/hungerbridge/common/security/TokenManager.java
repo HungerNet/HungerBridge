@@ -649,6 +649,7 @@ public final class TokenManager {
             }
             long skew = allowedSkewSeconds > 0 ? allowedSkewSeconds : this.defaultAllowedSkewSeconds;
             if (Math.abs(now - ts) > skew) return VerifyResult.BAD_TIMESTAMP;
+            if (tk.expiry > 0L && now > tk.expiry) return VerifyResult.EXPIRED;
 
             // 2) Validate nonce
             if (nonce == null || nonce.isBlank()) return VerifyResult.NONCE_REPLAY;
@@ -719,6 +720,10 @@ public final class TokenManager {
     }
 
     public Token createToken(String id, List<String> permissions) {
+        return createToken(id, permissions, 0L);
+    }
+
+    public Token createToken(String id, List<String> permissions, long expirySeconds) {
         String effectiveId = id != null && !id.isBlank() ? id : java.util.UUID.randomUUID().toString().replaceAll("-", "");
         // enforce uniqueness: do not allow creating a token with an id that
         // already exists or that is pending pickup
@@ -740,8 +745,12 @@ public final class TokenManager {
         t.id = effectiveId;
         t.salt = saltHex;
         t.revoked = false;
-        // No expiry field in canonical spec
         t.createdAt = Instant.now().getEpochSecond();
+        if (expirySeconds > 0L) {
+            t.expiry = t.createdAt + expirySeconds;
+        } else {
+            t.expiry = 0L;
+        }
         if (permissions != null) {
             t.permissions = new java.util.ArrayList<>(permissions);
         }
@@ -752,7 +761,7 @@ public final class TokenManager {
     }
 
     public Token createToken(List<String> permissions) {
-        return createToken(null, permissions);
+        return createToken(null, permissions, 0L);
     }
 
     /**
@@ -793,10 +802,19 @@ public final class TokenManager {
         Token t = tokens.get(id);
         if (t == null) return null;
         if (t.revoked) return null;
+        long now = Instant.now().getEpochSecond();
+        long remaining = 0L;
+        if (t.expiry > 0L) {
+            remaining = Math.max(0L, t.expiry - now);
+        }
         byte[] salt = new byte[16];
         new java.security.SecureRandom().nextBytes(salt);
         t.salt = bytesToHex(salt);
-        // no expiry field
+        if (remaining > 0L) {
+            t.expiry = now + remaining;
+        } else if (t.expiry > 0L) {
+            t.expiry = 0L;
+        }
         persistTokens();
         return t;
     }
@@ -888,7 +906,11 @@ public final class TokenManager {
     }
 
     public synchronized IssueResult issueTokenWithPickup(String id, List<String> permissions, int pickupTtlSeconds) {
-        Token t = createToken(id, permissions);
+        return issueTokenWithPickup(id, 0L, permissions, pickupTtlSeconds);
+    }
+
+    public synchronized IssueResult issueTokenWithPickup(String id, long expirySeconds, List<String> permissions, int pickupTtlSeconds) {
+        Token t = createToken(id, permissions, expirySeconds);
         if (t == null) return null;
         // derive token secret (plaintext) from master key and salt/token id
         byte[] key = deriveTokenKey(t.id, t.salt);
@@ -913,7 +935,7 @@ public final class TokenManager {
     }
 
     public synchronized IssueResult issueTokenWithPickup(String id, int expirySeconds, List<String> permissions, int pickupTtlSeconds) {
-        return issueTokenWithPickup(id, permissions, pickupTtlSeconds);
+        return issueTokenWithPickup(id, (long) expirySeconds, permissions, pickupTtlSeconds);
     }
 
     // Retrieve and consume a pickup record atomically. Returns null if not found or expired.

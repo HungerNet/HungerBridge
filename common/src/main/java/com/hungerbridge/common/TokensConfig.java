@@ -15,6 +15,7 @@ public final class TokensConfig {
 
     public static final class TokenPolicy {
         public String id = "admin";
+        public long defaultExpiry = 0L;
         public final List<String> permissions = new ArrayList<>();
     }
 
@@ -63,7 +64,16 @@ public final class TokensConfig {
                 }
                 TokenPolicy policy = new TokenPolicy();
                 policy.id = id;
-                // ignore legacy `max_skew` and `default_expiry` fields; only `permissions` are authoritative
+                Object defaultExpiry = raw.get("default-expiry");
+                if (defaultExpiry instanceof Number) {
+                    policy.defaultExpiry = ((Number) defaultExpiry).longValue();
+                } else {
+                    try {
+                        policy.defaultExpiry = Long.parseLong(String.valueOf(defaultExpiry));
+                    } catch (Exception ignored) {
+                        policy.defaultExpiry = 0L;
+                    }
+                }
                 Object permissions = raw.get("permissions");
                 if (permissions instanceof List) {
                     for (Object p : (List<?>) permissions) {
