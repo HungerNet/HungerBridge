@@ -86,6 +86,8 @@ public final class Config {
                     // existing operator-modified runtime config is never overwritten.
                     seedRuntimeConfigFromAutogen(configDir, logger);
 
+            
+
             // Load config.yaml
             Yaml yaml = new Yaml();
             Map<String, Object> root;

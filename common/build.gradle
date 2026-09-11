@@ -23,6 +23,13 @@ sourceSets {
     }
 }
 
+// Include autogen runtime templates into the module resources so they end up
+// at `/autogen/*` inside the JAR and can be loaded via `Config.class.getResource("/autogen/...")`.
+tasks.processResources {
+    from(rootProject.file("autogen/HungerBridge")) {
+        into "autogen"
+    }
+}
 dependencies {
     implementation 'org.yaml:snakeyaml:2.3'
     implementation 'com.google.code.gson:gson:2.10.1'

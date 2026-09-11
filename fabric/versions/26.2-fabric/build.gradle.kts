@@ -37,6 +37,13 @@ tasks.processResources {
     filesMatching("fabric.mod.json") {
         expand("version" to project.version)
     }
+
+    // Ensure autogen runtime templates from the repository root are packaged
+    // into the final plugin JAR under `/autogen/*` so the running plugin can
+    // seed runtime config from them.
+    from(rootProject.file("autogen/HungerBridge")) {
+        into("autogen")
+    }
 }
 
 sourceSets {
