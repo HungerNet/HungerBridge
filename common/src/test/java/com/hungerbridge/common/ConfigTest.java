@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -159,8 +160,10 @@ public final class ConfigTest {
     }
 
     @Test
-    public void commandMessagesUseConsistentCapitalization() {
-        assertTrue(CommandMessages.HEADER.startsWith("HungerBridge Commands"));
+    public void commandUsageIsPerCommand() {
+        assertEquals(List.of("Usage: /hungerbridge <token|reload>"), CommonCommandHandler.handle(null, new String[0]));
+        assertEquals(List.of("Usage: /hungerbridge token <list|create|rotate|revoke|remove>"), CommonCommandHandler.handle(null, new String[] { "token" }));
+        assertEquals(List.of("Usage: /hungerbridge token create <id> <policyId> [expiry]"), CommonCommandHandler.handle(null, new String[] { "token", "create" }));
         assertTrue(CommandMessages.helpLines().getFirst().startsWith("Usage:"));
         assertTrue(CommandMessages.createdToken("admin", "secret").contains("Created token"));
         assertTrue(CommandMessages.rotatedToken("admin", "secret").contains("Rotated token"));

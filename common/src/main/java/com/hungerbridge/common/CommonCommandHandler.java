@@ -17,7 +17,7 @@ public final class CommonCommandHandler {
         // Admin CLI commands removed (HTTP /admin/* endpoints have been removed).
 
         if (args == null || args.length == 0) {
-            out.add(CommandMessages.HEADER);
+            out.add("Usage: /hungerbridge <token|reload>");
             return out;
         }
 
@@ -42,11 +42,6 @@ public final class CommonCommandHandler {
                     com.hungerbridge.common.security.TokenManager tm = cfg != null ? cfg.getTokenManager() : null;
                     if (args.length == 1) {
                         out.add("Usage: /hungerbridge token <list|create|rotate|revoke|remove>");
-                        out.add("Usage: /hungerbridge token create <id> <policyId> [expiry]");
-                        out.add("Usage: /hungerbridge token rotate <id>");
-                        out.add("Usage: /hungerbridge token revoke <id>");
-                        out.add("Usage: /hungerbridge token remove <id>");
-                        out.add("Note: /hb is an alias for /hungerbridge");
                         return out;
                     }
                     String sub = args[1].toLowerCase();

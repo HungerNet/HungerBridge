@@ -12,7 +12,7 @@ public final class CommandMessages {
 
     public static List<String> helpLines() {
         return List.of(
-            "Usage: /hungerbridge <reload|token>",
+            "Usage: /hungerbridge <token|reload>",
             "Usage: /hungerbridge token <list|create|rotate|revoke|remove>",
             "Usage: /hungerbridge token create <id> <policyId> [expiry]",
             "Usage: /hungerbridge token rotate <id>",
