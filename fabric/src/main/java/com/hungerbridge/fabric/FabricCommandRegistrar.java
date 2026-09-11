@@ -17,13 +17,10 @@ public final class FabricCommandRegistrar {
 
         cmd.then(net.minecraft.commands.Commands.literal("reload").executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"reload"})));
 
-        // Also register at root so the vanilla '/reload' will trigger our reload handler as well.
-        try {
-            dispatcher.register(net.minecraft.commands.Commands.literal("reload").executes(ctx -> {
-                runHandler(bridgeServer, ctx.getSource(), new String[]{"reload"});
-                return 1;
-            }));
-        } catch (Exception ignored) {}
+        // Do NOT register a global '/reload' command here — that would override
+        // the vanilla command. Platform-specific server-level reload listeners
+        // should be implemented in the platform bootstrap (HungerBridgeFabric),
+        // not by registering a root command.
 
         // audit (with optional numeric arg)
         cmd.then(net.minecraft.commands.Commands.literal("audit").executes(ctx -> {

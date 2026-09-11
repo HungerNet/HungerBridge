@@ -39,4 +39,11 @@ public abstract class MinecraftServerMixin {
     private void hungerbridge$onStop(CallbackInfo ci) {
         HungerBridgeFabric.onServerStopping();
     }
+
+    @Inject(method = "reloadResources", at = @At("HEAD"))
+    private void hungerbridge$onReload(CallbackInfo ci) {
+        try {
+            HungerBridgeFabric.onServerReload((MinecraftServer)(Object)this);
+        } catch (Throwable ignored) {}
+    }
 }

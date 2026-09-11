@@ -199,6 +199,16 @@ public final class HungerBridgeFabric implements DedicatedServerModInitializer {
         mcServer = null;
     }
 
+    // Called by mixin when the server performs a resource reload (e.g. via /reload)
+    public static void onServerReload(MinecraftServer server) {
+        ADAPTER.log("INFO", "HungerBridge detected server reload; reloading config...");
+        try {
+            if (bridgeServer != null) bridgeServer.reloadConfig();
+        } catch (Exception e) {
+            ADAPTER.log("ERROR", "Failed to reload HungerBridge config on server reload: " + e.getMessage());
+        }
+    }
+
     public static MinecraftServer getServer() {
         return mcServer;
     }
