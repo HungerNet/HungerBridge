@@ -4,5 +4,20 @@
 #   Maximum tolerated difference between the client's timestamp and the server's
 #   current time for HMAC-signed requests. Default is 300 seconds (5 minutes).
 #   This matches standard HMAC replay-protection practice.
+#
+# rate_limits:
+#   Token bucket settings keyed by remote IP, token ID, and pickup requests.
+#   Each bucket has a burst capacity and a refill rate in requests per second.
 
 skew_seconds: 300
+
+rate_limits:
+  per_ip:
+    burst: 20
+    rps: 10
+  per_token:
+    burst: 10
+    rps: 5
+  pickup:
+    burst: 5
+    rps: 2

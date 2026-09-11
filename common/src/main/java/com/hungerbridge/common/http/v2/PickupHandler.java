@@ -24,6 +24,9 @@ public final class PickupHandler implements HttpHandler {
             HttpUtil.error(ex, 405, "method_not_allowed", "Use GET", config);
             return;
         }
+        if (!HttpUtil.rateLimit(ex, config, "pickup")) {
+            return;
+        }
 
         String path = ex.getRequestURI().getPath();
         String[] parts = path.split("/");

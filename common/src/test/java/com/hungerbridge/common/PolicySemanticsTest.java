@@ -66,6 +66,37 @@ public final class PolicySemanticsTest {
     }
 
     @Test
+    public void securityYamlParsesRateLimitSettings() throws IOException {
+        Path dir = Files.createTempDirectory("hb-security-settings");
+        Files.writeString(dir.resolve("security.yaml"), """
+                rate_limits:
+                  per_ip:
+                    burst: 20
+                    rps: 10
+                  per_token:
+                    burst: 10
+                    rps: 5
+                  pickup:
+                    burst: 5
+                    rps: 2
+                """);
+
+        TokenManager.RateLimitSettings cfg = TokenManager.loadRateLimitSettings(dir);
+        assertEquals(20, cfg.perIp.burst);
+        assertEquals(10, cfg.perIp.rps);
+        assertEquals(10, cfg.perToken.burst);
+        assertEquals(5, cfg.perToken.rps);
+        assertEquals(5, cfg.pickup.burst);
+        assertEquals(2, cfg.pickup.rps);
+    }
+
+    @Test
+    public void constantTimeHexComparisonRejectsMismatchedSignature() {
+        assertTrue(TokenManager.constantTimeEqualsHex("abcd", "ABCD"));
+        assertFalse(TokenManager.constantTimeEqualsHex("abcd", "abce"));
+    }
+
+    @Test
     public void jsonBodyFieldOrderDoesNotAffectHmacVerification() throws Exception {
         Path dir = Files.createTempDirectory("hb-hmac-body-order");
         TokenManager tm = new TokenManager(dir, null);

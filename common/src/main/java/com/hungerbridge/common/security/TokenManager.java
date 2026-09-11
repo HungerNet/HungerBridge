@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.InvalidKeyException;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.Collections;
@@ -37,6 +38,59 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
  */
 public final class TokenManager {
+
+    public static final class BucketConfig {
+        public int burst = 20;
+        public int rps = 10;
+    }
+
+    public static final class RateLimitSettings {
+        public final BucketConfig perIp = new BucketConfig();
+        public final BucketConfig perToken = new BucketConfig();
+        public final BucketConfig pickup = new BucketConfig();
+    }
+
+    public static RateLimitSettings loadRateLimitSettings(Path configDir) {
+        RateLimitSettings out = new RateLimitSettings();
+        out.perIp.burst = 20; out.perIp.rps = 10;
+        out.perToken.burst = 10; out.perToken.rps = 5;
+        out.pickup.burst = 5; out.pickup.rps = 2;
+
+        if (configDir == null) return out;
+        Path sec = configDir.resolve("security.yaml");
+        if (!Files.exists(sec)) return out;
+        try (java.io.InputStream in = Files.newInputStream(sec)) {
+            Object loaded = new Yaml().load(in);
+            if (!(loaded instanceof Map)) return out;
+            Map<String, Object> root = (Map<String, Object>) loaded;
+            Map<String, Object> rateLimits = root.get("rate_limits") instanceof Map ? (Map<String, Object>) root.get("rate_limits") : null;
+            if (rateLimits == null) return out;
+            readBucket(rateLimits, "per_ip", out.perIp);
+            readBucket(rateLimits, "per_token", out.perToken);
+            readBucket(rateLimits, "pickup", out.pickup);
+        } catch (Exception ignored) {
+            // fall back to defaults on malformed config
+        }
+        return out;
+    }
+
+    private static void readBucket(Map<String, Object> root, String key, BucketConfig bucket) {
+        if (root == null || key == null || !root.containsKey(key)) return;
+        Object value = root.get(key);
+        if (!(value instanceof Map)) return;
+        Map<String, Object> map = (Map<String, Object>) value;
+        Object burst = map.get("burst");
+        Object rps = map.get("rps");
+        if (burst instanceof Number) bucket.burst = ((Number) burst).intValue();
+        if (rps instanceof Number) bucket.rps = ((Number) rps).intValue();
+    }
+
+    public static boolean constantTimeEqualsHex(String expected, String actual) {
+        if (expected == null || actual == null) return expected == null && actual == null;
+        byte[] a = expected.toLowerCase(java.util.Locale.ROOT).getBytes(StandardCharsets.UTF_8);
+        byte[] b = actual.toLowerCase(java.util.Locale.ROOT).getBytes(StandardCharsets.UTF_8);
+        return MessageDigest.isEqual(a, b);
+    }
 
     public static byte[] deriveSecret(byte[] masterKey, byte[] salt, String id) {
         byte[] effectiveMaster = masterKey == null ? new byte[32] : masterKey;
@@ -569,14 +623,15 @@ public final class TokenManager {
             mac.init(ks);
             String exp = bytesToHex(mac.doFinal(msgCanonical.getBytes(StandardCharsets.UTF_8)));
             // DEBUG: log verification attempt only when debug enabled
+            boolean match = constantTimeEqualsHex(exp, signature);
             if (logger != null && debugEnabled) {
                 // Safe debug output: log only non-secret diagnostics.
                 logger.log("INFO", "[HMAC-DEBUG] tokenId=" + tokenId + " salt=" + tk.salt);
                 logger.log("INFO", "[HMAC-DEBUG] original_path=" + path + " normalized_path=" + normalizedPath);
                 logger.log("INFO", "[HMAC-DEBUG] canonical_string=" + msgCanonical.replace("\n", "\\n"));
-                logger.log("INFO", "[HMAC-DEBUG] match=" + exp.equalsIgnoreCase(signature));
+                logger.log("INFO", "[HMAC-DEBUG] match=" + match);
             }
-            if (exp.equalsIgnoreCase(signature)) return VerifyResult.OK;
+            if (match) return VerifyResult.OK;
             return VerifyResult.BAD_SIGNATURE;
         } catch (Exception e) {
             if (logger != null) logger.log("ERROR", "HMAC verification error: " + e.getMessage());

@@ -13,8 +13,50 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class HttpUtil {
+
+    private static final class TokenBucket {
+        final int burst;
+        final double refillPerNano;
+        double tokens;
+        long lastRefillNanos;
+
+        TokenBucket(int burst, int rps) {
+            this.burst = Math.max(1, burst);
+            this.refillPerNano = Math.max(0.0, rps) / 1_000_000_000.0;
+            this.tokens = this.burst;
+            this.lastRefillNanos = System.nanoTime();
+        }
+
+        synchronized boolean tryConsume() {
+            long now = System.nanoTime();
+            double elapsed = Math.max(0, now - lastRefillNanos);
+            if (elapsed > 0) {
+                tokens = Math.min(burst, tokens + (elapsed * refillPerNano));
+                lastRefillNanos = now;
+            }
+            if (tokens >= 1.0) {
+                tokens -= 1.0;
+                return true;
+            }
+            return false;
+        }
+    }
+
+    private static final ConcurrentHashMap<String, TokenBucket> RATE_LIMIT_BUCKETS = new ConcurrentHashMap<>();
+
+    private static TokenBucket bucketFor(String key, int burst, int rps) {
+        if (key == null || burst <= 0 || rps <= 0) return null;
+        return RATE_LIMIT_BUCKETS.computeIfAbsent(key, k -> new TokenBucket(burst, rps));
+    }
+
+    private static boolean shouldAllow(String bucketKey, TokenManager.BucketConfig config) {
+        if (config == null || config.burst <= 0 || config.rps <= 0) return true;
+        TokenBucket bucket = bucketFor(bucketKey, config.burst, config.rps);
+        return bucket != null && bucket.tryConsume();
+    }
 
     private HttpUtil() {}
 
@@ -102,6 +144,7 @@ public final class HttpUtil {
         String signature = ex.getRequestHeaders().getFirst("X-Auth-Signature");
 
         if (tokenId == null || tokenId.isBlank() || signature == null) return false;
+        if (!rateLimit(ex, config, "hkim.auth")) return false;
 
         // Build canonical body string from provided JsonObject. If null or empty, use empty string.
         String canonicalBodyStr = "";
@@ -137,8 +180,32 @@ public final class HttpUtil {
         return auth(ex, config, null);
     }
 
-    public static boolean rateLimit(HttpExchange ex, Config config, String action) throws IOException {
-        // Rate limiting removed; always allow.
+    public static boolean rateLimit(HttpExchange ex, Config config, String action) {
+        if (config == null || ex == null) return true;
+        TokenManager.RateLimitSettings settings = TokenManager.loadRateLimitSettings(config.getConfigDir());
+        String remoteIp = ex.getRemoteAddress() != null && ex.getRemoteAddress().getAddress() != null
+                ? ex.getRemoteAddress().getAddress().getHostAddress()
+                : "unknown";
+        String tokenId = ex.getRequestHeaders().getFirst("X-Auth-Id");
+        String path = ex.getRequestURI() != null ? ex.getRequestURI().getPath() : "";
+
+        boolean allowed = true;
+        allowed = allowed && shouldAllow("ip:" + remoteIp, settings.perIp);
+        if (tokenId != null && !tokenId.isBlank()) {
+            allowed = allowed && shouldAllow("token:" + tokenId, settings.perToken);
+        }
+        if (path != null && path.startsWith("/pickup")) {
+            allowed = allowed && shouldAllow("pickup:" + remoteIp, settings.pickup);
+        }
+
+        if (!allowed) {
+            try {
+                error(ex, 429, "rate_limited", "Rate limit exceeded", config);
+            } catch (IOException ignored) {
+                // Best effort only: caller is already handling auth failure.
+            }
+            return false;
+        }
         return true;
     }
 

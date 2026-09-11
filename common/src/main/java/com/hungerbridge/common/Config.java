@@ -20,6 +20,7 @@ import java.util.UUID;
 public final class Config {
 
     private final int port;
+    private final Path configDir;
 
     // Players config
     private final int playersMaxList;
@@ -39,12 +40,24 @@ public final class Config {
             int playersMaxList,
             String bridgeVersion
     ) {
+        this(port, playersMaxList, bridgeVersion, null);
+    }
+
+    public Config(
+            int port,
+            int playersMaxList,
+            String bridgeVersion,
+            Path configDir
+    ) {
         this.port = port;
         this.playersMaxList = playersMaxList;
         this.bridgeVersion = bridgeVersion;
+        this.configDir = configDir;
     }
 
     public int getPort() { return port; }
+
+    public Path getConfigDir() { return configDir; }
 
     public int getPlayersMaxList() { return playersMaxList; }
 
@@ -112,7 +125,8 @@ public final class Config {
                 Config cfg = new Config(
                     port,
                     playersMaxList,
-                    bridgeVersion
+                    bridgeVersion,
+                    configDir
                 );
 
                 cfg.debug = debug;
