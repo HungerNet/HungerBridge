@@ -155,18 +155,13 @@ public final class BridgeServer {
 
         @Override
         public void doFilter(HttpExchange exchange, Chain chain) throws IOException {
-            if (config == null || config.getAllowedRemoteIps() == null || config.getAllowedRemoteIps().isEmpty()) {
+                java.net.InetSocketAddress remote = exchange.getRemoteAddress();
+                String remoteIp = remote != null && remote.getAddress() != null ? remote.getAddress().getHostAddress() : "";
+                if (config == null || !config.isRemoteAllowed(remoteIp)) {
+                    com.hungerbridge.common.http.HttpUtil.error(exchange, 403, "forbidden", "Remote IP not allowed by policy", config);
+                    return;
+                }
                 chain.doFilter(exchange);
-                return;
-            }
-
-            java.net.InetSocketAddress remote = exchange.getRemoteAddress();
-            String remoteIp = remote != null && remote.getAddress() != null ? remote.getAddress().getHostAddress() : "";
-            if (!config.isRemoteAllowed(remoteIp)) {
-                com.hungerbridge.common.http.HttpUtil.error(exchange, 403, "forbidden", "Remote IP not allowed by policy", config);
-                return;
-            }
-            chain.doFilter(exchange);
         }
     }
 

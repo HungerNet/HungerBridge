@@ -70,7 +70,19 @@ public final class Config {
 
     public boolean isRemoteAllowed(String remoteIp) {
         if (remoteIp == null || remoteIp.isBlank()) return false;
-        if (allowedRemoteIps == null || allowedRemoteIps.isEmpty()) return true;
+        String mode = this.ipMode == null ? "whitelist" : this.ipMode.trim().toLowerCase();
+        // blacklist: deny only if the remote IP matches an entry in the list
+        if ("blacklist".equals(mode)) {
+            if (allowedRemoteIps == null || allowedRemoteIps.isEmpty()) return true;
+            for (String blocked : allowedRemoteIps) {
+                if (blocked != null && com.hungerbridge.common.security.IpMatcher.matches(blocked, remoteIp)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        // whitelist (default): allow only if an entry matches
+        if (allowedRemoteIps == null || allowedRemoteIps.isEmpty()) return false;
         for (String allowed : allowedRemoteIps) {
             if (allowed != null && com.hungerbridge.common.security.IpMatcher.matches(allowed, remoteIp)) {
                 return true;
@@ -196,9 +208,10 @@ public final class Config {
             for (Object item : list) {
                 if (item == null) continue;
                 String value = String.valueOf(item).trim();
+                // allow explicit empty lists to be returned (caller will interpret mode)
                 if (!value.isEmpty()) out.add(value);
             }
-            return out.isEmpty() ? defaults : out;
+            return out;
         } catch (Exception e) {
             if (logger != null) logger.log("WARN", "Failed to parse security.yaml ips list: " + e.getMessage());
             return defaults;
