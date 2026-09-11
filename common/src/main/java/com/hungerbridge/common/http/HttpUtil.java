@@ -79,7 +79,12 @@ public final class HttpUtil {
             // Attempt to obtain request JSON body if present
             Object o = ex.getAttribute("hb.request.json");
             String canonicalBodyStr = "";
-            if (o instanceof com.google.gson.JsonObject) canonicalBodyStr = TokenManager.canonicalizeJson((com.google.gson.JsonObject) o);
+            Object rawBodyObj = ex.getAttribute("hb.request.body");
+            if (rawBodyObj instanceof String rawBody && !rawBody.isBlank()) {
+                canonicalBodyStr = TokenManager.canonicalizeBody(rawBody);
+            } else if (o instanceof com.google.gson.JsonObject) {
+                canonicalBodyStr = TokenManager.canonicalizeJson((com.google.gson.JsonObject) o);
+            }
 
             boolean ok = auth(ex, config, o instanceof com.google.gson.JsonObject ? (com.google.gson.JsonObject) o : null);
             if (!ok) {
