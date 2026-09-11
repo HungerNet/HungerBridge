@@ -21,6 +21,9 @@ public final class Config {
 
     private final int port;
     private final Path configDir;
+    private String bindAddress = "127.0.0.1";
+    private java.util.List<String> allowedRemoteIps = java.util.List.of("127.0.0.1", "::1");
+    private String ipMode = "whitelist";
 
     // Players config
     private final int playersMaxList;
@@ -57,7 +60,24 @@ public final class Config {
 
     public int getPort() { return port; }
 
+    public String getBindAddress() { return bindAddress; }
+
     public Path getConfigDir() { return configDir; }
+
+    public java.util.List<String> getAllowedRemoteIps() { return allowedRemoteIps; }
+
+    public String getIpMode() { return ipMode; }
+
+    public boolean isRemoteAllowed(String remoteIp) {
+        if (remoteIp == null || remoteIp.isBlank()) return false;
+        if (allowedRemoteIps == null || allowedRemoteIps.isEmpty()) return true;
+        for (String allowed : allowedRemoteIps) {
+            if (allowed != null && com.hungerbridge.common.security.IpMatcher.matches(allowed, remoteIp)) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     public int getPlayersMaxList() { return playersMaxList; }
 
@@ -113,7 +133,12 @@ public final class Config {
             }
 
             int port = ((Number) root.getOrDefault("port", 1913)).intValue();
+            String bindAddress = String.valueOf(root.getOrDefault("bind_address", "127.0.0.1")).trim();
+            if (bindAddress.isEmpty()) bindAddress = "127.0.0.1";
             boolean debug = Boolean.parseBoolean(String.valueOf(root.getOrDefault("debug", false)));
+
+            java.util.List<String> allowedRemoteIps = loadAllowedIps(configDir, logger);
+            String ipMode = loadIpMode(configDir, logger);
 
             // validate auxiliary configs and log status (log parsing errors from TokensConfig)
             com.hungerbridge.common.TokensConfig tc = com.hungerbridge.common.TokensConfig.load(configDir, logger);
@@ -129,6 +154,9 @@ public final class Config {
                     configDir
                 );
 
+                cfg.bindAddress = bindAddress;
+                cfg.allowedRemoteIps = allowedRemoteIps;
+                cfg.ipMode = ipMode;
                 cfg.debug = debug;
 
                 // attach parsed auxiliary configs
@@ -149,6 +177,52 @@ public final class Config {
 
     public void setTokensConfig(com.hungerbridge.common.TokensConfig tc) { this.tokensConfig = tc; }
     public com.hungerbridge.common.TokensConfig getTokensConfig() { return tokensConfig; }
+
+    private static java.util.List<String> loadAllowedIps(Path configDir, Logger logger) {
+        java.util.List<String> defaults = java.util.List.of("127.0.0.1", "::1");
+        if (configDir == null) return defaults;
+        Path securityFile = configDir.resolve("security.yaml");
+        if (!Files.exists(securityFile)) return defaults;
+        try (InputStream in = Files.newInputStream(securityFile)) {
+            Object loaded = new Yaml().load(in);
+            if (!(loaded instanceof Map)) return defaults;
+            Map<String, Object> root = (Map<String, Object>) loaded;
+            Object ipsNode = root.get("ips");
+            if (!(ipsNode instanceof Map)) return defaults;
+            Map<String, Object> ips = (Map<String, Object>) ipsNode;
+            Object listNode = ips.get("list");
+            if (!(listNode instanceof java.util.List<?> list)) return defaults;
+            java.util.List<String> out = new java.util.ArrayList<>();
+            for (Object item : list) {
+                if (item == null) continue;
+                String value = String.valueOf(item).trim();
+                if (!value.isEmpty()) out.add(value);
+            }
+            return out.isEmpty() ? defaults : out;
+        } catch (Exception e) {
+            if (logger != null) logger.log("WARN", "Failed to parse security.yaml ips list: " + e.getMessage());
+            return defaults;
+        }
+    }
+
+    private static String loadIpMode(Path configDir, Logger logger) {
+        if (configDir == null) return "whitelist";
+        Path securityFile = configDir.resolve("security.yaml");
+        if (!Files.exists(securityFile)) return "whitelist";
+        try (InputStream in = Files.newInputStream(securityFile)) {
+            Object loaded = new Yaml().load(in);
+            if (!(loaded instanceof Map)) return "whitelist";
+            Map<String, Object> root = (Map<String, Object>) loaded;
+            Object ipsNode = root.get("ips");
+            if (!(ipsNode instanceof Map)) return "whitelist";
+            Map<String, Object> ips = (Map<String, Object>) ipsNode;
+            Object mode = ips.get("mode");
+            return mode == null ? "whitelist" : String.valueOf(mode).trim();
+        } catch (Exception e) {
+            if (logger != null) logger.log("WARN", "Failed to parse security.yaml ips mode: " + e.getMessage());
+            return "whitelist";
+        }
+    }
 
     private static void seedRuntimeConfigFromAutogen(Path runtimeConfigDir, Logger logger) throws IOException {
         java.util.List<String> copied = new java.util.ArrayList<>();

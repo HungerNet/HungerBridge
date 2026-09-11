@@ -8,6 +8,10 @@
 # rate_limits:
 #   Token bucket settings keyed by remote IP, token ID, and pickup requests.
 #   Each bucket has a burst capacity and a refill rate in requests per second.
+#
+# ips:
+#   Restrict API access to a selected client set. The default is a localhost-only
+#   whitelist so the service is not exposed to the LAN or internet by accident.
 
 skew_seconds: 300
 
@@ -21,3 +25,9 @@ rate_limits:
   pickup:
     burst: 5
     rps: 2
+
+ips:
+  mode: whitelist
+  list:
+    - 127.0.0.1
+    - ::1

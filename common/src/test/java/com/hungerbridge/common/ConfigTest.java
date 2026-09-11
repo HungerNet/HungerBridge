@@ -19,15 +19,25 @@ public final class ConfigTest {
         Path configFile = dir.resolve("config.yaml");
         Files.writeString(configFile, """
                 port: 1913
+                bind_address: 127.0.0.1
                 players:
                   max-list: 10
                 """);
 
+        Files.writeString(dir.resolve("security.yaml"), """
+                ips:
+                  mode: whitelist
+                  list:
+                    - 127.0.0.1
+                    - ::1
+                """);
 
         Config config = Config.load(dir, (level, thread, message) -> {
         });
 
         assertTrue(config.getPlayersMaxList() == 10);
+        assertTrue("127.0.0.1".equals(config.getBindAddress()));
+        assertTrue(config.isRemoteAllowed("127.0.0.1"));
     }
 
     @Test

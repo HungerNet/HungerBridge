@@ -8,6 +8,9 @@ import com.hungerbridge.common.http.v2.RunHandler;
 import com.hungerbridge.common.http.v2.StatusHandler;
 import com.hungerbridge.common.http.v2.StreamLogsHandler;
 import com.hungerbridge.common.http.v2.TpsHandler;
+import com.sun.net.httpserver.Filter;
+import com.sun.net.httpserver.HttpContext;
+import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
 import java.io.IOException;
@@ -46,7 +49,10 @@ public final class BridgeServer {
         if (server != null) return;
 
         try {
-            server = HttpServer.create(new InetSocketAddress(config.getPort()), 0);
+            String bindAddress = config != null && config.getBindAddress() != null && !config.getBindAddress().isBlank()
+                    ? config.getBindAddress()
+                    : "127.0.0.1";
+            server = HttpServer.create(new InetSocketAddress(bindAddress, config.getPort()), 0);
         } catch (IOException e) {
             throw new RuntimeException("Failed to bind HTTP server", e);
         }
@@ -57,51 +63,28 @@ public final class BridgeServer {
         // endpoints (root-level API)
         java.util.List<String> endpoints = new java.util.ArrayList<>();
 
-        server.createContext("/ping", new PingHandler(config, logger));
-        endpoints.add("/ping");
-        server.createContext("/auth/check", new com.hungerbridge.common.http.v2.AuthCheckHandler(config));
-        endpoints.add("/auth/check");
-        server.createContext("/server/run", new RunHandler(config, logger, executor));
-        endpoints.add("/server/run");
-        
-        server.createContext("/server/stop", new com.hungerbridge.common.http.v2.ServerStopHandler(config, logger, this));
-        endpoints.add("/server/stop");
-        server.createContext("/server/log", new LogHandler(config, logger));
-        endpoints.add("/server/log");
-        server.createContext("/server/meta", new com.hungerbridge.common.http.v2.MetaHandler(config, logger));
-        endpoints.add("/server/meta");
-        server.createContext("/server/stream", new StreamLogsHandler(config));
-        endpoints.add("/server/stream");
-        server.createContext("/system/uptime", new com.hungerbridge.common.http.v2.SystemUptimeHandler(config, logger));
-        endpoints.add("/system/uptime");
-        server.createContext("/system/cpu", new com.hungerbridge.common.http.v2.SystemCpuHandler(config, logger));
-        endpoints.add("/system/cpu");
-        server.createContext("/system/memory", new com.hungerbridge.common.http.v2.SystemMemoryHandler(config, logger));
-        endpoints.add("/system/memory");
-        server.createContext("/system/gc", new com.hungerbridge.common.http.v2.SystemGcHandler(config, logger));
-        endpoints.add("/system/gc");
-        server.createContext("/system/threads", new com.hungerbridge.common.http.v2.SystemThreadsHandler(config, logger));
-        endpoints.add("/system/threads");
-        server.createContext("/system/network", new com.hungerbridge.common.http.v2.SystemNetworkHandler(config, logger));
-        endpoints.add("/system/network");
-        server.createContext("/system/disk", new com.hungerbridge.common.http.v2.SystemDiskHandler(config, logger));
-        endpoints.add("/system/disk");
-        server.createContext("/players/list", new com.hungerbridge.common.http.v2.PlayersListHandler(config, logger, executor));
-        endpoints.add("/players/list");
-        server.createContext("/world/tps", new com.hungerbridge.common.http.v2.WorldTpsHandler(config, logger, executor));
-        endpoints.add("/world/tps");
-        server.createContext("/world/mspt", new com.hungerbridge.common.http.v2.WorldMsptHandler(config, logger, executor));
-        endpoints.add("/world/mspt");
-        server.createContext("/world/chunks", new com.hungerbridge.common.http.v2.WorldChunksHandler(config, logger, executor));
-        endpoints.add("/world/chunks");
-        server.createContext("/world/entities", new com.hungerbridge.common.http.v2.WorldEntitiesHandler(config, logger, executor));
-        endpoints.add("/world/entities");
-        server.createContext("/world/time", new com.hungerbridge.common.http.v2.WorldTimeHandler(config, logger, executor));
-        endpoints.add("/world/time");
-        server.createContext("/world/weather", new com.hungerbridge.common.http.v2.WorldWeatherHandler(config, logger, executor));
-        endpoints.add("/world/weather");
-        server.createContext("/pickup", new com.hungerbridge.common.http.v2.PickupHandler(config));
-        endpoints.add("/pickup/{id}");
+        registerContext("/ping", new PingHandler(config, logger), endpoints);
+        registerContext("/auth/check", new com.hungerbridge.common.http.v2.AuthCheckHandler(config), endpoints);
+        registerContext("/server/run", new RunHandler(config, logger, executor), endpoints);
+        registerContext("/server/stop", new com.hungerbridge.common.http.v2.ServerStopHandler(config, logger, this), endpoints);
+        registerContext("/server/log", new LogHandler(config, logger), endpoints);
+        registerContext("/server/meta", new com.hungerbridge.common.http.v2.MetaHandler(config, logger), endpoints);
+        registerContext("/server/stream", new StreamLogsHandler(config), endpoints);
+        registerContext("/system/uptime", new com.hungerbridge.common.http.v2.SystemUptimeHandler(config, logger), endpoints);
+        registerContext("/system/cpu", new com.hungerbridge.common.http.v2.SystemCpuHandler(config, logger), endpoints);
+        registerContext("/system/memory", new com.hungerbridge.common.http.v2.SystemMemoryHandler(config, logger), endpoints);
+        registerContext("/system/gc", new com.hungerbridge.common.http.v2.SystemGcHandler(config, logger), endpoints);
+        registerContext("/system/threads", new com.hungerbridge.common.http.v2.SystemThreadsHandler(config, logger), endpoints);
+        registerContext("/system/network", new com.hungerbridge.common.http.v2.SystemNetworkHandler(config, logger), endpoints);
+        registerContext("/system/disk", new com.hungerbridge.common.http.v2.SystemDiskHandler(config, logger), endpoints);
+        registerContext("/players/list", new com.hungerbridge.common.http.v2.PlayersListHandler(config, logger, executor), endpoints);
+        registerContext("/world/tps", new com.hungerbridge.common.http.v2.WorldTpsHandler(config, logger, executor), endpoints);
+        registerContext("/world/mspt", new com.hungerbridge.common.http.v2.WorldMsptHandler(config, logger, executor), endpoints);
+        registerContext("/world/chunks", new com.hungerbridge.common.http.v2.WorldChunksHandler(config, logger, executor), endpoints);
+        registerContext("/world/entities", new com.hungerbridge.common.http.v2.WorldEntitiesHandler(config, logger, executor), endpoints);
+        registerContext("/world/time", new com.hungerbridge.common.http.v2.WorldTimeHandler(config, logger, executor), endpoints);
+        registerContext("/world/weather", new com.hungerbridge.common.http.v2.WorldWeatherHandler(config, logger, executor), endpoints);
+        registerContext("/pickup", new com.hungerbridge.common.http.v2.PickupHandler(config), endpoints);
         // legacy aliases removed: prefer canonical v3 routes (e.g. /world/tps, /players/list)
 
         server.start();
@@ -133,6 +116,41 @@ public final class BridgeServer {
     public void stopMinecraftServer() {
         if (minecraftStopHandler != null) {
             minecraftStopHandler.run();
+        }
+    }
+
+    private void registerContext(String path, com.sun.net.httpserver.HttpHandler handler, java.util.List<String> endpoints) {
+        HttpContext context = server.createContext(path, handler);
+        context.getFilters().add(new RemoteIpFilter(config));
+        endpoints.add(path);
+    }
+
+    private static final class RemoteIpFilter extends Filter {
+        private final Config config;
+
+        private RemoteIpFilter(Config config) {
+            this.config = config;
+        }
+
+        @Override
+        public String description() {
+            return "remote-ip-whitelist";
+        }
+
+        @Override
+        public void doFilter(HttpExchange exchange, Chain chain) throws IOException {
+            if (config == null || config.getAllowedRemoteIps() == null || config.getAllowedRemoteIps().isEmpty()) {
+                chain.doFilter(exchange);
+                return;
+            }
+
+            java.net.InetSocketAddress remote = exchange.getRemoteAddress();
+            String remoteIp = remote != null && remote.getAddress() != null ? remote.getAddress().getHostAddress() : "";
+            if (!config.isRemoteAllowed(remoteIp)) {
+                com.hungerbridge.common.http.HttpUtil.error(exchange, 403, "forbidden", "Remote IP not allowed by policy", config);
+                return;
+            }
+            chain.doFilter(exchange);
         }
     }
 

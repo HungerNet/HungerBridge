@@ -14,6 +14,7 @@
 #   is a safety bound so very large server populations do not overwhelm clients.
 
 port: 1913
+bind_address: 127.0.0.1
 debug: false
 
 players:
