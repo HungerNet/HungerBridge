@@ -98,6 +98,27 @@ public final class HungerBridgePlugin extends JavaPlugin {
             PaperCommandRegistrar.register(this, bridgeServer);
         } catch (Exception ignored) {}
 
+        // Listen for server-level '/reload' and trigger HungerBridge reload as well.
+        try {
+            org.bukkit.plugin.PluginManager pm = getServer().getPluginManager();
+            pm.registerEvents(new org.bukkit.event.Listener() {
+                @org.bukkit.event.EventHandler
+                public void onServerCommand(org.bukkit.event.server.ServerCommandEvent ev) {
+                    try {
+                        String cmd = ev.getCommand();
+                        if (cmd != null) {
+                            String trimmed = cmd.trim().toLowerCase();
+                            if (trimmed.equals("reload") || trimmed.startsWith("reload ")) {
+                                try {
+                                    bridgeServer.reloadConfig();
+                                } catch (Exception ignored) {}
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                }
+            }, this);
+        } catch (Exception ignored) {}
+
         if (hbAdapter != null) hbAdapter.log("INFO", "HungerBridge enabled."); else HB_LOGGER.info("HungerBridge enabled.");
     }
 

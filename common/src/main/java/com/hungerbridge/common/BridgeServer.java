@@ -222,10 +222,13 @@ public final class BridgeServer {
 
     public synchronized boolean reloadConfig() {
         try {
-            com.hungerbridge.common.TokensConfig tc = com.hungerbridge.common.TokensConfig.load(configDir, logger);
-            config.setTokensConfig(tc);
-            if (logger != null) logger.log("INFO", "Reloaded runtime config from disk.");
-            return true;
+            boolean ok = config.reload(logger);
+            if (ok) {
+                if (logger != null) logger.log("INFO", "Reloaded runtime config from disk.");
+            } else {
+                if (logger != null) logger.log("WARN", "Reload reported failure; some configs may not have been reloaded.");
+            }
+            return ok;
         } catch (Exception e) {
             if (logger != null) logger.log("WARN", "Failed to reload config: " + e.getMessage());
             return false;

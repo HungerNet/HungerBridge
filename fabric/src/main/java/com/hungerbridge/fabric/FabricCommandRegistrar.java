@@ -17,6 +17,14 @@ public final class FabricCommandRegistrar {
 
         cmd.then(net.minecraft.commands.Commands.literal("reload").executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"reload"})));
 
+        // Also register at root so the vanilla '/reload' will trigger our reload handler as well.
+        try {
+            dispatcher.register(net.minecraft.commands.Commands.literal("reload").executes(ctx -> {
+                runHandler(bridgeServer, ctx.getSource(), new String[]{"reload"});
+                return 1;
+            }));
+        } catch (Exception ignored) {}
+
         // audit (with optional numeric arg)
         cmd.then(net.minecraft.commands.Commands.literal("audit").executes(ctx -> {
             return runHandler(bridgeServer, ctx.getSource(), new String[]{"audit"});

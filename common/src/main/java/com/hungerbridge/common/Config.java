@@ -273,4 +273,54 @@ public final class Config {
         }
     }
 
+    /**
+     * Reload runtime configuration values from disk into this Config instance.
+     * Returns true on success, false on error (logs via provided logger).
+     */
+    @SuppressWarnings("unchecked")
+    public synchronized boolean reload(Logger logger) {
+        if (this.configDir == null) {
+            if (logger != null) logger.log("WARN", "Config.reload called but configDir is null");
+            return false;
+        }
+        try {
+            Path configFile = this.configDir.resolve("config.yaml");
+            if (!Files.exists(configFile)) {
+                if (logger != null) logger.log("WARN", "config.yaml missing; reload aborted.");
+                return false;
+            }
+            Yaml yaml = new Yaml();
+            Map<String, Object> root;
+            try (InputStream in = Files.newInputStream(configFile)) {
+                Object loaded = yaml.load(in);
+                if (!(loaded instanceof Map)) {
+                    if (logger != null) logger.log("WARN", "Invalid config.yaml structure during reload");
+                    return false;
+                }
+                root = (Map<String, Object>) loaded;
+            }
+
+            String bindAddress = String.valueOf(root.getOrDefault("bind_address", this.bindAddress)).trim();
+            if (bindAddress.isEmpty()) bindAddress = this.bindAddress;
+            boolean debug = Boolean.parseBoolean(String.valueOf(root.getOrDefault("debug", this.debug)));
+
+            java.util.List<String> allowedRemoteIps = loadAllowedIps(this.configDir, logger);
+            String ipMode = loadIpMode(this.configDir, logger);
+
+            com.hungerbridge.common.TokensConfig tc = com.hungerbridge.common.TokensConfig.load(this.configDir, logger);
+
+            // apply updated values
+            this.bindAddress = bindAddress;
+            this.allowedRemoteIps = allowedRemoteIps == null ? java.util.List.of() : allowedRemoteIps;
+            this.ipMode = ipMode == null ? this.ipMode : ipMode;
+            this.debug = debug;
+            this.setTokensConfig(tc != null ? tc : com.hungerbridge.common.TokensConfig.defaults());
+
+            return true;
+        } catch (Exception e) {
+            if (logger != null) logger.log("WARN", "Failed to reload config: " + e.getMessage());
+            return false;
+        }
+    }
+
 }
