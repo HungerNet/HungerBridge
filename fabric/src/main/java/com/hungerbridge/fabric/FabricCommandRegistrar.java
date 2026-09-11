@@ -14,6 +14,7 @@ public final class FabricCommandRegistrar {
         var cmd = net.minecraft.commands.Commands.literal(name);
 
         cmd.executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[0]));
+        cmd.then(net.minecraft.commands.Commands.literal("help").executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"help"})));
 
         cmd.then(net.minecraft.commands.Commands.literal("reload").executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"reload"})));
 
@@ -41,6 +42,7 @@ public final class FabricCommandRegistrar {
         var createLiteral = net.minecraft.commands.Commands.literal("create");
         var idArg = net.minecraft.commands.Commands.argument("id", StringArgumentType.word());
         var policyArg = net.minecraft.commands.Commands.argument("policy", StringArgumentType.word());
+        createLiteral.executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"token", "create"}));
         // token create <id> <policy>
         createLiteral.then(idArg.then(policyArg.executes(ctx -> {
             String id = StringArgumentType.getString(ctx, "id");
@@ -49,6 +51,14 @@ public final class FabricCommandRegistrar {
         })));
 
         token.then(createLiteral);
+
+        var rotateLiteral = net.minecraft.commands.Commands.literal("rotate");
+        rotateLiteral.executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"token", "rotate"}));
+        rotateLiteral.then(net.minecraft.commands.Commands.argument("id", StringArgumentType.word()).executes(ctx -> {
+            String id = StringArgumentType.getString(ctx, "id");
+            return runHandler(bridgeServer, ctx.getSource(), new String[]{"token", "rotate", id});
+        }));
+        token.then(rotateLiteral);
 
         token.then(net.minecraft.commands.Commands.literal("revoke").executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"token", "revoke"})).then(
             net.minecraft.commands.Commands.argument("id", StringArgumentType.word()).executes(ctx -> {
