@@ -36,7 +36,7 @@ public final class FabricLoggerAdapter implements Logger {
             Level lvl = Level.getLevel(levelName.toUpperCase());
             if (lvl == null) {
                 try {
-                    lvl = Level.forName(levelName.toUpperCase(), 450);
+                    lvl = Level.forName(levelName.toUpperCase(), 350);
                 } catch (Exception e) {
                     lvl = Level.INFO;
                 }

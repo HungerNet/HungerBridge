@@ -42,7 +42,7 @@ public final class HungerBridgePlugin extends JavaPlugin {
                 org.apache.logging.log4j.Level lvl = org.apache.logging.log4j.Level.getLevel(resolved.toUpperCase());
                 if (lvl == null) {
                     try {
-                        lvl = org.apache.logging.log4j.Level.forName(resolved.toUpperCase(), 450);
+                        lvl = org.apache.logging.log4j.Level.forName(resolved.toUpperCase(), 350);
                     } catch (Exception ignored2) {
                         lvl = org.apache.logging.log4j.Level.INFO;
                     }

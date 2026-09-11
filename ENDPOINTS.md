@@ -100,7 +100,7 @@ curl -sS -X POST http://localhost:1913/server/log -H "Content-Type: application/
 client.log('hello', level='BRIDGE', thread='bridge-thread')
 ```
 
-The `level` field accepts any string, including builtins such as `INFO`, `WARN`, `ERROR`, `DEBUG`, and `TRACE`, and custom levels such as `BRIDGE`. The server resolves each level to a real Log4J2 level, creating a dynamic level when needed with a priority above `INFO`. The optional `thread` field is used as log metadata in the emitted event, but does not rename the JVM thread itself.
+The `level` field accepts any string, including builtins such as `INFO`, `WARN`, `ERROR`, `DEBUG`, and `TRACE`, and custom levels such as `BRIDGE`. The server resolves each level to a real Log4J2 level, creating a dynamic level when needed with a priority between `WARN` and `INFO` so it can pass the root logger threshold. The optional `thread` field is used as log metadata in the emitted event, but does not rename the JVM thread itself.
 
 `/server/stream` — SSE log stream
 
