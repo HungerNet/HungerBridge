@@ -221,13 +221,10 @@ public final class HttpUtil {
     }
 
     public static JsonObject readJson(HttpExchange ex) throws IOException {
-        String cached = (String) ex.getAttribute("hb.request.body");
-        if (cached != null) {
-            if (cached.isEmpty()) return null;
-            com.google.gson.JsonObject parsed = JsonParser.parseString(cached).getAsJsonObject();
-            ex.setAttribute("hb.request.json", parsed);
-            return parsed;
-        }
+        // Always read the request body from the stream to avoid reusing stale
+        // cached attributes from previous exchanges. Handlers should not call
+        // this method multiple times per request; the returned value is cached
+        // on the exchange for downstream use.
         try (InputStream in = ex.getRequestBody()) {
             byte[] buffer = new byte[8192];
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
