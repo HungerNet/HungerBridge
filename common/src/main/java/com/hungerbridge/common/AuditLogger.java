@@ -17,7 +17,7 @@ import java.util.Map;
  * the normal global logger so it cannot be silenced by command output capture.
  */
 public final class AuditLogger {
-    private static final DateTimeFormatter FILE_TS = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmssSSS").withZone(ZoneOffset.UTC);
+    private static final DateTimeFormatter FILE_DATE = DateTimeFormatter.ofPattern("yyyyMMdd").withZone(ZoneOffset.UTC);
     private static final DateTimeFormatter LOG_TS = DateTimeFormatter.ISO_INSTANT;
 
     private AuditLogger() {}
@@ -27,10 +27,14 @@ public final class AuditLogger {
         try {
             Path dir = resolveLogDir(configDir);
             Files.createDirectories(dir);
-            String fileName = FILE_TS.format(Instant.now()) + ".audit.log";
+            String fileName = FILE_DATE.format(Instant.now()) + ".audit.log";
             Path path = dir.resolve(fileName);
             String line = buildLine(endpoint, method, remoteIp, tokenId, params, result);
-            Files.writeString(path, line + System.lineSeparator(), StandardCharsets.UTF_8, Files.exists(path) ? java.nio.file.StandardOpenOption.APPEND : java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.WRITE);
+            try (java.io.BufferedWriter w = Files.newBufferedWriter(path, StandardCharsets.UTF_8, java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND, java.nio.file.StandardOpenOption.WRITE)) {
+                w.write(line);
+                w.newLine();
+                w.flush();
+            }
         } catch (IOException ignored) {
             // Best effort only: audit logging must never break request handling.
         }
