@@ -31,7 +31,13 @@ public final class TokenHandler implements HttpHandler {
 
     @Override
     public void handle(HttpExchange ex) throws IOException {
-        JsonObject body = HttpUtil.readJson(ex);
+        JsonObject body;
+        try {
+            body = HttpUtil.readJson(ex);
+        } catch (IOException e) {
+            HttpUtil.error(ex, 413, "request_too_large", "Request body exceeds the maximum size", config);
+            return;
+        }
         if (!HttpUtil.auth(ex, config, body)) {
             HttpUtil.error(ex, 401, "unauthorized", "Authentication required", config);
             return;

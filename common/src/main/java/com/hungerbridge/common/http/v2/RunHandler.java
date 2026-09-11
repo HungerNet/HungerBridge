@@ -35,7 +35,13 @@ public final class RunHandler implements HttpHandler {
             HttpUtil.error(ex, 405, "method_not_allowed", "Use POST", config);
             return;
         }
-        JsonObject json = HttpUtil.readJson(ex);
+        JsonObject json;
+        try {
+            json = HttpUtil.readJson(ex);
+        } catch (IOException e) {
+            HttpUtil.error(ex, 413, "request_too_large", "Request body exceeds the maximum size", config);
+            return;
+        }
         if (!HttpUtil.auth(ex, config, json)) {
             HttpUtil.error(ex, 401, "unauthorized", "Authentication required", config);
             return;

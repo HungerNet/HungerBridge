@@ -43,7 +43,13 @@ public final class StreamLogsHandler implements HttpHandler {
         ex.sendResponseHeaders(200, 0);
 
         OutputStream out = ex.getResponseBody();
-        LogDistributor.StreamConnection connection = LogDistributor.get().register(out);
+        LogDistributor.StreamConnection connection;
+        try {
+            connection = LogDistributor.get().register(out);
+        } catch (IllegalStateException e) {
+            HttpUtil.error(ex, 503, "too_many_clients", "Too many active log streams", config);
+            return;
+        }
 
         // check for ?history=N query parameter
         String query = ex.getRequestURI().getQuery();
@@ -69,20 +75,21 @@ public final class StreamLogsHandler implements HttpHandler {
             while (connection.isActive()) {
                 String chunk;
                 try {
-                    chunk = connection.getQueue().take();
+                    chunk = connection.getQueue().poll(5, java.util.concurrent.TimeUnit.SECONDS);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     break;
                 }
                 if (chunk == null || chunk.isEmpty()) {
-                    // empty chunk used as wake-up; check active flag
+                    if (connection.isStalled()) {
+                        break;
+                    }
                     continue;
                 }
                 try {
                     out.write(chunk.getBytes(java.nio.charset.StandardCharsets.UTF_8));
                     out.flush();
                 } catch (IOException e) {
-                    // client disconnected or write failed
                     break;
                 }
             }

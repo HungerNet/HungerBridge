@@ -16,8 +16,10 @@ import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.file.Path;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 /**
  * BridgeServer. Registers HTTP endpoints based on config.
@@ -57,7 +59,19 @@ public final class BridgeServer {
             throw new RuntimeException("Failed to bind HTTP server", e);
         }
 
-        pool = Executors.newCachedThreadPool();
+        pool = new ThreadPoolExecutor(
+                4,
+                32,
+                30L,
+                TimeUnit.SECONDS,
+                new ArrayBlockingQueue<>(128),
+                r -> {
+                    Thread t = new Thread(r, "HungerBridge-Http");
+                    t.setDaemon(true);
+                    return t;
+                },
+                new ThreadPoolExecutor.CallerRunsPolicy()
+        );
         server.setExecutor(pool);
 
         // endpoints (root-level API)

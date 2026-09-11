@@ -27,7 +27,13 @@ public final class ServerRestartHandler implements HttpHandler {
             HttpUtil.error(ex, 405, "method_not_allowed", "Use POST", config);
             return;
         }
-        JsonObject payload = HttpUtil.readJson(ex);
+        JsonObject payload;
+        try {
+            payload = HttpUtil.readJson(ex);
+        } catch (IOException e) {
+            HttpUtil.error(ex, 413, "request_too_large", "Request body exceeds the maximum size", config);
+            return;
+        }
         if (!HttpUtil.auth(ex, config, payload)) {
             HttpUtil.error(ex, 401, "unauthorized", "Authentication required", config);
             return;

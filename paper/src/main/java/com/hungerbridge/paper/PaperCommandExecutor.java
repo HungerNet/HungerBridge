@@ -12,6 +12,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 public final class PaperCommandExecutor implements CommandExecutor {
 
@@ -39,7 +40,7 @@ public final class PaperCommandExecutor implements CommandExecutor {
                 plugin.getServer().dispatchCommand(plugin.getServer().getConsoleSender(), command), showConsole)));
 
         try {
-            return future.get();
+            return future.get(5, TimeUnit.SECONDS);
         } catch (Exception e) {
             return List.of();
         }

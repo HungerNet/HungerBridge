@@ -35,6 +35,9 @@ public final class LogDistributor {
     }
 
     public StreamConnection register(OutputStream out) {
+        if (clients.size() >= 64) {
+            throw new IllegalStateException("Too many active log stream clients");
+        }
         StreamConnection connection = new StreamConnection(out, scheduler);
         clients.add(connection);
         return connection;
@@ -111,11 +114,15 @@ public final class LogDistributor {
     }
 
     public static final class StreamConnection implements AutoCloseable {
+        private static final int MAX_QUEUE_SIZE = 256;
+        private static final long STALLED_MILLIS = 30_000L;
+
         private final OutputStream output;
         private final AtomicBoolean active = new AtomicBoolean(true);
         private final CountDownLatch closed = new CountDownLatch(1);
         private final ScheduledFuture<?> keepaliveTask;
-        private final java.util.concurrent.BlockingQueue<String> queue = new java.util.concurrent.LinkedBlockingQueue<>();
+        private final java.util.concurrent.BlockingQueue<String> queue = new java.util.concurrent.ArrayBlockingQueue<>(MAX_QUEUE_SIZE);
+        private volatile long lastActivityNanos = System.nanoTime();
 
         private StreamConnection(OutputStream output, ScheduledExecutorService scheduler) {
             this.output = output;
@@ -144,15 +151,21 @@ public final class LogDistributor {
         }
 
         public void write(String chunk) {
-            if (!active.get()) {
+            if (!active.get() || chunk == null) {
                 return;
             }
-            // enqueue the chunk for the handler thread to write
-            try {
-                queue.offer(chunk, 1, TimeUnit.SECONDS);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
+            if (queue.size() >= MAX_QUEUE_SIZE) {
+                queue.poll();
             }
+            while (!queue.offer(chunk)) {
+                queue.poll();
+            }
+            lastActivityNanos = System.nanoTime();
+        }
+
+        public boolean isStalled() {
+            long idleMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - lastActivityNanos);
+            return idleMillis > STALLED_MILLIS;
         }
 
         @Override

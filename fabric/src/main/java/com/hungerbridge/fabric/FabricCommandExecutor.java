@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 public final class FabricCommandExecutor implements CommandExecutor {
 
@@ -40,7 +41,7 @@ public final class FabricCommandExecutor implements CommandExecutor {
                 server.getCommands().performPrefixedCommand(console(), command), showConsole)));
 
         try {
-            return future.get();
+            return future.get(5, TimeUnit.SECONDS);
         } catch (Exception e) {
             return List.of();
         }

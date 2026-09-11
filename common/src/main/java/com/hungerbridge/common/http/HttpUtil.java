@@ -7,6 +7,7 @@ import com.hungerbridge.common.Json;
 import com.hungerbridge.common.security.TokenManager;
 import com.sun.net.httpserver.HttpExchange;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -16,6 +17,8 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class HttpUtil {
+
+    public static final int MAX_REQUEST_BODY_BYTES = 1024 * 1024;
 
     private static final class TokenBucket {
         final int burst;
@@ -218,7 +221,18 @@ public final class HttpUtil {
             return parsed;
         }
         try (InputStream in = ex.getRequestBody()) {
-            String body = new String(in.readAllBytes(), StandardCharsets.UTF_8).trim();
+            byte[] buffer = new byte[8192];
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            int total = 0;
+            int read;
+            while ((read = in.read(buffer)) != -1) {
+                total += read;
+                if (total > MAX_REQUEST_BODY_BYTES) {
+                    throw new IOException("request body exceeds maximum allowed size of " + MAX_REQUEST_BODY_BYTES + " bytes");
+                }
+                baos.write(buffer, 0, read);
+            }
+            String body = new String(baos.toByteArray(), StandardCharsets.UTF_8).trim();
             if (body.isEmpty()) return null;
             ex.setAttribute("hb.request.body", body);
             com.google.gson.JsonObject parsed = JsonParser.parseString(body).getAsJsonObject();
