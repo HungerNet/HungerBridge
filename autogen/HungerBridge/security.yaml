@@ -1,0 +1,8 @@
+# Default HKIM security settings.
+#
+# skew_seconds:
+#   Maximum tolerated difference between the client's timestamp and the server's
+#   current time for HMAC-signed requests. Default is 300 seconds (5 minutes).
+#   This matches standard HMAC replay-protection practice.
+
+skew_seconds: 300

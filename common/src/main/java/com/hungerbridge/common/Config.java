@@ -143,7 +143,7 @@ public final class Config {
         // /autogen/*. If no bundled templates are found, fall back to the programmatic
         // RuntimeConfigSeeder to create sensible defaults.
         boolean anyResourceFound = false;
-        for (String fileName : java.util.List.of("config.yaml", "policies.yaml")) {
+        for (String fileName : java.util.List.of("config.yaml", "policies.yaml", "security.yaml")) {
             String resourcePath = "/autogen/" + fileName;
             java.net.URL resUrl = Config.class.getResource(resourcePath);
             if (resUrl == null) continue;

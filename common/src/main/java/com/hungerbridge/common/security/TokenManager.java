@@ -23,6 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import org.yaml.snakeyaml.Yaml;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -217,12 +218,19 @@ public final class TokenManager {
         loadTokens();
         // pickups persisted in autogen
         loadPickups();
+        this.sessionsFile = storageDir.resolve("sessions.json");
+        this.defaultAllowedSkewSeconds = loadAllowedSkewSeconds(configDir);
+        loadSessions();
 
         // start periodic sweep to remove expired pickups every 5 minutes
         try {
             sweepExecutor.scheduleAtFixedRate(() -> {
                 try { sweepExpiredPickups(); } catch (Exception e) { if (logger != null) logger.log("WARN", "Pickup sweep failed: " + e.getMessage()); }
             }, 300, 300, TimeUnit.SECONDS);
+            // sweep expired nonces more frequently to keep cache small
+            sweepExecutor.scheduleAtFixedRate(() -> {
+                try { sweepExpiredNonces(); } catch (Exception e) { if (logger != null) logger.log("WARN", "Nonce sweep failed: " + e.getMessage()); }
+            }, 60, 60, TimeUnit.SECONDS);
         } catch (Exception ignored) {}
     }
 
@@ -342,9 +350,80 @@ public final class TokenManager {
     }
 
     private void loadSessions() {
-        // sessions.json currently stores nonce cache expiries to survive restarts.
-        // Session persistence disabled; do not load nonce cache from disk.
-        if (logger != null) logger.log("INFO", "Session persistence disabled.");
+        // sessions.json stores nonce cache expiries to survive restarts.
+        try {
+            if (!Files.exists(storageDir)) Files.createDirectories(storageDir);
+            if (!Files.exists(sessionsFile)) {
+                // create empty sessions template
+                String tmpl = GSON.toJson(Collections.emptyMap());
+                Files.writeString(sessionsFile, tmpl, StandardCharsets.UTF_8);
+                setOwnerOnlyPerms(sessionsFile);
+                if (logger != null) logger.log("INFO", "Created sessions template: " + sessionsFile);
+                return;
+            }
+            String txt = Files.readString(sessionsFile, StandardCharsets.UTF_8);
+            if (txt == null || txt.isBlank()) return;
+            Type type = new TypeToken<Map<String, Long>>(){}.getType();
+            Map<String, Long> loaded = GSON.fromJson(txt, type);
+            if (loaded != null) {
+                nonceExpiries.clear();
+                nonceExpiries.putAll(loaded);
+                if (logger != null) logger.log("INFO", "Loaded " + nonceExpiries.size() + " nonce sessions from: " + sessionsFile);
+            }
+        } catch (Exception e) {
+            if (logger != null) logger.log("WARN", "Failed to load sessions: " + e.getMessage());
+        }
+    }
+
+    private synchronized void persistSessions() {
+        try {
+            String txt = GSON.toJson(nonceExpiries);
+            Files.writeString(sessionsFile, txt, StandardCharsets.UTF_8);
+            setOwnerOnlyPerms(sessionsFile);
+        } catch (IOException e) {
+            if (logger != null) logger.log("WARN", "Failed to persist sessions: " + e.getMessage());
+        }
+    }
+
+    private void sweepExpiredNonces() {
+        long now = Instant.now().getEpochSecond();
+        boolean removedAny = false;
+        Iterator<Map.Entry<String, Long>> it = nonceExpiries.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<String, Long> e = it.next();
+            if (e.getValue() < now) {
+                it.remove();
+                removedAny = true;
+            }
+        }
+        if (removedAny) {
+            persistSessions();
+            if (logger != null) logger.log("INFO", "Swept expired nonce sessions");
+        }
+    }
+
+    private long loadAllowedSkewSeconds(Path configDir) {
+        // Default to 300s if not configured
+        long def = 300L;
+        if (configDir == null) return def;
+        Path sec = configDir.resolve("security.yaml");
+        if (!Files.exists(sec)) return def;
+        try (java.io.InputStream in = Files.newInputStream(sec)) {
+            Yaml y = new Yaml();
+            Object loaded = y.load(in);
+            if (loaded instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> m = (Map<String, Object>) loaded;
+                Object s = m.get("skew_seconds");
+                if (s instanceof Number) return ((Number) s).longValue();
+                try {
+                    return Long.parseLong(String.valueOf(s));
+                } catch (Exception ignored) {}
+            }
+        } catch (Exception e) {
+            if (logger != null) logger.log("WARN", "Failed to read security.yaml: " + e.getMessage());
+        }
+        return def;
     }
 
     // pickups: temporary records storing plaintext secrets until consumed or expired
@@ -357,6 +436,12 @@ public final class TokenManager {
     }
 
     private final Map<String, PickupRecord> pickups = new ConcurrentHashMap<>();
+
+    // Nonce replay cache: maps tokenId:nonce -> expiryEpochSeconds
+    private final ConcurrentHashMap<String, Long> nonceExpiries = new ConcurrentHashMap<>();
+    private final Path sessionsFile;
+    // Allowed skew in seconds for timestamps
+    private final long defaultAllowedSkewSeconds;
 
     private void loadPickups() {
         try {
@@ -427,26 +512,8 @@ public final class TokenManager {
     }
 
     public boolean verifyHmac(String tokenId, String timestampStr, String nonce, String signature, String method, String path, String canonicalBody, long allowedSkewSeconds) {
-        if (tokenId == null || signature == null) return false;
-        Token tk = tokens.get(tokenId);
-        if (tk == null) return false;
-        if (tk.revoked) return false;
-
-        String normalizedPath = normalizePath(path);
-        String methodName = method == null ? "" : method.trim().toUpperCase();
-        String bodyStr = canonicalBody == null ? "" : canonicalBody;
-        String canonicalMsg = methodName + "\n" + normalizedPath + "\n" + (timestampStr == null ? "" : timestampStr) + "\n" + (nonce == null ? "" : nonce) + "\n" + bodyStr;
-        try {
-            Mac mac = Mac.getInstance("HmacSHA256");
-            byte[] key = deriveTokenKey(tk.id, tk.salt);
-            SecretKeySpec keySpec = new SecretKeySpec(key, "HmacSHA256");
-            mac.init(keySpec);
-            String expected = bytesToHex(mac.doFinal(canonicalMsg.getBytes(StandardCharsets.UTF_8)));
-            return expected.equalsIgnoreCase(signature);
-        } catch (Exception e) {
-            if (logger != null) logger.log("ERROR", "HMAC verification failed: " + e.getMessage());
-            return false;
-        }
+        VerifyResult vr = verifyHmacDetailed(tokenId, timestampStr, nonce, signature, method, path, canonicalBody, allowedSkewSeconds);
+        return vr == VerifyResult.OK;
     }
 
     public enum VerifyResult {
@@ -469,8 +536,33 @@ public final class TokenManager {
         if (tk == null) return VerifyResult.NO_TOKEN;
         if (tk.revoked) return VerifyResult.REVOKED;
         try {
+            // 1) Validate timestamp
+            long now = Instant.now().getEpochSecond();
+            if (timestampStr == null || timestampStr.isBlank()) return VerifyResult.BAD_TIMESTAMP;
+            long ts;
+            try {
+                ts = Long.parseLong(timestampStr.trim());
+            } catch (Exception e) {
+                return VerifyResult.BAD_TIMESTAMP;
+            }
+            long skew = allowedSkewSeconds > 0 ? allowedSkewSeconds : this.defaultAllowedSkewSeconds;
+            if (Math.abs(now - ts) > skew) return VerifyResult.BAD_TIMESTAMP;
+
+            // 2) Validate nonce
+            if (nonce == null || nonce.isBlank()) return VerifyResult.NONCE_REPLAY;
+            String nk = tokenId + ":" + nonce;
+            long expiry = ts + skew;
+            Long prev = nonceExpiries.putIfAbsent(nk, expiry);
+            if (prev != null) {
+                return VerifyResult.NONCE_REPLAY;
+            }
+
+            // Persist sessions on change (best-effort)
+            persistSessions();
+
+            // 3) Verify signature
             String normalizedPath = normalizePath(path);
-            String msgCanonical = (method == null ? "" : method.trim().toUpperCase()) + "\n" + normalizedPath + "\n" + (timestampStr == null ? "" : timestampStr) + "\n" + (nonce == null ? "" : nonce) + "\n" + (canonicalBody == null ? "" : canonicalBody);
+            String msgCanonical = (method == null ? "" : method.trim().toUpperCase()) + "\n" + normalizedPath + "\n" + timestampStr + "\n" + nonce + "\n" + (canonicalBody == null ? "" : canonicalBody);
             javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
             byte[] key = deriveTokenKey(tk.id, tk.salt);
             javax.crypto.spec.SecretKeySpec ks = new javax.crypto.spec.SecretKeySpec(key, "HmacSHA256");
