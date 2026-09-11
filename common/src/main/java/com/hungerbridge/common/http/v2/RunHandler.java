@@ -42,6 +42,14 @@ public final class RunHandler implements HttpHandler {
             HttpUtil.error(ex, 413, "request_too_large", "Request body exceeds the maximum size", config);
             return;
         }
+
+        String remoteIp = ex.getRemoteAddress() != null && ex.getRemoteAddress().getAddress() != null
+                ? ex.getRemoteAddress().getAddress().getHostAddress()
+                : "unknown";
+        String tokenId = ex.getRequestHeaders().getFirst("X-Auth-Id");
+        String command = json != null && json.has("command") ? json.get("command").getAsString() : "";
+        com.hungerbridge.common.AuditLogger.logRun(config.getConfigDir(), "/server/run", ex.getRequestMethod(), remoteIp, tokenId, command, "pending");
+
         if (!HttpUtil.auth(ex, config, json)) {
             HttpUtil.error(ex, 401, "unauthorized", "Authentication required", config);
             return;

@@ -12,6 +12,7 @@ import com.sun.net.httpserver.Filter;
 import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
+import com.sun.net.httpserver.Filter;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -136,6 +137,7 @@ public final class BridgeServer {
     private void registerContext(String path, com.sun.net.httpserver.HttpHandler handler, java.util.List<String> endpoints) {
         HttpContext context = server.createContext(path, handler);
         context.getFilters().add(new RemoteIpFilter(config));
+        context.getFilters().add(new AuditFilter(config));
         endpoints.add(path);
     }
 
@@ -165,6 +167,55 @@ public final class BridgeServer {
                 return;
             }
             chain.doFilter(exchange);
+        }
+    }
+
+    private static final class AuditFilter extends Filter {
+        private final Config config;
+
+        private AuditFilter(Config config) {
+            this.config = config;
+        }
+
+        @Override
+        public String description() {
+            return "hungerbridge-audit";
+        }
+
+        @Override
+        public void doFilter(HttpExchange exchange, Chain chain) throws IOException {
+            String path = exchange.getRequestURI() != null ? exchange.getRequestURI().getPath() : "unknown";
+            String method = exchange.getRequestMethod();
+            String remoteIp = exchange.getRemoteAddress() != null && exchange.getRemoteAddress().getAddress() != null
+                    ? exchange.getRemoteAddress().getAddress().getHostAddress()
+                    : "unknown";
+            String tokenId = exchange.getRequestHeaders().getFirst("X-Auth-Id");
+            java.util.Map<String, String> params = new java.util.LinkedHashMap<>();
+            String query = exchange.getRequestURI() != null ? exchange.getRequestURI().getQuery() : null;
+            if (query != null && !query.isBlank()) {
+                for (String pair : query.split("&")) {
+                    String[] kv = pair.split("=", 2);
+                    if (kv.length == 0) continue;
+                    String key = kv[0];
+                    String value = kv.length > 1 ? kv[1] : "";
+                    params.put(key, value);
+                }
+            }
+            Object jsonAttr = exchange.getAttribute("hb.request.json");
+            if (jsonAttr instanceof com.google.gson.JsonObject json) {
+                for (var entry : json.entrySet()) {
+                    params.put(entry.getKey(), entry.getValue() == null ? "" : entry.getValue().toString());
+                }
+            }
+            try {
+                chain.doFilter(exchange);
+                int responseCode = exchange.getResponseCode();
+                String result = responseCode >= 400 ? "failure" : "success";
+                com.hungerbridge.common.AuditLogger.logRequest(config != null ? config.getConfigDir() : null, path, method, remoteIp, tokenId, params, result);
+            } catch (Throwable t) {
+                com.hungerbridge.common.AuditLogger.logRequest(config != null ? config.getConfigDir() : null, path, method, remoteIp, tokenId, params, "exception");
+                throw t;
+            }
         }
     }
 
