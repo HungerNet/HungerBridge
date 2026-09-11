@@ -45,9 +45,9 @@ public final class HttpUtil {
             TokenManager.Token token = (TokenManager.Token) ex.getAttribute("hb.auth.token");
             out.ok = true; out.reason = "ok"; out.tokenId = tokenId; out.token = token; out.permission = requiredPermissionNode;
 
-            // Check ACL
+            // Check ACL via the canonical single entrypoint
             if (requiredPermissionNode != null && !requiredPermissionNode.isBlank()) {
-                if (!tokenAclAllows(token, requiredPermissionNode)) {
+                if (!checkAcl(ex, config, requiredPermissionNode)) {
                     out.ok = false; out.reason = "forbidden"; return out;
                 }
             }
@@ -57,28 +57,6 @@ public final class HttpUtil {
         }
     }
 
-    public static boolean tokenAclAllows(TokenManager.Token token, String action) {
-        if (token == null) return false;
-        // Determine permission set: prefer policyId from token and runtime config
-        java.util.List<String> perms = token.permissions;
-        // If token has a policyId, attempt to load the configured permissions
-        try {
-            Config cfg = (Config) null; // placeholder
-        } catch (Exception ignored) {}
-        // Accept multiple candidate nodes: exactly action, and common prefixes
-        java.util.List<String> candidates = new java.util.ArrayList<>();
-        candidates.add(action);
-        if (!action.contains(".")) {
-            candidates.add("server." + action);
-            candidates.add("world." + action);
-            candidates.add("system." + action);
-            candidates.add("players." + action);
-        }
-        for (String c : candidates) {
-            if (TokenManager.permissionMatches(c, perms)) return true;
-        }
-        return false;
-    }
 
     public static java.util.List<String> mergedPermissions(TokenManager.Token token, Config config) {
         java.util.LinkedHashSet<String> perms = new java.util.LinkedHashSet<>();
@@ -102,19 +80,10 @@ public final class HttpUtil {
         TokenManager.Token token = (TokenManager.Token) ex.getAttribute("hb.auth.token");
         if (token == null) return false;
         java.util.List<String> perms = mergedPermissions(token, config);
-
-        java.util.List<String> candidates = new java.util.ArrayList<>();
-        candidates.add(action);
-        if (!action.contains(".")) {
-            candidates.add("server." + action);
-            candidates.add("world." + action);
-            candidates.add("system." + action);
-            candidates.add("players." + action);
-        }
-        for (String c : candidates) {
-            if (TokenManager.permissionMatches(c, perms)) return true;
-        }
-        return false;
+        // Require fully-qualified permission nodes (must contain a dot). This prevents
+        // accidental broad expansion of dotless nodes into unrelated namespaces.
+        if (action == null || action.isBlank() || !action.contains(".")) return false;
+        return TokenManager.permissionMatches(action, perms);
     }
 
     /**

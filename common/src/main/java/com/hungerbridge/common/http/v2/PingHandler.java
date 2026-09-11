@@ -35,7 +35,7 @@ public final class PingHandler implements HttpHandler {
             HttpUtil.error(ex, 401, "unauthorized", "Authentication required", config);
             return;
         }
-        if (!HttpUtil.checkAcl(ex, config, "ping")) {
+            if (!HttpUtil.checkAcl(ex, config, "server.ping")) {
             HttpUtil.error(ex, 403, "forbidden", "Token not permitted to ping", config);
             return;
         }

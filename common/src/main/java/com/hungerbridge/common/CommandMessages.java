@@ -20,11 +20,12 @@ public final class CommandMessages {
     }
 
     public static String createdToken(String id, String secret) {
-        return "Created token: " + id + ":" + secret;
+        // include a minimal ANSI color code so interactive consoles show tokens
+        return "\u001B[32mCreated token: " + id + ":" + secret + "\u001B[0m";
     }
 
     public static String rotatedToken(String id, String secret) {
-        return "Rotated token: " + id + ":" + secret;
+        return "\u001B[33mRotated token: " + id + ":" + secret + "\u001B[0m";
     }
 
     public static String info(String message) {

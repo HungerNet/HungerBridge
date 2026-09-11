@@ -32,8 +32,8 @@ public final class PolicySemanticsTest {
 
         assertNotNull(t.permissions);
         assertTrue(t.permissions.isEmpty());
-        assertFalse(HttpUtil.tokenAclAllows(t, "log"));
-        assertFalse(HttpUtil.tokenAclAllows(t, "admin"));
+        assertFalse(TokenManager.permissionMatches("server.log", t.permissions));
+        assertFalse(TokenManager.permissionMatches("admin", t.permissions));
     }
 
     @Test
@@ -62,7 +62,7 @@ public final class PolicySemanticsTest {
         var merged = HttpUtil.mergedPermissions(token, config);
         assertTrue(merged.contains("*"));
         assertTrue(merged.contains("auth.check"));
-        assertTrue(HttpUtil.tokenAclAllows(token, "auth.check"));
+        assertTrue(TokenManager.permissionMatches("auth.check", merged));
     }
 
     @Test
