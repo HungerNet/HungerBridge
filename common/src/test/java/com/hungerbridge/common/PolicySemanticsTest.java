@@ -136,6 +136,36 @@ public final class PolicySemanticsTest {
         assertTrue(tm.verifyHmac(res.tokenId, ts4, nonce4, sigRawDifferentTimestamp, "POST", "/server/log", bodyRaw, 300));
     }
 
+    @Test
+    public void debugModeRoutesHmacDiagnosticsToDebugLevel() throws Exception {
+        Path dir = Files.createTempDirectory("hb-hmac-debug-level");
+        java.util.List<String> debugLevels = new java.util.ArrayList<>();
+        Logger logger = (level, thread, message) -> {
+            if (message != null && message.startsWith("[HMAC-DEBUG]")) {
+                debugLevels.add(level);
+            }
+        };
+
+        TokenManager tm = new TokenManager(dir, logger);
+        tm.setDebug(true);
+        TokenManager.IssueResult res = tm.issueTokenWithPickup("debug-level", 0, null, 300);
+        var pickup = tm.consumePickup(res.pickupId, res.passkey);
+        assertNotNull(pickup);
+
+        String body = "{\"level\":\"info\",\"message\":\"hello\"}";
+        String ts = String.valueOf(System.currentTimeMillis() / 1000L);
+        String nonce = "nonce-debug-level";
+        byte[] key = hexToBytes(pickup.secret);
+
+        javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
+        mac.init(new javax.crypto.spec.SecretKeySpec(key, "HmacSHA256"));
+        String signature = bytesToHex(mac.doFinal(("POST\n/server/log\n" + ts + "\n" + nonce + "\n" + body).getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+
+        assertTrue(tm.verifyHmac(res.tokenId, ts, nonce, signature, "POST", "/server/log", body, 300));
+        assertFalse(debugLevels.isEmpty());
+        assertTrue(debugLevels.stream().allMatch(level -> "DEBUG".equalsIgnoreCase(level)));
+    }
+
     private static byte[] hexToBytes(String hex) {
         int len = hex.length();
         byte[] out = new byte[len / 2];

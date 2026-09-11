@@ -674,10 +674,10 @@ public final class TokenManager {
             boolean match = constantTimeEqualsHex(exp, signature);
             if (logger != null && debugEnabled) {
                 // Safe debug output: log only non-secret diagnostics.
-                logger.log("INFO", "[HMAC-DEBUG] tokenId=" + tokenId + " salt=" + tk.salt);
-                logger.log("INFO", "[HMAC-DEBUG] original_path=" + path + " normalized_path=" + normalizedPath);
-                logger.log("INFO", "[HMAC-DEBUG] canonical_string=" + msgCanonical.replace("\n", "\\n"));
-                logger.log("INFO", "[HMAC-DEBUG] match=" + match);
+                logger.log("DEBUG", "tokenId=" + tokenId + " salt=" + tk.salt);
+                logger.log("DEBUG", "original_path=" + path + " normalized_path=" + normalizedPath);
+                logger.log("DEBUG", "canonical_string=" + msgCanonical.replace("\n", "\\n"));
+                logger.log("DEBUG", "match=" + match);
             }
             if (match) return VerifyResult.OK;
             return VerifyResult.BAD_SIGNATURE;
