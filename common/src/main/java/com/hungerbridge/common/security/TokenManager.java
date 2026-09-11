@@ -11,6 +11,12 @@ import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.AclEntry;
+import java.nio.file.attribute.AclEntryPermission;
+import java.nio.file.attribute.AclEntryType;
+import java.nio.file.attribute.AclFileAttributeView;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.security.InvalidKeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -300,8 +306,7 @@ public final class TokenManager {
             }
             byte[] b = new byte[32];
             new java.security.SecureRandom().nextBytes(b);
-            Files.write(mk, b);
-            ensureFilePermissions(mk, logger);
+            writeFileAtomicallyWithOwnerOnlyAccess(mk, b, logger);
             if (logger != null) logger.log("INFO", "Generated master key: " + mk);
             return b;
         } catch (IOException e) {
@@ -327,16 +332,7 @@ public final class TokenManager {
     }
 
     private void setOwnerOnlyPerms(Path path) {
-        try {
-            java.nio.file.attribute.PosixFilePermission ownerRead = java.nio.file.attribute.PosixFilePermission.OWNER_READ;
-            java.nio.file.attribute.PosixFilePermission ownerWrite = java.nio.file.attribute.PosixFilePermission.OWNER_WRITE;
-            java.util.Set<java.nio.file.attribute.PosixFilePermission> perms = java.util.EnumSet.of(ownerRead, ownerWrite);
-            Files.setPosixFilePermissions(path, perms);
-        } catch (UnsupportedOperationException ignored) {
-            // Filesystem does not support POSIX permissions; rely on the containing directory and OS-level controls.
-        } catch (IOException e) {
-            if (logger != null) logger.log("WARN", "Failed to tighten permissions on " + path + ": " + e.getMessage());
-        }
+        ensureFilePermissions(path, logger);
     }
 
     private static void ensureDirectoryPermissions(Path dir, Logger logger) {
@@ -347,15 +343,12 @@ public final class TokenManager {
         try {
             if (!Files.isReadable(dir) || !Files.isWritable(dir) || !Files.isExecutable(dir)) {
                 if (logger != null) logger.log("WARN", "Storage directory has incorrect permissions; correcting: " + dir);
-                java.nio.file.attribute.PosixFilePermission ownerRead = java.nio.file.attribute.PosixFilePermission.OWNER_READ;
-                java.nio.file.attribute.PosixFilePermission ownerWrite = java.nio.file.attribute.PosixFilePermission.OWNER_WRITE;
-                java.nio.file.attribute.PosixFilePermission ownerExecute = java.nio.file.attribute.PosixFilePermission.OWNER_EXECUTE;
-                java.util.Set<java.nio.file.attribute.PosixFilePermission> perms = java.util.EnumSet.of(ownerRead, ownerWrite, ownerExecute);
+                var perms = java.util.EnumSet.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE);
                 Files.setPosixFilePermissions(dir, perms);
                 if (logger != null) logger.log("INFO", "Corrected storage directory permissions to rwx------");
             }
-        } catch (UnsupportedOperationException ignored) {
-            // Filesystem does not support POSIX permissions.
+        } catch (UnsupportedOperationException e) {
+            if (logger != null) logger.log("WARN", "Filesystem for " + dir + " does not support POSIX permissions; secure owner-only ACLs were not available.");
         } catch (IOException e) {
             if (logger != null) logger.log("ERROR", "Failed to correct storage directory permissions on " + dir + ": " + e.getMessage());
         }
@@ -367,15 +360,70 @@ public final class TokenManager {
             return;
         }
         try {
-            java.nio.file.attribute.PosixFilePermission ownerRead = java.nio.file.attribute.PosixFilePermission.OWNER_READ;
-            java.nio.file.attribute.PosixFilePermission ownerWrite = java.nio.file.attribute.PosixFilePermission.OWNER_WRITE;
-            java.util.Set<java.nio.file.attribute.PosixFilePermission> perms = java.util.EnumSet.of(ownerRead, ownerWrite);
-            Files.setPosixFilePermissions(file, perms);
+            Files.setPosixFilePermissions(file, java.util.EnumSet.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE));
+            return;
         } catch (UnsupportedOperationException ignored) {
-            // Filesystem does not support POSIX permissions.
+            // Fall through to ACL-based owner-only permissions on Windows.
         } catch (IOException e) {
             if (logger != null) logger.log("WARN", "Failed to set file permissions on " + file + ": " + e.getMessage());
+            return;
         }
+
+        try {
+            AclFileAttributeView aclView = Files.getFileAttributeView(file, AclFileAttributeView.class);
+            if (aclView == null) {
+                if (logger != null) logger.log("WARN", "Filesystem for " + file + " does not support POSIX or ACL owner-only permissions; file may remain accessible to other users.");
+                return;
+            }
+            java.util.List<AclEntry> acl = aclView.getAcl();
+            java.nio.file.attribute.UserPrincipal owner = Files.getOwner(file);
+            java.util.List<AclEntry> newAcl = new java.util.ArrayList<>();
+            for (AclEntry entry : acl) {
+                if (entry.principal().equals(owner)) {
+                    newAcl.add(AclEntry.newBuilder(entry)
+                            .setPermissions(java.util.EnumSet.of(AclEntryPermission.READ_DATA, AclEntryPermission.WRITE_DATA, AclEntryPermission.APPEND_DATA, AclEntryPermission.READ_ATTRIBUTES, AclEntryPermission.WRITE_ATTRIBUTES, AclEntryPermission.READ_NAMED_ATTRS, AclEntryPermission.WRITE_NAMED_ATTRS, AclEntryPermission.READ_ACL, AclEntryPermission.WRITE_ACL, AclEntryPermission.WRITE_OWNER, AclEntryPermission.DELETE, AclEntryPermission.SYNCHRONIZE))
+                            .setType(AclEntryType.ALLOW)
+                            .build());
+                } else if (!entry.principal().equals(owner)) {
+                    // Keep only owner access; drop any other principals.
+                    continue;
+                }
+            }
+            if (newAcl.stream().noneMatch(entry -> entry.principal().equals(owner))) {
+                newAcl.add(AclEntry.newBuilder()
+                        .setPermissions(java.util.EnumSet.of(AclEntryPermission.READ_DATA, AclEntryPermission.WRITE_DATA, AclEntryPermission.APPEND_DATA, AclEntryPermission.READ_ATTRIBUTES, AclEntryPermission.WRITE_ATTRIBUTES, AclEntryPermission.READ_NAMED_ATTRS, AclEntryPermission.WRITE_NAMED_ATTRS, AclEntryPermission.READ_ACL, AclEntryPermission.WRITE_ACL, AclEntryPermission.WRITE_OWNER, AclEntryPermission.DELETE, AclEntryPermission.SYNCHRONIZE))
+                        .setType(AclEntryType.ALLOW)
+                        .setPrincipal(owner)
+                        .build());
+            }
+            aclView.setAcl(newAcl);
+        } catch (UnsupportedOperationException e) {
+            if (logger != null) logger.log("WARN", "Filesystem for " + file + " does not support ACL-based owner-only permissions; secure file permissions could not be enforced.");
+        } catch (IOException e) {
+            if (logger != null) logger.log("WARN", "Failed to apply ACL-based owner-only permissions on " + file + ": " + e.getMessage());
+        }
+    }
+
+    private static void writeFileAtomicallyWithOwnerOnlyAccess(Path file, byte[] bytes, Logger logger) throws IOException {
+        Path parent = file.getParent();
+        if (parent != null && !Files.exists(parent)) {
+            Files.createDirectories(parent);
+        }
+        try {
+            java.util.Set<PosixFilePermission> perms = java.util.EnumSet.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE);
+            Files.newByteChannel(file,
+                    java.nio.file.StandardOpenOption.CREATE_NEW,
+                    java.nio.file.StandardOpenOption.WRITE,
+                    java.nio.file.StandardOpenOption.TRUNCATE_EXISTING,
+                    java.nio.file.StandardOpenOption.SYNC).write(java.nio.ByteBuffer.wrap(bytes));
+            Files.setPosixFilePermissions(file, perms);
+            return;
+        } catch (UnsupportedOperationException ignored) {
+            // Fall back to ACL-based owner-only permissions on Windows and non-POSIX filesystems.
+        }
+
+        Files.write(file, bytes);
+        ensureFilePermissions(file, logger);
     }
 
     private void loadTokens() {
