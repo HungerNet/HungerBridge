@@ -1,11 +1,11 @@
 # Default HKIM security settings.
 #
-# skew_seconds:
+# skew-seconds:
 #   Maximum tolerated difference between the client's timestamp and the server's
 #   current time for HMAC-signed requests. Default is 300 seconds (5 minutes).
 #   This matches standard HMAC replay-protection practice.
 #
-# rate_limits:
+# rate-limits:
 #   Token bucket settings keyed by remote IP, token ID, and pickup requests.
 #   Each bucket has a burst capacity and a refill rate in requests per second.
 #
@@ -13,13 +13,13 @@
 #   Restrict API access to a selected client set. The default is a localhost-only
 #   whitelist so the service is not exposed to the LAN or internet by accident.
 
-skew_seconds: 300
+skew-seconds: 300
 
-rate_limits:
-  per_ip:
+rate-limits:
+  per-ip:
     burst: 20
     rps: 10
-  per_token:
+  per-token:
     burst: 10
     rps: 5
   pickup:

@@ -8,11 +8,11 @@ import java.util.StringJoiner;
 
 public final class CommandMessages {
 
-    public static final String HEADER = "Usage: /hungerbridge <reload|token>";
+    public static final String HEADER = "HungerBridge Commands";
 
     public static List<String> helpLines() {
         return List.of(
-            HEADER,
+            "Usage: /hungerbridge <reload|token>",
             "Usage: /hungerbridge token <list|create|rotate|revoke|remove>",
             "Usage: /hungerbridge token create <id> <policyId> [expiry]",
             "Usage: /hungerbridge token rotate <id>",

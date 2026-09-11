@@ -69,11 +69,11 @@ public final class PolicySemanticsTest {
     public void securityYamlParsesRateLimitSettings() throws IOException {
         Path dir = Files.createTempDirectory("hb-security-settings");
         Files.writeString(dir.resolve("security.yaml"), """
-                rate_limits:
-                  per_ip:
+                rate-limits:
+                  per-ip:
                     burst: 20
                     rps: 10
-                  per_token:
+                  per-token:
                     burst: 10
                     rps: 5
                   pickup:

@@ -19,7 +19,7 @@ public final class ConfigTest {
         Path configFile = dir.resolve("config.yaml");
         Files.writeString(configFile, """
                 port: 1913
-                bind_address: 127.0.0.1
+                bind-address: 127.0.0.1
                 players:
                   max-list: 10
                 """);
@@ -38,6 +38,32 @@ public final class ConfigTest {
         assertTrue(config.getPlayersMaxList() == 10);
         assertTrue("127.0.0.1".equals(config.getBindAddress()));
         assertTrue(config.isRemoteAllowed("127.0.0.1"));
+    }
+
+    @Test
+    public void hyphenatedKeysAreReadAndSnakeCaseIsIgnored() throws IOException {
+        Path dir = Files.createTempDirectory("hungerbridge-hyphen-config");
+        Files.writeString(dir.resolve("config.yaml"), """
+                port: 1913
+                bind-address: 10.0.0.2
+                players:
+                  max-list: 12
+                """);
+
+        Config config = Config.load(dir, (level, thread, message) -> {});
+        assertTrue(config.getBindAddress().equals("10.0.0.2"));
+        assertTrue(config.getPlayersMaxList() == 12);
+
+        Files.writeString(dir.resolve("config.yaml"), """
+                port: 1913
+                bind_address: 10.0.0.3
+                players:
+                  max-list: 8
+                """);
+
+        Config legacySnake = Config.load(dir, (level, thread, message) -> {});
+        assertTrue(legacySnake.getBindAddress().equals("127.0.0.1"));
+        assertTrue(legacySnake.getPlayersMaxList() == 8);
     }
 
     @Test

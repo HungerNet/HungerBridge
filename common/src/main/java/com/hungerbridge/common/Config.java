@@ -145,7 +145,7 @@ public final class Config {
             }
 
             int port = ((Number) root.getOrDefault("port", 1913)).intValue();
-            String bindAddress = String.valueOf(root.getOrDefault("bind_address", "127.0.0.1")).trim();
+            String bindAddress = String.valueOf(root.getOrDefault("bind-address", "127.0.0.1")).trim();
             if (bindAddress.isEmpty()) bindAddress = "127.0.0.1";
             boolean debug = Boolean.parseBoolean(String.valueOf(root.getOrDefault("debug", false)));
 
@@ -299,7 +299,7 @@ public final class Config {
                         if (logger != null) logger.log("WARN", "Invalid config.yaml structure during reload");
                     } else {
                         root = (Map<String, Object>) loaded;
-                        String bindAddress = String.valueOf(root.getOrDefault("bind_address", this.bindAddress)).trim();
+                        String bindAddress = String.valueOf(root.getOrDefault("bind-address", this.bindAddress)).trim();
                         if (bindAddress.isEmpty()) bindAddress = this.bindAddress;
                         boolean debug = Boolean.parseBoolean(String.valueOf(root.getOrDefault("debug", this.debug)));
                         this.bindAddress = bindAddress;

@@ -69,10 +69,10 @@ public final class TokenManager {
             Object loaded = new Yaml().load(in);
             if (!(loaded instanceof Map)) return out;
             Map<String, Object> root = (Map<String, Object>) loaded;
-            Map<String, Object> rateLimits = root.get("rate_limits") instanceof Map ? (Map<String, Object>) root.get("rate_limits") : null;
+            Map<String, Object> rateLimits = root.get("rate-limits") instanceof Map ? (Map<String, Object>) root.get("rate-limits") : null;
             if (rateLimits == null) return out;
-            readBucket(rateLimits, "per_ip", out.perIp);
-            readBucket(rateLimits, "per_token", out.perToken);
+            readBucket(rateLimits, "per-ip", out.perIp);
+            readBucket(rateLimits, "per-token", out.perToken);
             readBucket(rateLimits, "pickup", out.pickup);
         } catch (Exception ignored) {
             // fall back to defaults on malformed config
@@ -516,7 +516,7 @@ public final class TokenManager {
             if (loaded instanceof Map) {
                 @SuppressWarnings("unchecked")
                 Map<String, Object> m = (Map<String, Object>) loaded;
-                Object s = m.get("skew_seconds");
+                Object s = m.get("skew-seconds");
                 if (s instanceof Number) return ((Number) s).longValue();
                 try {
                     return Long.parseLong(String.valueOf(s));
@@ -674,10 +674,10 @@ public final class TokenManager {
             boolean match = constantTimeEqualsHex(exp, signature);
             if (logger != null && debugEnabled) {
                 // Safe debug output: log only non-secret diagnostics.
-                logger.log("DEBUG", "tokenId=" + tokenId + " salt=" + tk.salt);
-                logger.log("DEBUG", "original_path=" + path + " normalized_path=" + normalizedPath);
-                logger.log("DEBUG", "canonical_string=" + msgCanonical.replace("\n", "\\n"));
-                logger.log("DEBUG", "match=" + match);
+                logger.log("DEBUG", "[HMAC-DEBUG] tokenId=" + tokenId + " salt=" + tk.salt);
+                logger.log("DEBUG", "[HMAC-DEBUG] original_path=" + path + " normalized_path=" + normalizedPath);
+                logger.log("DEBUG", "[HMAC-DEBUG] canonical_string=" + msgCanonical.replace("\n", "\\n"));
+                logger.log("DEBUG", "[HMAC-DEBUG] match=" + match);
             }
             if (match) return VerifyResult.OK;
             return VerifyResult.BAD_SIGNATURE;
