@@ -8,15 +8,18 @@ import java.util.StringJoiner;
 
 public final class CommandMessages {
 
-    public static final String HEADER = "HungerBridge Commands: reload, token";
-    public static final String USAGE = "Usage: /hungerbridge <subcommand> [args]";
-    public static final String SUBCOMMANDS = "Subcommands: reload, token";
-    public static final String TOKENS_SUB = "Tokens Subcommands: list, create <tokenId> <policyId>, revoke <id>, remove <id>";
-
-    // Formatting constants removed; platform controls log levels and formatting
+    public static final String HEADER = "Usage: /hungerbridge <reload|token>";
 
     public static List<String> helpLines() {
-        return List.of(USAGE, SUBCOMMANDS, TOKENS_SUB);
+        return List.of(
+            HEADER,
+            "Usage: /hungerbridge token <list|create|rotate|revoke|remove>",
+            "Usage: /hungerbridge token create <id> <policyId> [expiry]",
+            "Usage: /hungerbridge token rotate <id>",
+            "Usage: /hungerbridge token revoke <id>",
+            "Usage: /hungerbridge token remove <id>",
+            "Note: /hb is an alias for /hungerbridge"
+        );
     }
 
     public static String createdToken(String id, String secret) {

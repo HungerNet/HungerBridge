@@ -72,7 +72,7 @@ public final class TokensConfig {
                 }
                 config.policies.put(id, policy);
             }
-            if (logger != null) logger.log("INFO", "Loaded token policies from policies.yaml");
+            // Intentionally not logging here to avoid duplicate 'Loaded token policies' messages
         } catch (Exception e) {
             if (logger != null) {
                 logger.log("ERROR", "Failed to load policies.yaml: " + e.getClass().getSimpleName() + ": " + e.getMessage());

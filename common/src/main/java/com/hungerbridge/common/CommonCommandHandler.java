@@ -18,7 +18,6 @@ public final class CommonCommandHandler {
 
         if (args == null || args.length == 0) {
             out.add(CommandMessages.HEADER);
-            out.add("Use '/hungerbridge help' for more details or '/hungerbridge token' for the token subcommands.");
             return out;
         }
 
@@ -42,7 +41,12 @@ public final class CommonCommandHandler {
                     com.hungerbridge.common.Config cfg = bridgeServer != null ? bridgeServer.getConfig() : null;
                     com.hungerbridge.common.security.TokenManager tm = cfg != null ? cfg.getTokenManager() : null;
                     if (args.length == 1) {
-                        out.add(CommandMessages.TOKENS_SUB);
+                        out.add("Usage: /hungerbridge token <list|create|rotate|revoke|remove>");
+                        out.add("Usage: /hungerbridge token create <id> <policyId> [expiry]");
+                        out.add("Usage: /hungerbridge token rotate <id>");
+                        out.add("Usage: /hungerbridge token revoke <id>");
+                        out.add("Usage: /hungerbridge token remove <id>");
+                        out.add("Note: /hb is an alias for /hungerbridge");
                         return out;
                     }
                     String sub = args[1].toLowerCase();
@@ -57,7 +61,7 @@ public final class CommonCommandHandler {
                             return out;
                         }
                         case "create": {
-                            if (args.length < 4) { addError(out, bridgeServer, "Usage: token create <tokenId> <policyId>"); return out; }
+                            if (args.length < 4) { out.add("Usage: /hungerbridge token create <id> <policyId> [expiry]"); return out; }
                             if (tm == null) { addError(out, bridgeServer, "Token manager unavailable."); return out; }
                             String tokenId = args[2];
                             String policyId = args[3];
@@ -73,7 +77,7 @@ public final class CommonCommandHandler {
                             return out;
                         }
                         case "revoke": {
-                            if (args.length < 3) { addError(out, bridgeServer, "Usage: token revoke <id>"); return out; }
+                            if (args.length < 3) { out.add("Usage: /hungerbridge token revoke <id>"); return out; }
                             if (tm == null) { addError(out, bridgeServer, "Token manager unavailable."); return out; }
                             boolean ok = tm.revokeToken(args[2]);
                             if (!ok) { addError(out, bridgeServer, "Token not found: " + args[2]); return out; }
@@ -81,7 +85,7 @@ public final class CommonCommandHandler {
                             return out;
                         }
                         case "remove": {
-                            if (args.length < 3) { addError(out, bridgeServer, "Usage: token remove <id>"); return out; }
+                            if (args.length < 3) { out.add("Usage: /hungerbridge token remove <id>"); return out; }
                             if (tm == null) { addError(out, bridgeServer, "Token manager unavailable."); return out; }
                             boolean ok = tm.removeToken(args[2]);
                             if (!ok) { addError(out, bridgeServer, "Token not found: " + args[2]); return out; }
@@ -89,7 +93,8 @@ public final class CommonCommandHandler {
                             return out;
                         }
                         default:
-                            addError(out, bridgeServer, "Unknown token subcommand.");
+                            out.add("Unknown token subcommand.");
+                            out.add("Usage: /hungerbridge token <list|create|rotate|revoke|remove>");
                             return out;
                     }
                 }

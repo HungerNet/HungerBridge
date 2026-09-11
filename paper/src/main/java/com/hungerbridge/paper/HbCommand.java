@@ -50,7 +50,6 @@ public final class HbCommand implements CommandExecutor {
         }
         if (args.length == 0) {
             send(sender, CommandMessages.HEADER);
-            send(sender, "Use '/hungerbridge help' for more details or '/hungerbridge token' for the token subcommands.");
             return true;
         }
         if (args.length == 1 && args[0].equalsIgnoreCase("help")) {
