@@ -144,7 +144,7 @@ public final class BridgeServer {
 
     public synchronized boolean reloadConfig() {
         try {
-            com.hungerbridge.common.TokensConfig tc = com.hungerbridge.common.TokensConfig.load(configDir);
+            com.hungerbridge.common.TokensConfig tc = com.hungerbridge.common.TokensConfig.load(configDir, logger);
             config.setTokensConfig(tc);
             if (logger != null) logger.log("INFO", "Reloaded runtime config from disk.");
             return true;

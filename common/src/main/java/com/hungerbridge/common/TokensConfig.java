@@ -29,6 +29,11 @@ public final class TokensConfig {
 
     @SuppressWarnings("unchecked")
     public static TokensConfig load(Path configDir) {
+        return load(configDir, null);
+    }
+
+    @SuppressWarnings("unchecked")
+    public static TokensConfig load(Path configDir, com.hungerbridge.common.Logger logger) {
         TokensConfig config = defaults();
         Path policiesFile = configDir.resolve("policies.yaml");
         if (!Files.exists(policiesFile)) {
@@ -37,11 +42,13 @@ public final class TokensConfig {
         try (InputStream in = Files.newInputStream(policiesFile)) {
             Object loaded = new Yaml().load(in);
             if (!(loaded instanceof Map)) {
+                if (logger != null) logger.log("WARN", "Invalid policies.yaml structure; expected mapping at root.");
                 return config;
             }
             Map<String, Object> root = (Map<String, Object>) loaded;
             Object policiesObj = root.get("policies");
             if (!(policiesObj instanceof List)) {
+                if (logger != null) logger.log("WARN", "Invalid policies.yaml: 'policies' is missing or not a list.");
                 return config;
             }
             for (Object item : (List<?>) policiesObj) {
@@ -65,7 +72,11 @@ public final class TokensConfig {
                 }
                 config.policies.put(id, policy);
             }
-        } catch (Exception ignored) {
+            if (logger != null) logger.log("INFO", "Loaded token policies from policies.yaml");
+        } catch (Exception e) {
+            if (logger != null) {
+                logger.log("ERROR", "Failed to load policies.yaml: " + e.getClass().getSimpleName() + ": " + e.getMessage());
+            }
             return defaults();
         }
         return config;

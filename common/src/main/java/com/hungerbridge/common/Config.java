@@ -102,12 +102,8 @@ public final class Config {
             int port = ((Number) root.getOrDefault("port", 1913)).intValue();
             boolean debug = Boolean.parseBoolean(String.valueOf(root.getOrDefault("debug", false)));
 
-            // validate auxiliary configs and log status
-            com.hungerbridge.common.TokensConfig tc = null;
-            try {
-                tc = com.hungerbridge.common.TokensConfig.load(configDir);
-                if (logger != null) logger.log("INFO", "Loaded token policies");
-            } catch (Exception ignored) {}
+            // validate auxiliary configs and log status (log parsing errors from TokensConfig)
+            com.hungerbridge.common.TokensConfig tc = com.hungerbridge.common.TokensConfig.load(configDir, logger);
 
             Map<String, Object> players = (Map<String, Object>) root.getOrDefault("players", new LinkedHashMap<>());
 
