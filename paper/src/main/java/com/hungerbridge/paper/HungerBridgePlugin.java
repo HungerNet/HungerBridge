@@ -110,7 +110,9 @@ public final class HungerBridgePlugin extends JavaPlugin {
                             String trimmed = cmd.trim().toLowerCase();
                             if (trimmed.equals("reload") || trimmed.startsWith("reload ")) {
                                 try {
-                                    bridgeServer.reloadConfig();
+                                    if (bridgeServer != null) bridgeServer.reloadConfig();
+                                    // Re-register plugin commands as the server may rebuild command maps
+                                    try { com.hungerbridge.paper.PaperCommandRegistrar.register(HungerBridgePlugin.this, bridgeServer); } catch (Exception ignored) {}
                                 } catch (Exception ignored) {}
                             }
                         }

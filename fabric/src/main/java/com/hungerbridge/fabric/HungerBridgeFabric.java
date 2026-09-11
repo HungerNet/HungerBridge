@@ -207,6 +207,24 @@ public final class HungerBridgeFabric implements DedicatedServerModInitializer {
         } catch (Exception e) {
             ADAPTER.log("ERROR", "Failed to reload HungerBridge config on server reload: " + e.getMessage());
         }
+        // Re-register brigadier commands because dispatcher may be rebuilt during reload
+        try {
+            if (server != null && bridgeServer != null) {
+                var cmds = server.getCommands();
+                if (cmds != null) {
+                    var dispatcher = cmds.getDispatcher();
+                    if (dispatcher != null) {
+                        try {
+                            com.hungerbridge.fabric.FabricCommandRegistrar.register(dispatcher, bridgeServer, com.hungerbridge.common.CommandConstants.ROOT);
+                            com.hungerbridge.fabric.FabricCommandRegistrar.register(dispatcher, bridgeServer, com.hungerbridge.common.CommandConstants.ALIAS);
+                            ADAPTER.log("INFO", "Re-registered HungerBridge commands after reload.");
+                        } catch (Exception e) {
+                            ADAPTER.log("WARN", "Failed to re-register HungerBridge commands on reload: " + e.getMessage());
+                        }
+                    }
+                }
+            }
+        } catch (Throwable ignored) {}
     }
 
     public static MinecraftServer getServer() {

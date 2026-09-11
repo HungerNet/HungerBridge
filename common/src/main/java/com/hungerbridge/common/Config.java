@@ -284,39 +284,73 @@ public final class Config {
             return false;
         }
         try {
+            boolean anyOk = false;
+
+            // config.yaml
             Path configFile = this.configDir.resolve("config.yaml");
             if (!Files.exists(configFile)) {
-                if (logger != null) logger.log("WARN", "config.yaml missing; reload aborted.");
-                return false;
-            }
-            Yaml yaml = new Yaml();
-            Map<String, Object> root;
-            try (InputStream in = Files.newInputStream(configFile)) {
-                Object loaded = yaml.load(in);
-                if (!(loaded instanceof Map)) {
-                    if (logger != null) logger.log("WARN", "Invalid config.yaml structure during reload");
-                    return false;
+                if (logger != null) logger.log("WARN", "config.yaml missing; skipping config reload.");
+            } else {
+                Yaml yaml = new Yaml();
+                Map<String, Object> root;
+                try (InputStream in = Files.newInputStream(configFile)) {
+                    Object loaded = yaml.load(in);
+                    if (!(loaded instanceof Map)) {
+                        if (logger != null) logger.log("WARN", "Invalid config.yaml structure during reload");
+                    } else {
+                        root = (Map<String, Object>) loaded;
+                        String bindAddress = String.valueOf(root.getOrDefault("bind_address", this.bindAddress)).trim();
+                        if (bindAddress.isEmpty()) bindAddress = this.bindAddress;
+                        boolean debug = Boolean.parseBoolean(String.valueOf(root.getOrDefault("debug", this.debug)));
+                        this.bindAddress = bindAddress;
+                        this.debug = debug;
+                        anyOk = true;
+                        if (logger != null) logger.log("INFO", "Reloaded: config.yaml");
+                    }
+                } catch (Exception e) {
+                    if (logger != null) logger.log("WARN", "Failed to reload config.yaml: " + e.getMessage());
                 }
-                root = (Map<String, Object>) loaded;
             }
 
-            String bindAddress = String.valueOf(root.getOrDefault("bind_address", this.bindAddress)).trim();
-            if (bindAddress.isEmpty()) bindAddress = this.bindAddress;
-            boolean debug = Boolean.parseBoolean(String.valueOf(root.getOrDefault("debug", this.debug)));
+            // security.yaml
+            Path securityFile = this.configDir.resolve("security.yaml");
+            if (!Files.exists(securityFile)) {
+                if (logger != null) logger.log("INFO", "security.yaml not present; using defaults.");
+            } else {
+                try (InputStream in = Files.newInputStream(securityFile)) {
+                    Object loaded = new Yaml().load(in);
+                    if (!(loaded instanceof Map)) {
+                        if (logger != null) logger.log("WARN", "Invalid security.yaml structure; using defaults.");
+                    } else {
+                        // refresh allowed ips and ip mode
+                        java.util.List<String> allowedRemoteIps = loadAllowedIps(this.configDir, logger);
+                        String ipMode = loadIpMode(this.configDir, logger);
+                        this.allowedRemoteIps = allowedRemoteIps == null ? java.util.List.of() : allowedRemoteIps;
+                        this.ipMode = ipMode == null ? this.ipMode : ipMode;
+                        anyOk = true;
+                        if (logger != null) logger.log("INFO", "Reloaded: security.yaml");
+                    }
+                } catch (Exception e) {
+                    if (logger != null) logger.log("WARN", "Failed to reload security.yaml: " + e.getMessage());
+                }
+            }
 
-            java.util.List<String> allowedRemoteIps = loadAllowedIps(this.configDir, logger);
-            String ipMode = loadIpMode(this.configDir, logger);
+            // policies.yaml (TokensConfig)
+            Path policiesFile = this.configDir.resolve("policies.yaml");
+            try {
+                com.hungerbridge.common.TokensConfig tc = com.hungerbridge.common.TokensConfig.load(this.configDir, logger);
+                this.setTokensConfig(tc != null ? tc : com.hungerbridge.common.TokensConfig.defaults());
+                if (Files.exists(policiesFile)) {
+                    if (logger != null) logger.log("INFO", "Reloaded: policies.yaml");
+                    anyOk = true;
+                } else {
+                    if (logger != null) logger.log("INFO", "policies.yaml not present; using defaults.");
+                }
+            } catch (Exception e) {
+                if (logger != null) logger.log("WARN", "Failed to reload policies.yaml: " + e.getMessage());
+            }
 
-            com.hungerbridge.common.TokensConfig tc = com.hungerbridge.common.TokensConfig.load(this.configDir, logger);
-
-            // apply updated values
-            this.bindAddress = bindAddress;
-            this.allowedRemoteIps = allowedRemoteIps == null ? java.util.List.of() : allowedRemoteIps;
-            this.ipMode = ipMode == null ? this.ipMode : ipMode;
-            this.debug = debug;
-            this.setTokensConfig(tc != null ? tc : com.hungerbridge.common.TokensConfig.defaults());
-
-            return true;
+            return anyOk;
         } catch (Exception e) {
             if (logger != null) logger.log("WARN", "Failed to reload config: " + e.getMessage());
             return false;
