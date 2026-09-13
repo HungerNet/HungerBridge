@@ -143,19 +143,7 @@ public final class HungerBridgeFabric implements DedicatedServerModInitializer {
             if (mcServer == null) {
                 return;
             }
-            try {
-                var method = MinecraftServer.class.getMethod("stop", boolean.class);
-                method.invoke(mcServer, false);
-            } catch (NoSuchMethodException ignored) {
-                try {
-                    var fallback = MinecraftServer.class.getMethod("stop");
-                    fallback.invoke(mcServer);
-                } catch (ReflectiveOperationException ex) {
-                    ADAPTER.log("ERROR", "Failed to stop Minecraft server: " + ex.getMessage());
-                }
-            } catch (ReflectiveOperationException ex) {
-                ADAPTER.log("ERROR", "Failed to stop Minecraft server: " + ex.getMessage());
-            }
+            mcServer.halt(false);
         });
         // Start the bridge server on a dedicated thread named "HungerBridge"
         bridgeThread = new Thread(() -> {

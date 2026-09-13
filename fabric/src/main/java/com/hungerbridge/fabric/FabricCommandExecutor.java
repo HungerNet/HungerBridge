@@ -77,6 +77,15 @@ public final class FabricCommandExecutor implements CommandExecutor {
         return ms <= 0.0 ? -1.0 : ms;
     }
 
+    @Override
+    public String getWeather() {
+        ServerLevel overworld = server.getOverworld();
+        if (overworld == null) return "clear";
+        if (overworld.isThundering()) return "thunder";
+        if (overworld.isRaining()) return "rain";
+        return "clear";
+    }
+
     // ---------- Players ----------
 
     @Override

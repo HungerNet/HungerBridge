@@ -38,7 +38,17 @@ public final class WorldWeatherHandler implements HttpHandler {
         }
         if (!HttpUtil.rateLimit(ex, config, "world.weather")) return;
 
-        JsonObject resp = Json.obj("ok", true, "weather", "clear");
+        String weather = "clear";
+        try {
+            Object value = executor.getClass().getMethod("getWeather").invoke(executor);
+            if (value instanceof String str && !str.isBlank()) {
+                weather = str;
+            }
+        } catch (ReflectiveOperationException ignored) {
+            // Fall back to the default clear weather value when no platform weather hook exists.
+        }
+
+        JsonObject resp = Json.obj("ok", true, "weather", weather);
         HttpUtil.writeJson(ex, 200, resp);
     }
 }

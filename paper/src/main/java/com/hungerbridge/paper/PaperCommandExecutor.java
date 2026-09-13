@@ -89,6 +89,15 @@ public final class PaperCommandExecutor implements CommandExecutor {
         return avg / 1_000_000.0;
     }
 
+    @Override
+    public String getWeather() {
+        World world = Bukkit.getWorlds().isEmpty() ? null : Bukkit.getWorlds().get(0);
+        if (world == null) return "clear";
+        if (world.isThundering()) return "thunder";
+        if (world.hasStorm()) return "rain";
+        return "clear";
+    }
+
     // --- Players ---
 
     @Override
