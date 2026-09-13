@@ -166,6 +166,33 @@ public final class PolicySemanticsTest {
         assertTrue(debugLevels.stream().allMatch(level -> "HMAC-DEBUG".equalsIgnoreCase(level)));
     }
 
+    @Test
+    public void debugModeLogsExpiredNonceSweepAtDbgLevel() throws Exception {
+        Path dir = Files.createTempDirectory("hb-nonce-sweep-dbg");
+        java.util.List<String> dbgLevels = new java.util.ArrayList<>();
+        Logger logger = (level, thread, message) -> {
+            if (message != null && message.contains("Swept expired nonce sessions")) {
+                dbgLevels.add(level);
+            }
+        };
+
+        TokenManager tm = new TokenManager(dir, logger);
+        tm.setDebug(true);
+
+        java.lang.reflect.Field nonceField = TokenManager.class.getDeclaredField("nonceExpiries");
+        nonceField.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Long> nonceExpiries = (java.util.Map<String, Long>) nonceField.get(tm);
+        nonceExpiries.put("expired-nonce", System.currentTimeMillis() / 1000L - 10L);
+
+        java.lang.reflect.Method sweep = TokenManager.class.getDeclaredMethod("sweepExpiredNonces");
+        sweep.setAccessible(true);
+        sweep.invoke(tm);
+
+        assertFalse(dbgLevels.isEmpty());
+        assertTrue(dbgLevels.stream().allMatch(level -> "DBG".equalsIgnoreCase(level)));
+    }
+
     private static byte[] hexToBytes(String hex) {
         int len = hex.length();
         byte[] out = new byte[len / 2];
