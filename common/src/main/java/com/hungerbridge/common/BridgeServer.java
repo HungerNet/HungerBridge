@@ -91,7 +91,6 @@ public final class BridgeServer {
         registerContext("/system/gc", new com.hungerbridge.common.http.v2.SystemGcHandler(config, logger), endpoints);
         registerContext("/system/threads", new com.hungerbridge.common.http.v2.SystemThreadsHandler(config, logger), endpoints);
         registerContext("/system/network", new com.hungerbridge.common.http.v2.SystemNetworkHandler(config, logger), endpoints);
-        registerContext("/system/disk", new com.hungerbridge.common.http.v2.SystemDiskHandler(config, logger), endpoints);
         registerContext("/players/list", new com.hungerbridge.common.http.v2.PlayersListHandler(config, logger, executor), endpoints);
         registerContext("/world/tps", new com.hungerbridge.common.http.v2.WorldTpsHandler(config, logger, executor), endpoints);
         registerContext("/world/mspt", new com.hungerbridge.common.http.v2.WorldMsptHandler(config, logger, executor), endpoints);

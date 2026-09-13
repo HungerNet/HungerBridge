@@ -216,23 +216,6 @@ Response fields:
 - `total_bytes_in`
 - `total_bytes_out`
 
-`/system/disk` — disk metrics for the server working directory only
-
-```bash
-curl -sS http://localhost:1913/system/disk
-```
-
-```python
-client.getDiskStats()['total']
-```
-
-This endpoint uses `new File(".")` and reports:
-- `total_bytes` = current working directory total space
-- `free_bytes` = current working directory free space
-- `usable_bytes` = current working directory usable space
-- `used_bytes` = `total_bytes - free_bytes`
-It does not inspect the host root filesystem.
-
 `/world/tps` — tick performance
 
 ```bash
