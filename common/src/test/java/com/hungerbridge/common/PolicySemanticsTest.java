@@ -163,7 +163,7 @@ public final class PolicySemanticsTest {
 
         assertTrue(tm.verifyHmac(res.tokenId, ts, nonce, signature, "POST", "/server/log", body, 300));
         assertFalse(debugLevels.isEmpty());
-        assertTrue(debugLevels.stream().allMatch(level -> "DEBUG".equalsIgnoreCase(level)));
+        assertTrue(debugLevels.stream().allMatch(level -> "HMAC-DEBUG".equalsIgnoreCase(level)));
     }
 
     private static byte[] hexToBytes(String hex) {
