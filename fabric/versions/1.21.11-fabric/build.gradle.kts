@@ -19,10 +19,19 @@ dependencies {
     mappings(loom.officialMojangMappings())
     modImplementation("net.fabricmc:fabric-loader:0.19.2")
     implementation(project(":common"))
-    // include(project(":common"))
 }
 
-tasks.jar {
+tasks.named<Jar>("jar") {
+    // merge common classes into the final mod jar
+    val commonJava = project(":common")
+        .extensions
+        .getByType<JavaPluginExtension>()
+        .sourceSets
+        .getByName("main")
+        .output
+
+    from(commonJava)
+
     from({
         configurations.runtimeClasspath.get()
             .filter { it.name.contains("snakeyaml") }
