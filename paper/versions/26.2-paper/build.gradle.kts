@@ -12,7 +12,6 @@ repositories {
 }
 
 dependencies {
-    // NEW Paperweight 2.x DSL — correct for 26.x
     paperweight.paperDevBundle("26.2.build.+")
     implementation(project(":common"))
 }
@@ -26,6 +25,23 @@ sourceSets {
         java.srcDir(rootProject.file("paper/src/main/java"))
         resources.srcDir(rootProject.file("paper/src/main/resources"))
     }
+}
+
+tasks.named<Jar>("jar") {
+    // merge version-folder plugin.yml
+    from("plugin.yml")
+
+    // merge version-folder resources
+    from("src/main/resources")
+
+    // merge common classes
+    val commonJava = project(":common")
+        .extensions
+        .getByType<JavaPluginExtension>()
+        .sourceSets["main"]
+        .output
+
+    from(commonJava)
 }
 
 tasks.processResources {

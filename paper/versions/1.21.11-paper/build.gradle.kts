@@ -23,6 +23,23 @@ sourceSets {
     }
 }
 
+tasks.named<Jar>("jar") {
+    // merge version-folder plugin.yml
+    from("plugin.yml")
+
+    // merge version-folder resources
+    from("src/main/resources")
+
+    // merge common classes
+    val commonJava = project(":common")
+        .extensions
+        .getByType<JavaPluginExtension>()
+        .sourceSets["main"]
+        .output
+
+    from(commonJava)
+}
+
 tasks.processResources {
     filesMatching("plugin.yml") {
         expand("version" to project.version)
