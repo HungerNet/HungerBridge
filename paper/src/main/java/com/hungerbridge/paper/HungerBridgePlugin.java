@@ -64,7 +64,8 @@ public final class HungerBridgePlugin extends JavaPlugin {
         // auditing, IP lists and rate limiting removed
 
         config.setPlatform("paper");
-        config.setMinecraftVersion(Bukkit.getVersion());
+        config.setMinecraftVersion(normalizeMinecraftVersion(Bukkit.getMinecraftVersion(), Bukkit.getVersion()));
+        config.setBridgeVersion(getDescription() != null ? getDescription().getVersion() : "unknown");
 
         CommandExecutor executor = new PaperCommandExecutor(this);
 
@@ -122,6 +123,24 @@ public final class HungerBridgePlugin extends JavaPlugin {
         } catch (Exception ignored) {}
 
         if (hbAdapter != null) hbAdapter.log("INFO", "HungerBridge enabled."); else HB_LOGGER.info("HungerBridge enabled.");
+    }
+
+    private static String normalizeMinecraftVersion(String version, String rawVersion) {
+        if (version != null && !version.isBlank()) {
+            return version.trim();
+        }
+        if (rawVersion == null || rawVersion.isBlank()) {
+            return "unknown";
+        }
+        String candidate = rawVersion.trim();
+        int cutoff = candidate.indexOf("Paper");
+        if (cutoff >= 0) {
+            candidate = candidate.substring(0, cutoff).trim();
+        }
+        if (candidate.contains(" ")) {
+            candidate = candidate.substring(0, candidate.indexOf(' ')).trim();
+        }
+        return candidate.isBlank() ? "unknown" : candidate;
     }
 
     @Override
