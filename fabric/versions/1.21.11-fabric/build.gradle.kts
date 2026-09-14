@@ -19,7 +19,7 @@ dependencies {
     mappings(loom.officialMojangMappings())
     modImplementation("net.fabricmc:fabric-loader:0.19.2")
     implementation(project(":common"))
-    include(project(":common"))
+    // include(project(":common"))
 }
 
 tasks.jar {

@@ -7,6 +7,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.level.Level;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -77,9 +78,8 @@ public final class FabricCommandExecutor implements CommandExecutor {
         return ms <= 0.0 ? -1.0 : ms;
     }
 
-    @Override
     public String getWeather() {
-        ServerLevel overworld = server.getOverworld();
+        ServerLevel overworld = server.getLevel(Level.OVERWORLD);
         if (overworld == null) return "clear";
         if (overworld.isThundering()) return "thunder";
         if (overworld.isRaining()) return "rain";

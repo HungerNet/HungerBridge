@@ -18,7 +18,7 @@ dependencies {
     minecraft("com.mojang:minecraft:26.1.2")
     implementation("net.fabricmc:fabric-loader:0.19.2")
     implementation(project(":common"))
-    include(project(":common"))
+    // include(project(":common"))
 }
 
 tasks.jar {

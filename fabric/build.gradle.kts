@@ -2,9 +2,9 @@ plugins {
     id("java")
 }
 
-// tasks.named<Jar>("jar") {
-//     from(project(":common").sourceSets["main"].output)
-// }
+tasks.named<Jar>("jar") {
+    from(project(":common").sourceSets["main"].output)
+}
 
 version = "hb-${stonecutter.current.loader}-${stonecutter.current.minecraftVersion}+${stonecutter.current.version}"
 
