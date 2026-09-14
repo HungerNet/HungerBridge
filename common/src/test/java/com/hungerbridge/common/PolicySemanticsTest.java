@@ -141,7 +141,7 @@ public final class PolicySemanticsTest {
         Path dir = Files.createTempDirectory("hb-hmac-debug-level");
         java.util.List<String> debugLevels = new java.util.ArrayList<>();
         Logger logger = (level, thread, message) -> {
-            if (message != null && message.startsWith("[HMAC-DEBUG]")) {
+            if (message != null && message.startsWith("[HMAC]")) {
                 debugLevels.add(level);
             }
         };

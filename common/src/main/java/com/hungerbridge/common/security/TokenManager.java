@@ -678,10 +678,10 @@ public final class TokenManager {
             if (logger != null && debugEnabled) {
                 // Safe debug output: log only non-secret diagnostics.
                 // Use a custom HMAC-DEBUG level so it is more severe than INFO and distinct from DEBUG.
-                logger.log("HMAC-DEBUG", "[HMAC-DEBUG] tokenId=" + tokenId + " salt=" + tk.salt);
-                logger.log("HMAC-DEBUG", "[HMAC-DEBUG] original_path=" + path + " normalized_path=" + normalizedPath);
-                logger.log("HMAC-DEBUG", "[HMAC-DEBUG] canonical_string=" + msgCanonical.replace("\n", "\\n"));
-                logger.log("HMAC-DEBUG", "[HMAC-DEBUG] match=" + match);
+                logger.log("DBG", "[HMAC] tokenId=" + tokenId + " salt=" + tk.salt);
+                logger.log("DBG", "[HMAC] original_path=" + path + " normalized_path=" + normalizedPath);
+                logger.log("DBG", "[HMAC] canonical_string=" + msgCanonical.replace("\n", "\\n"));
+                logger.log("DBG", "[HMAC] match=" + match);
             }
             if (match) return VerifyResult.OK;
             return VerifyResult.BAD_SIGNATURE;
