@@ -18,10 +18,19 @@ dependencies {
     minecraft("com.mojang:minecraft:26.1.2")
     implementation("net.fabricmc:fabric-loader:0.19.2")
     implementation(project(":common"))
-    // include(project(":common"))
 }
 
-tasks.jar {
+tasks.named<Jar>("jar") {
+    // merge common classes into the final mod jar
+    val commonJava = project(":common")
+        .extensions
+        .getByType<JavaPluginExtension>()
+        .sourceSets
+        .getByName("main")
+        .output
+
+    from(commonJava)
+
     from({
         configurations.runtimeClasspath.get()
             .filter { it.name.contains("snakeyaml") }
@@ -36,6 +45,13 @@ tasks.processResources {
     }
     filesMatching("fabric.mod.json") {
         expand("version" to project.version)
+    }
+
+    // Ensure autogen runtime templates from the repository root are packaged
+    // into the final plugin JAR under `/autogen/*` so the running plugin can
+    // seed runtime config from them.
+    from(rootProject.file("autogen/HungerBridge")) {
+        into("autogen")
     }
 }
 
