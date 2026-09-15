@@ -1,5 +1,6 @@
 package com.hungerbridge.paper;
 
+import net.minecraft.server.MinecraftServer;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.World;
@@ -94,10 +95,14 @@ public final class PaperBridgeAdapter {
     }
 
     public int getMaxPlayersSafe() {
-        int maxPlayers = invokeSync(() -> Bukkit.getServer().getMaxPlayers(), 0);
-        if (maxPlayers > 0) return maxPlayers;
-        int online = Bukkit.getOnlinePlayers().size();
-        return Math.max(20, online);
+        return invokeSync(() -> {
+            int maxPlayers = MinecraftServer.getServer().getPlayerList().getMaxPlayers();
+            if (maxPlayers > 0) return maxPlayers;
+            int fallback = Bukkit.getServer().getMaxPlayers();
+            if (fallback > 0) return fallback;
+            int online = Bukkit.getOnlinePlayers().size();
+            return Math.max(20, online);
+        }, 0);
     }
 
     public CompletableFuture<Integer> getMaxPlayersAsync() {
@@ -106,8 +111,12 @@ public final class PaperBridgeAdapter {
 
     public double getTPS() {
         double tps = invokeSync(() -> {
-            double value = 1000.0 / Math.max(Bukkit.getServer().getAverageTickTime(), 1.0);
-            return Math.min(20.0, value);
+            double mspt = Bukkit.getServer().getAverageTickTime();
+            if (!Double.isFinite(mspt) || mspt <= 0.0) {
+                return -1.0;
+            }
+            double currentTPS = 1000.0 / mspt;
+            return Math.min(20.0, currentTPS);
         }, -1.0);
         return Double.isFinite(tps) ? tps : -1.0;
     }
@@ -120,7 +129,7 @@ public final class PaperBridgeAdapter {
         return invokeSync(() -> {
             double[] tps = Bukkit.getServer().getTPS();
             if (tps == null || tps.length < 2) return -1.0;
-            return tps[1];
+            return Math.min(20.0, tps[1]);
         }, -1.0);
     }
 
@@ -128,7 +137,7 @@ public final class PaperBridgeAdapter {
         return invokeSync(() -> {
             double[] tps = Bukkit.getServer().getTPS();
             if (tps == null || tps.length < 3) return -1.0;
-            return tps[2];
+            return Math.min(20.0, tps[2]);
         }, -1.0);
     }
 
@@ -136,7 +145,7 @@ public final class PaperBridgeAdapter {
         return invokeSync(() -> {
             double[] tps = Bukkit.getServer().getTPS();
             if (tps == null || tps.length < 4) return -1.0;
-            return tps[3];
+            return Math.min(20.0, tps[3]);
         }, -1.0);
     }
 

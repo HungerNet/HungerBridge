@@ -63,7 +63,7 @@ public final class PaperCommandExecutor implements CommandExecutor {
         return callSync(() -> {
             double[] tps = Bukkit.getServer().getTPS();
             if (tps == null || tps.length < 2) return -1.0;
-            return tps[1];
+            return Math.min(20.0, tps[1]);
         }, -1.0);
     }
 
@@ -72,7 +72,7 @@ public final class PaperCommandExecutor implements CommandExecutor {
         return callSync(() -> {
             double[] tps = Bukkit.getServer().getTPS();
             if (tps == null || tps.length < 3) return -1.0;
-            return tps[2];
+            return Math.min(20.0, tps[2]);
         }, -1.0);
     }
 
@@ -81,7 +81,7 @@ public final class PaperCommandExecutor implements CommandExecutor {
         return callSync(() -> {
             double[] tps = Bukkit.getServer().getTPS();
             if (tps == null || tps.length < 4) return -1.0;
-            return tps[3];
+            return Math.min(20.0, tps[3]);
         }, -1.0);
     }
 
