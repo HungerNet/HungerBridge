@@ -109,6 +109,16 @@ public final class PaperBridgeAdapter {
         return callSyncFuture(this::getMaxPlayersSafe);
     }
 
+    private static double roundOneDecimal(double value) {
+        if (!Double.isFinite(value)) return -1.0;
+        return Math.round(value * 10.0) / 10.0;
+    }
+
+    private static double clampTps(double raw) {
+        if (!Double.isFinite(raw) || raw <= 0.0) return -1.0;
+        return roundOneDecimal(Math.min(20.0, raw));
+    }
+
     public double getTPS() {
         double tps = invokeSync(() -> {
             double mspt = Bukkit.getServer().getAverageTickTime();
@@ -116,7 +126,7 @@ public final class PaperBridgeAdapter {
                 return -1.0;
             }
             double currentTPS = 1000.0 / mspt;
-            return Math.min(20.0, currentTPS);
+            return clampTps(currentTPS);
         }, -1.0);
         return Double.isFinite(tps) ? tps : -1.0;
     }
@@ -128,8 +138,8 @@ public final class PaperBridgeAdapter {
     public double getTps1m() {
         return invokeSync(() -> {
             double[] tps = Bukkit.getServer().getTPS();
-            if (tps == null || tps.length < 2) return -1.0;
-            return Math.min(20.0, tps[1]);
+            if (tps == null || tps.length < 3) return -1.0;
+            return clampTps(tps[0]);
         }, -1.0);
     }
 
@@ -137,16 +147,18 @@ public final class PaperBridgeAdapter {
         return invokeSync(() -> {
             double[] tps = Bukkit.getServer().getTPS();
             if (tps == null || tps.length < 3) return -1.0;
-            return Math.min(20.0, tps[2]);
+            return clampTps(tps[1]);
         }, -1.0);
     }
 
     public double getTps15m() {
         return invokeSync(() -> {
             double[] tps = Bukkit.getServer().getTPS();
-            if (tps == null || tps.length < 4) return -1.0;
-            return Math.min(20.0, tps[3]);
-        }, -1.0);
+            if (tps == null || tps.length < 3) return 20.0;
+            double raw = tps[2];
+            if (!Double.isFinite(raw) || raw <= 0.0) return 20.0;
+            return roundOneDecimal(Math.min(20.0, raw));
+        }, 20.0);
     }
 
     public double getAverageTickTimeMs() {

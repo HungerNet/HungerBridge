@@ -24,8 +24,6 @@ sourceSets {
 }
 
 tasks.named<Jar>("jar") {
-    from("plugin.yml")
-
     val commonJava = project(":common")
         .extensions
         .getByType<JavaPluginExtension>()
@@ -36,6 +34,7 @@ tasks.named<Jar>("jar") {
 }
 
 tasks.processResources {
+    from("plugin.yml")
     filesMatching("plugin.yml") {
         expand("version" to project.version)
     }

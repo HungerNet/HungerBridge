@@ -62,8 +62,10 @@ public final class PaperCommandExecutor implements CommandExecutor {
     public double getTps1m() {
         return callSync(() -> {
             double[] tps = Bukkit.getServer().getTPS();
-            if (tps == null || tps.length < 2) return -1.0;
-            return Math.min(20.0, tps[1]);
+            if (tps == null || tps.length < 3) return -1.0;
+            double raw = tps[0];
+            if (!Double.isFinite(raw) || raw <= 0.0) return -1.0;
+            return Math.round(Math.min(20.0, raw) * 10.0) / 10.0;
         }, -1.0);
     }
 
@@ -72,7 +74,9 @@ public final class PaperCommandExecutor implements CommandExecutor {
         return callSync(() -> {
             double[] tps = Bukkit.getServer().getTPS();
             if (tps == null || tps.length < 3) return -1.0;
-            return Math.min(20.0, tps[2]);
+            double raw = tps[1];
+            if (!Double.isFinite(raw) || raw <= 0.0) return -1.0;
+            return Math.round(Math.min(20.0, raw) * 10.0) / 10.0;
         }, -1.0);
     }
 
@@ -80,9 +84,11 @@ public final class PaperCommandExecutor implements CommandExecutor {
     public double getTps15m() {
         return callSync(() -> {
             double[] tps = Bukkit.getServer().getTPS();
-            if (tps == null || tps.length < 4) return -1.0;
-            return Math.min(20.0, tps[3]);
-        }, -1.0);
+            if (tps == null || tps.length < 3) return 20.0;
+            double raw = tps[2];
+            if (!Double.isFinite(raw) || raw <= 0.0) return 20.0;
+            return Math.round(Math.min(20.0, raw) * 10.0) / 10.0;
+        }, 20.0);
     }
 
     @Override
