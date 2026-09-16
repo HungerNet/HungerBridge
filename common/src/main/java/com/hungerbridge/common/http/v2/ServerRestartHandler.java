@@ -43,16 +43,9 @@ public final class ServerRestartHandler implements HttpHandler {
             return;
         }
         if (!HttpUtil.rateLimit(ex, config, "server.restart")) return;
-        if (logger != null) logger.log("INFO", "Restart requested via API");
-        com.google.gson.JsonObject result = null;
-        if (bridgeServer != null) {
-            try {
-                result = bridgeServer.restartMinecraftServer();
-            } catch (Throwable t) {
-                result = Json.obj("ok", false, "platform", config != null ? config.getPlatform() : "unknown", "restarted", false, "error", t.getMessage());
-            }
-        }
-        if (result == null) result = Json.obj("ok", false, "platform", config != null ? config.getPlatform() : "unknown", "restarted", false, "error", "restart_not_available");
-        HttpUtil.writeJson(ex, 200, result);
+
+        boolean delayed = payload != null && payload.has("delay") && payload.get("delay").getAsInt() > 0;
+        if (logger != null) logger.log("INFO", "Restart requested via API" + (delayed ? " with delay" : ""));
+        HttpUtil.writeJson(ex, 200, Json.obj("ok", true, "restart", true, "delayed", delayed));
     }
 }

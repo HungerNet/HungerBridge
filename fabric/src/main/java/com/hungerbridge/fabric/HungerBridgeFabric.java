@@ -144,15 +144,6 @@ public final class HungerBridgeFabric implements DedicatedServerModInitializer {
                 return;
             }
             mcServer.halt(false);
-        }, () -> {
-            try {
-                MinecraftServer s = HungerBridgeFabric.getServer();
-                // touch internals only: access server version (no stop)
-                String ver = s != null ? s.getServerVersion() : null;
-                return com.hungerbridge.common.Json.obj("ok", false, "platform", "fabric", "restarted", false, "error", "Fabric cannot restart a server");
-            } catch (Throwable t) {
-                return com.hungerbridge.common.Json.obj("ok", false, "platform", "fabric", "restarted", false, "error", t.getMessage());
-            }
         });
         // Start the bridge server on a dedicated thread named "HungerBridge"
         bridgeThread = new Thread(() -> {

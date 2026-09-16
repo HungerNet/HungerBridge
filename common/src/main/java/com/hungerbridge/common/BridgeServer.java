@@ -21,8 +21,6 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
-import com.google.gson.JsonObject;
 
 /**
  * BridgeServer. Registers HTTP endpoints based on config.
@@ -34,26 +32,20 @@ public final class BridgeServer {
     private final Logger logger;
     private final CommandExecutor executor;
     private final Runnable minecraftStopHandler;
-    private final Supplier<JsonObject> minecraftRestartHandler;
 
     private HttpServer server;
     private ExecutorService pool;
 
     public BridgeServer(Path configDir, Config config, Logger logger, CommandExecutor executor) {
-        this(configDir, config, logger, executor, null, null);
+        this(configDir, config, logger, executor, null);
     }
 
     public BridgeServer(Path configDir, Config config, Logger logger, CommandExecutor executor, Runnable minecraftStopHandler) {
-        this(configDir, config, logger, executor, minecraftStopHandler, null);
-    }
-
-    public BridgeServer(Path configDir, Config config, Logger logger, CommandExecutor executor, Runnable minecraftStopHandler, Supplier<JsonObject> minecraftRestartHandler) {
         this.configDir = configDir;
         this.config = config;
         this.logger = logger;
         this.executor = executor;
         this.minecraftStopHandler = minecraftStopHandler;
-        this.minecraftRestartHandler = minecraftRestartHandler;
     }
 
     public synchronized void start() {
@@ -90,7 +82,6 @@ public final class BridgeServer {
         registerContext("/auth/check", new com.hungerbridge.common.http.v2.AuthCheckHandler(config), endpoints);
         registerContext("/server/run", new RunHandler(config, logger, executor), endpoints);
         registerContext("/server/stop", new com.hungerbridge.common.http.v2.ServerStopHandler(config, logger, this), endpoints);
-        registerContext("/server/restart", new com.hungerbridge.common.http.v2.ServerRestartHandler(config, logger, this), endpoints);
         registerContext("/server/log", new LogHandler(config, logger), endpoints);
         registerContext("/server/meta", new com.hungerbridge.common.http.v2.MetaHandler(config, logger), endpoints);
         registerContext("/server/stream", new StreamLogsHandler(config), endpoints);
@@ -140,17 +131,6 @@ public final class BridgeServer {
         if (minecraftStopHandler != null) {
             minecraftStopHandler.run();
         }
-    }
-
-    public JsonObject restartMinecraftServer() {
-        try {
-            if (minecraftRestartHandler != null) {
-                return minecraftRestartHandler.get();
-            }
-        } catch (Throwable t) {
-            // fallthrough to error response below
-        }
-        return com.hungerbridge.common.Json.obj("ok", false, "platform", config != null ? config.getPlatform() : "unknown", "restarted", false, "error", "restart_not_available");
     }
 
     private void registerContext(String path, com.sun.net.httpserver.HttpHandler handler, java.util.List<String> endpoints) {
