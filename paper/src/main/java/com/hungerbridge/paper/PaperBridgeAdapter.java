@@ -211,4 +211,3 @@ public final class PaperBridgeAdapter {
         return worldName;
     }
 }
-}
