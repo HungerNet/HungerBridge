@@ -132,6 +132,11 @@ public final class PaperCommandExecutor implements CommandExecutor {
         return names;
     }
 
+    @Override
+    public int getMaxPlayers() {
+        return bridgeAdapter.getMaxPlayersSafe();
+    }
+
     public List<Map<String, Object>> getOnlinePlayersSafe() {
         return bridgeAdapter.getOnlinePlayersSafe();
     }

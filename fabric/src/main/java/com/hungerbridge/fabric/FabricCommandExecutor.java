@@ -99,6 +99,11 @@ public final class FabricCommandExecutor implements CommandExecutor {
     }
 
     @Override
+    public int getMaxPlayers() {
+        return server.getPlayerList().getMaxPlayers();
+    }
+
+    @Override
     public Map<String, Integer> getWorldChunkCounts() {
         Map<String, Integer> counts = new HashMap<>();
         for (ServerLevel level : server.getAllLevels()) {

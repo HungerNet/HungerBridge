@@ -79,6 +79,13 @@ public interface CommandExecutor {
     }
 
     /**
+     * Maximum configured player capacity for the server.
+     */
+    default int getMaxPlayers() {
+        return 0;
+    }
+
+    /**
      * Loaded chunk counts by world name.
      */
     default Map<String, Integer> getWorldChunkCounts() {

@@ -43,7 +43,8 @@ public final class PlayersListHandler implements HttpHandler {
         List<String> names = executor.getOnlinePlayerNames();
         JsonArray arr = new JsonArray();
         for (String name : names) arr.add(name);
-        JsonObject resp = Json.obj("ok", true, "count", arr.size(), "players", arr);
+        int max = executor.getMaxPlayers();
+        JsonObject resp = Json.obj("ok", true, "count", arr.size(), "max", max, "players", arr);
         HttpUtil.writeJson(ex, 200, resp);
     }
 }

@@ -49,6 +49,7 @@ public final class PlayersHandler implements HttpHandler {
 
         List<String> names = executor.getOnlinePlayerNames();
         int count = names.size();
+        int serverMax = executor.getMaxPlayers();
 
         if (names.size() > max) {
             names = names.subList(0, max);
@@ -57,6 +58,7 @@ public final class PlayersHandler implements HttpHandler {
         JsonObject resp = Json.obj(
                 "ok", true,
                 "count", count,
+                "max", serverMax > 0 ? serverMax : max,
                 "players", Json.GSON.toJsonTree(names)
         );
 
