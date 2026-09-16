@@ -28,30 +28,7 @@ public final class HungerBridgePlugin extends JavaPlugin {
         logAppender.start();
         root.addAppender(logAppender);
 
-        Logger logger = (level, thread, message) -> {
-            String prev = Thread.currentThread().getName();
-            try {
-                if (thread != null && !thread.isEmpty()) {
-                    try { Thread.currentThread().setName(thread); } catch (Exception ignored) {}
-                } else {
-                    try { Thread.currentThread().setName("HungerBridge"); } catch (Exception ignored) {}
-                }
-                org.apache.logging.log4j.Logger raw = org.apache.logging.log4j.LogManager.getLogger("HungerBridge");
-                String resolved = level == null ? "INFO" : level.trim();
-                if (resolved.isEmpty()) resolved = "INFO";
-                org.apache.logging.log4j.Level lvl = org.apache.logging.log4j.Level.getLevel(resolved.toUpperCase());
-                if (lvl == null) {
-                    try {
-                        lvl = org.apache.logging.log4j.Level.forName(resolved.toUpperCase(), 350);
-                    } catch (Exception ignored2) {
-                        lvl = org.apache.logging.log4j.Level.INFO;
-                    }
-                }
-                raw.log(lvl, message);
-            } finally {
-                try { Thread.currentThread().setName(prev); } catch (Exception ignored) {}
-            }
-        };
+        Logger logger = new PaperLoggerAdapter();
 
         Path configDir = getDataFolder().toPath();
         Config config = Config.load(configDir, logger);
