@@ -14,6 +14,8 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
+import com.google.gson.JsonObject;
+import com.hungerbridge.common.Json;
 
 public final class PaperBridgeAdapter {
 
@@ -209,5 +211,26 @@ public final class PaperBridgeAdapter {
         if ("world_nether".equals(worldName)) return "world_nether";
         if ("world_the_end".equals(worldName)) return "world_the_end";
         return worldName;
+    }
+
+    public JsonObject restartServer() {
+        return invokeSync(() -> {
+            try {
+                try {
+                    MinecraftServer mc = MinecraftServer.getServer();
+                    if (mc != null) {
+                        mc.halt(true);
+                        return Json.obj("ok", true, "platform", "paper", "restarted", true, "error", null);
+                    }
+                } catch (NoSuchMethodError | NoClassDefFoundError ignored) {
+                    // fall through to dispatch command
+                }
+                // fallback: dispatch 'restart' command from console
+                Bukkit.getServer().dispatchCommand(Bukkit.getConsoleSender(), "restart");
+                return Json.obj("ok", true, "platform", "paper", "restarted", true, "error", null);
+            } catch (Throwable t) {
+                return Json.obj("ok", false, "platform", "paper", "restarted", false, "error", t.getMessage());
+            }
+        }, Json.obj("ok", false, "platform", "paper", "restarted", false, "error", "restart_failed"));
     }
 }
