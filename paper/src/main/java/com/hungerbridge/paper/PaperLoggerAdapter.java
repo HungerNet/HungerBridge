@@ -50,7 +50,9 @@ public final class PaperLoggerAdapter implements Logger {
                 }
             }
 
-            logger.log(lvl, message);
+            String threadNameForMessage = (thread != null && !thread.isEmpty()) ? thread : "HungerBridge";
+            String decorated = "[" + threadNameForMessage + "] " + (message == null ? "" : message);
+            logger.log(lvl, decorated);
         } finally {
             try {
                 Thread.currentThread().setName(previous);
