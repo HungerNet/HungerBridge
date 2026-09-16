@@ -50,9 +50,12 @@ public final class PaperLoggerAdapter implements Logger {
                 }
             }
 
-            String threadNameForMessage = (thread != null && !thread.isEmpty()) ? thread : "HungerBridge";
-            String decorated = "[" + threadNameForMessage + "] " + (message == null ? "" : message);
-            logger.log(lvl, decorated);
+            // Use a logger named after the requested thread so the platform's
+            // log layout shows the custom name in place of the static
+            // 'HungerBridge' label. This mirrors Fabric behavior on Paper.
+            String threadLoggerName = (thread != null && !thread.isEmpty()) ? thread : "HungerBridge";
+            org.apache.logging.log4j.Logger threadLogger = org.apache.logging.log4j.LogManager.getLogger(threadLoggerName);
+            threadLogger.log(lvl, message);
         } finally {
             try {
                 Thread.currentThread().setName(previous);
