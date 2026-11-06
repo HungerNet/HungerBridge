@@ -25,6 +25,7 @@ public final class StandaloneBridge {
         int port = Integer.parseInt(System.getProperty("hb.standalone.port", "19130"));
         Path dir = Files.createTempDirectory("hb-standalone");
         Files.writeString(dir.resolve("config.yaml"), "port: " + port + "\nbind-address: 127.0.0.1\nplayers:\n  max-list: 50\n");
+        Files.writeString(dir.resolve("security.yaml"), "rate-limits:\n  per-ip:\n    burst: 1000\n    rps: 1000\n  per-token:\n    burst: 1000\n    rps: 1000\n");
         Files.writeString(dir.resolve("policies.yaml"), "policies:\n  - id: admin\n    permissions: [\"*\"]\n");
 
         Logger logger = (level, thread, message) -> {
