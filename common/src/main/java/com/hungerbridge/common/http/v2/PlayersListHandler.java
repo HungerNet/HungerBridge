@@ -6,45 +6,33 @@ import com.hungerbridge.common.CommandExecutor;
 import com.hungerbridge.common.Config;
 import com.hungerbridge.common.Json;
 import com.hungerbridge.common.Logger;
+import com.hungerbridge.common.http.ApiHandler;
 import com.hungerbridge.common.http.HttpUtil;
+import com.hungerbridge.common.security.Permissions;
 import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpHandler;
 
 import java.io.IOException;
 import java.util.List;
 
-public final class PlayersListHandler implements HttpHandler {
-    private final Config config;
-    private final Logger logger;
+/**
+ * GET /players/list → {@code count} (all online players), {@code max} (server slots) and
+ * {@code players} (names, capped at {@code players.max-list} from config.yaml).
+ */
+public final class PlayersListHandler extends ApiHandler {
+
     private final CommandExecutor executor;
 
     public PlayersListHandler(Config config, Logger logger, CommandExecutor executor) {
-        this.config = config;
-        this.logger = logger;
+        super(config, logger, "/players/list", "GET", Permissions.PLAYERS_LIST);
         this.executor = executor;
     }
 
     @Override
-    public void handle(HttpExchange ex) throws IOException {
-        if (!"GET".equalsIgnoreCase(ex.getRequestMethod())) {
-            HttpUtil.error(ex, 405, "method_not_allowed", "Use GET", config);
-            return;
-        }
-        if (!HttpUtil.auth(ex, config)) {
-            HttpUtil.error(ex, 401, "unauthorized", "Authentication required", config);
-            return;
-        }
-        if (!HttpUtil.checkAcl(ex, config, "players.list")) {
-            HttpUtil.error(ex, 403, "forbidden", "Token not permitted to list players", config);
-            return;
-        }
-        if (!HttpUtil.rateLimit(ex, config, "players.list")) return;
-
+    protected void handleAuthorized(HttpExchange ex, JsonObject body) throws IOException {
         List<String> names = executor.getOnlinePlayerNames();
+        int limit = Math.max(0, config.getPlayersMaxList());
         JsonArray arr = new JsonArray();
-        for (String name : names) arr.add(name);
-        int max = executor.getMaxPlayers();
-        JsonObject resp = Json.obj("ok", true, "count", arr.size(), "max", max, "players", arr);
-        HttpUtil.writeJson(ex, 200, resp);
+        for (int i = 0; i < names.size() && i < limit; i++) arr.add(names.get(i));
+        HttpUtil.writeJson(ex, 200, Json.obj("ok", true, "count", names.size(), "max", executor.getMaxPlayers(), "players", arr));
     }
 }

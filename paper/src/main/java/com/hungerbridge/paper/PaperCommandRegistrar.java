@@ -4,9 +4,8 @@ import com.hungerbridge.common.BridgeServer;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /**
- * Register HungerBridge brigadier commands on Paper so they are hidden from players
- * and only executable from the console. Falls back to plugin command registration
- * when brigadier registration is not available.
+ * Binds the {@code hungerbridge} command declared in plugin.yml ({@code hb} is its alias).
+ * Console-only enforcement lives in {@link HbCommand}.
  */
 public final class PaperCommandRegistrar {
 

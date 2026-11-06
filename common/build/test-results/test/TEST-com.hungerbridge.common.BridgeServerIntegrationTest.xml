@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.hungerbridge.common.BridgeServerIntegrationTest" tests="14" skipped="0" failures="7" errors="0" timestamp="2026-11-05T01:24:26.554Z" hostname="WIN-VICTUS-S-R5" time="4688.281">
+  <properties/>
+  <testcase name="streamSendsHistoryThenMarkerThenLiveLines()" classname="com.hungerbridge.common.BridgeServerIntegrationTest" time="0.588"/>
+  <testcase name="manyOpenStreamsDoNotStarveOtherRequests()" classname="com.hungerbridge.common.BridgeServerIntegrationTest" time="0.101"/>
+  <testcase name="streamWithoutHistoryFlushesMarkerImmediately()" classname="com.hungerbridge.common.BridgeServerIntegrationTest" time="0.046"/>
+  <testcase name="rateLimitConsumesOneTokenPerRequestAndDoesNotBurnNonce()" classname="com.hungerbridge.common.BridgeServerIntegrationTest" time="15.069">
+    <failure message="java.net.http.HttpTimeoutException: request timed out" type="java.net.http.HttpTimeoutException">java.net.http.HttpTimeoutException: request timed out
+	at java.net.http/jdk.internal.net.http.HttpClientImpl.send(HttpClientImpl.java:953)
+	at java.net.http/jdk.internal.net.http.HttpClientFacade.send(HttpClientFacade.java:133)
+	at com.hungerbridge.common.testing.SignedHttp.send(SignedHttp.java:96)
+	at com.hungerbridge.common.testing.SignedHttp.get(SignedHttp.java:100)
+	at com.hungerbridge.common.BridgeServerIntegrationTest.rateLimitConsumesOneTokenPerRequestAndDoesNotBurnNonce(BridgeServerIntegrationTest.java:151)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+</failure>
+  </testcase>
+  <testcase name="legacyPermissionNodesAreAliased()" classname="com.hungerbridge.common.BridgeServerIntegrationTest" time="0.123"/>
+  <testcase name="nonceReplayIsRejectedButOnlyAfterSignatureCheck()" classname="com.hungerbridge.common.BridgeServerIntegrationTest" time="15.067">
+    <failure message="java.net.http.HttpTimeoutException: request timed out" type="java.net.http.HttpTimeoutException">java.net.http.HttpTimeoutException: request timed out
+	at java.net.http/jdk.internal.net.http.HttpClientImpl.send(HttpClientImpl.java:953)
+	at java.net.http/jdk.internal.net.http.HttpClientFacade.send(HttpClientFacade.java:133)
+	at com.hungerbridge.common.testing.SignedHttp.send(SignedHttp.java:96)
+	at com.hungerbridge.common.BridgeServerIntegrationTest.nonceReplayIsRejectedButOnlyAfterSignatureCheck(BridgeServerIntegrationTest.java:131)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+</failure>
+  </testcase>
+  <testcase name="tamperedBodyIsRejected()" classname="com.hungerbridge.common.BridgeServerIntegrationTest" time="0.068"/>
+  <testcase name="aclAndDefaultPolicyTemplate()" classname="com.hungerbridge.common.BridgeServerIntegrationTest" time="0.437"/>
+  <testcase name="badRequestsAreReportedInsteadOfDroppingTheConnection()" classname="com.hungerbridge.common.BridgeServerIntegrationTest" time="15.077">
+    <failure message="java.net.http.HttpTimeoutException: request timed out" type="java.net.http.HttpTimeoutException">java.net.http.HttpTimeoutException: request timed out
+	at java.net.http/jdk.internal.net.http.HttpClientImpl.send(HttpClientImpl.java:953)
+	at java.net.http/jdk.internal.net.http.HttpClientFacade.send(HttpClientFacade.java:133)
+	at com.hungerbridge.common.testing.SignedHttp.send(SignedHttp.java:96)
+	at com.hungerbridge.common.testing.SignedHttp.post(SignedHttp.java:105)
+	at com.hungerbridge.common.BridgeServerIntegrationTest.badRequestsAreReportedInsteadOfDroppingTheConnection(BridgeServerIntegrationTest.java:222)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+</failure>
+  </testcase>
+  <testcase name="authFailureReasonsDoNotLeakTokenExistence()" classname="com.hungerbridge.common.BridgeServerIntegrationTest" time="15.045">
+    <failure message="java.net.http.HttpTimeoutException: request timed out" type="java.net.http.HttpTimeoutException">java.net.http.HttpTimeoutException: request timed out
+	at java.net.http/jdk.internal.net.http.HttpClientImpl.send(HttpClientImpl.java:953)
+	at java.net.http/jdk.internal.net.http.HttpClientFacade.send(HttpClientFacade.java:133)
+	at com.hungerbridge.common.testing.SignedHttp.send(SignedHttp.java:96)
+	at com.hungerbridge.common.BridgeServerIntegrationTest.authFailureReasonsDoNotLeakTokenExistence(BridgeServerIntegrationTest.java:109)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+</failure>
+  </testcase>
+  <testcase name="pingAndProtocolHeader()" classname="com.hungerbridge.common.BridgeServerIntegrationTest" time="0.041"/>
+  <testcase name="unknownPathsAndMethodsAreJson()" classname="com.hungerbridge.common.BridgeServerIntegrationTest" time="15.051">
+    <failure message="java.net.http.HttpTimeoutException: request timed out" type="java.net.http.HttpTimeoutException">java.net.http.HttpTimeoutException: request timed out
+	at java.net.http/jdk.internal.net.http.HttpClientImpl.send(HttpClientImpl.java:953)
+	at java.net.http/jdk.internal.net.http.HttpClientFacade.send(HttpClientFacade.java:133)
+	at com.hungerbridge.common.testing.SignedHttp.send(SignedHttp.java:96)
+	at com.hungerbridge.common.testing.SignedHttp.post(SignedHttp.java:105)
+	at com.hungerbridge.common.BridgeServerIntegrationTest.unknownPathsAndMethodsAreJson(BridgeServerIntegrationTest.java:212)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+</failure>
+  </testcase>
+  <testcase name="runLogAndWorldEndpoints()" classname="com.hungerbridge.common.BridgeServerIntegrationTest" time="485.283">
+    <failure message="java.net.http.HttpTimeoutException: request timed out" type="java.net.http.HttpTimeoutException">java.net.http.HttpTimeoutException: request timed out
+	at java.net.http/jdk.internal.net.http.HttpClientImpl.send(HttpClientImpl.java:953)
+	at java.net.http/jdk.internal.net.http.HttpClientFacade.send(HttpClientFacade.java:133)
+	at com.hungerbridge.common.testing.SignedHttp.send(SignedHttp.java:96)
+	at com.hungerbridge.common.testing.SignedHttp.post(SignedHttp.java:105)
+	at com.hungerbridge.common.BridgeServerIntegrationTest.runLogAndWorldEndpoints(BridgeServerIntegrationTest.java:238)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+</failure>
+  </testcase>
+  <testcase name="authCheckReportsEffectivePermissionsAndRejectsRevoked()" classname="com.hungerbridge.common.BridgeServerIntegrationTest" time="4126.257">
+    <failure message="java.net.http.HttpTimeoutException: request timed out" type="java.net.http.HttpTimeoutException">java.net.http.HttpTimeoutException: request timed out
+	at java.net.http/jdk.internal.net.http.HttpClientImpl.send(HttpClientImpl.java:953)
+	at java.net.http/jdk.internal.net.http.HttpClientFacade.send(HttpClientFacade.java:133)
+	at com.hungerbridge.common.testing.SignedHttp.send(SignedHttp.java:96)
+	at com.hungerbridge.common.testing.SignedHttp.get(SignedHttp.java:100)
+	at com.hungerbridge.common.BridgeServerIntegrationTest.authCheckReportsEffectivePermissionsAndRejectsRevoked(BridgeServerIntegrationTest.java:199)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+</failure>
+  </testcase>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

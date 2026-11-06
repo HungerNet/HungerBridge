@@ -3,96 +3,54 @@ package com.hungerbridge.fabric;
 import com.hungerbridge.common.BridgeServer;
 import com.hungerbridge.common.CommonCommandHandler;
 import com.mojang.brigadier.CommandDispatcher;
-import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.LongArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.minecraft.ChatFormatting;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 
+/**
+ * Brigadier tree for {@code /hungerbridge} and {@code /hb}. Console only (sources without
+ * an entity), mirroring the Paper command; all logic lives in {@link CommonCommandHandler}.
+ */
 public final class FabricCommandRegistrar {
 
-    public static void register(CommandDispatcher<net.minecraft.commands.CommandSourceStack> dispatcher, BridgeServer bridgeServer, String name) {
-        var cmd = net.minecraft.commands.Commands.literal(name).requires(src -> src.getEntity() == null);
+    public static void register(CommandDispatcher<CommandSourceStack> dispatcher, BridgeServer bridgeServer, String name) {
+        var cmd = Commands.literal(name).requires(src -> src.getEntity() == null);
+        cmd.executes(ctx -> run(bridgeServer, ctx.getSource()));
+        cmd.then(Commands.literal("help").executes(ctx -> run(bridgeServer, ctx.getSource(), "help")));
+        cmd.then(Commands.literal("reload").executes(ctx -> run(bridgeServer, ctx.getSource(), "reload")));
 
-        cmd.executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[0]));
-        cmd.then(net.minecraft.commands.Commands.literal("help").executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"help"})));
+        var token = Commands.literal("token").executes(ctx -> run(bridgeServer, ctx.getSource(), "token"));
+        token.then(Commands.literal("list").executes(ctx -> run(bridgeServer, ctx.getSource(), "token", "list")));
 
-        cmd.then(net.minecraft.commands.Commands.literal("reload").executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"reload"})));
+        // token create <id> <policy> [expirySeconds]
+        token.then(Commands.literal("create")
+                .executes(ctx -> run(bridgeServer, ctx.getSource(), "token", "create"))
+                .then(Commands.argument("id", StringArgumentType.word())
+                        .then(Commands.argument("policy", StringArgumentType.word())
+                                .executes(ctx -> run(bridgeServer, ctx.getSource(), "token", "create",
+                                        StringArgumentType.getString(ctx, "id"), StringArgumentType.getString(ctx, "policy")))
+                                .then(Commands.argument("expiry", LongArgumentType.longArg(0))
+                                        .executes(ctx -> run(bridgeServer, ctx.getSource(), "token", "create",
+                                                StringArgumentType.getString(ctx, "id"), StringArgumentType.getString(ctx, "policy"),
+                                                Long.toString(LongArgumentType.getLong(ctx, "expiry"))))))));
 
-        // Do NOT register a global '/reload' command here — that would override
-        // the vanilla command. Platform-specific server-level reload listeners
-        // should be implemented in the platform bootstrap (HungerBridgeFabric),
-        // not by registering a root command.
-
-        // audit (with optional numeric arg)
-        cmd.then(net.minecraft.commands.Commands.literal("audit").executes(ctx -> {
-            return runHandler(bridgeServer, ctx.getSource(), new String[]{"audit"});
-        }).then(
-                net.minecraft.commands.Commands.argument("n", IntegerArgumentType.integer(1)).executes(ctx -> {
-                    int n = IntegerArgumentType.getInteger(ctx, "n");
-                    return runHandler(bridgeServer, ctx.getSource(), new String[]{"audit", String.valueOf(n)});
-                })
-        ));
-
-        // token
-        var token = net.minecraft.commands.Commands.literal("token");
-        token.executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"token"}));
-        token.then(net.minecraft.commands.Commands.literal("list").executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"token", "list"})));
-        token.then(net.minecraft.commands.Commands.literal("help").executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"token", "help"})));
-
-        var createLiteral = net.minecraft.commands.Commands.literal("create");
-        var idArg = net.minecraft.commands.Commands.argument("id", StringArgumentType.word());
-        var policyArg = net.minecraft.commands.Commands.argument("policy", StringArgumentType.word());
-        createLiteral.executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"token", "create"}));
-        // token create <id> <policy>
-        createLiteral.then(idArg.then(policyArg.executes(ctx -> {
-            String id = StringArgumentType.getString(ctx, "id");
-            String policy = StringArgumentType.getString(ctx, "policy");
-            return runHandler(bridgeServer, ctx.getSource(), new String[]{"token", "create", id, policy});
-        })));
-
-        token.then(createLiteral);
-
-        var rotateLiteral = net.minecraft.commands.Commands.literal("rotate");
-        rotateLiteral.executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"token", "rotate"}));
-        rotateLiteral.then(net.minecraft.commands.Commands.argument("id", StringArgumentType.word()).executes(ctx -> {
-            String id = StringArgumentType.getString(ctx, "id");
-            return runHandler(bridgeServer, ctx.getSource(), new String[]{"token", "rotate", id});
-        }));
-        token.then(rotateLiteral);
-
-        token.then(net.minecraft.commands.Commands.literal("revoke").executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"token", "revoke"})).then(
-            net.minecraft.commands.Commands.argument("id", StringArgumentType.word()).executes(ctx -> {
-                String id = StringArgumentType.getString(ctx, "id");
-                return runHandler(bridgeServer, ctx.getSource(), new String[]{"token", "revoke", id});
-            })
-        ));
-
-        token.then(net.minecraft.commands.Commands.literal("remove").executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"token", "remove"})).then(
-            net.minecraft.commands.Commands.argument("id", StringArgumentType.word()).executes(ctx -> {
-                String id = StringArgumentType.getString(ctx, "id");
-                return runHandler(bridgeServer, ctx.getSource(), new String[]{"token", "remove", id});
-            })
-        ));
-
+        for (String sub : new String[] {"rotate", "revoke", "remove"}) {
+            token.then(Commands.literal(sub)
+                    .executes(ctx -> run(bridgeServer, ctx.getSource(), "token", sub))
+                    .then(Commands.argument("id", StringArgumentType.word())
+                            .executes(ctx -> run(bridgeServer, ctx.getSource(), "token", sub, StringArgumentType.getString(ctx, "id")))));
+        }
         cmd.then(token);
-
-        // ip command
-        cmd.then(net.minecraft.commands.Commands.literal("ip").executes(ctx -> runHandler(bridgeServer, ctx.getSource(), new String[]{"ip"})));
-
         dispatcher.register(cmd);
     }
 
-    public static int runHandler(BridgeServer bridgeServer, net.minecraft.commands.CommandSourceStack source, String[] args) {
-        java.util.List<String> lines = CommonCommandHandler.handle(bridgeServer, source, args);
-        for (String line : lines) {
+    private static int run(BridgeServer bridgeServer, CommandSourceStack source, String... args) {
+        for (String line : CommonCommandHandler.handle(bridgeServer, source, args)) {
             ChatFormatting style = styleFor(line);
-            String prev = Thread.currentThread().getName();
-            try {
-                Thread.currentThread().setName("HungerBridge");
-                source.sendSuccess(() -> Component.literal(line).withStyle(style), false);
-            } finally {
-                try { Thread.currentThread().setName(prev); } catch (Exception ignored) {}
-            }
+            source.sendSuccess(() -> Component.literal(line).withStyle(style), false);
         }
         return 1;
     }
@@ -101,7 +59,7 @@ public final class FabricCommandRegistrar {
         if (line.startsWith("Error:")) return ChatFormatting.RED;
         if (line.startsWith("Warning:")) return ChatFormatting.GOLD;
         if (line.startsWith("Success:")) return ChatFormatting.GREEN;
-        if (line.startsWith("Usage:") || line.startsWith("Subcommands:") || line.startsWith("Tokens Subcommands:")) return ChatFormatting.AQUA;
+        if (line.startsWith("Usage:")) return ChatFormatting.AQUA;
         return ChatFormatting.GRAY;
     }
 

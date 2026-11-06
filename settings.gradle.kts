@@ -8,31 +8,32 @@ pluginManagement {
 
 rootProject.name = "HungerBridge"
 
-val raw = System.getenv("STONECUTTER_ACTIVE") ?: "__none__"
-
+// One Minecraft target is configured per invocation (each applies Loom or paperweight,
+// which are heavy). Select it with STONECUTTER_ACTIVE=<mc>-<loader>, e.g. 26.3-paper or
+// 26.3-fabric (the variable name is historical; Stonecutter itself is not used).
+// A bare version ("26.3") means Paper. Without a target only :common is configured,
+// which is enough for `./gradlew :common:test`.
+val raw = (System.getenv("STONECUTTER_ACTIVE") ?: "").trim()
+val mc = raw.filter { it.isDigit() || it == '.' }.trim('.')
 val active = when {
-    raw.contains("paper") -> {
-        val mc = raw.filter { it.isDigit() || it == '.' }
-        if (mc.isNotBlank()) "${mc}-paper" else "__none__"
-    }
-    raw.contains("fabric") -> {
-        val mc = raw.filter { it.isDigit() || it == '.' }
-        if (mc.isNotBlank()) "${mc}-fabric" else "__none__"
-    }
-    raw.all { it.isDigit() || it == '.' } -> "${raw}-paper"
-    else -> "__none__"
+    mc.isEmpty() -> null
+    raw.contains("fabric") -> "$mc-fabric"
+    raw.contains("paper") || raw.all { it.isDigit() || it == '.' } -> "$mc-paper"
+    else -> null
 }
 
-println("Normalized STONECUTTER_ACTIVE = ${active}")
+include("common")
 
-if (active.endsWith("-fabric")) {
-    include("common")
-    include("fabric")
-    include("fabric:versions:${active}")
-}
-
-if (active.endsWith("-paper")) {
-    include("common")
-    include("paper")
-    include("paper:versions:${active}")
+if (active != null) {
+    val loader = active.substringAfterLast('-')
+    val dir = file("$loader/versions/$active")
+    require(dir.isDirectory) {
+        "Unknown target '$active' (from STONECUTTER_ACTIVE='$raw'). Available: " +
+            listOf("paper", "fabric").flatMap { l -> file("$l/versions").list()?.toList() ?: emptyList() }.sorted()
+    }
+    println("HungerBridge target: $active")
+    include(loader)
+    include("$loader:versions:$active")
+} else {
+    println("HungerBridge target: none (common only)")
 }

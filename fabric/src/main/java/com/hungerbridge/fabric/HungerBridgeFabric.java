@@ -1,218 +1,141 @@
 package com.hungerbridge.fabric;
 
 import com.hungerbridge.common.BridgeServer;
-import com.hungerbridge.common.CommandExecutor;
+import com.hungerbridge.common.CommandConstants;
 import com.hungerbridge.common.Config;
 import com.hungerbridge.common.Logger;
+import com.hungerbridge.common.log.PlatformLogAppender;
 import com.hungerbridge.common.security.TokenManager;
 import net.fabricmc.api.DedicatedServerModInitializer;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.server.MinecraftServer;
-import org.apache.logging.log4j.LogManager;
 
 import java.nio.file.Path;
 
+/**
+ * Fabric entry point. Lifecycle hooks come from {@code MinecraftServerMixin} so the mod
+ * has no dependency on Fabric API (only Fabric Loader).
+ */
 public final class HungerBridgeFabric implements DedicatedServerModInitializer {
 
-        private static final org.apache.logging.log4j.Logger HB_LOGGER = LogManager.getLogger("HungerBridge");
+    private static final Logger LOG = new FabricLoggerAdapter();
 
-        private static BridgeServer bridgeServer;
-        private static Thread bridgeThread;
-        private static final com.hungerbridge.common.Logger ADAPTER = new FabricLoggerAdapter();
+    private static BridgeServer bridgeServer;
     private static MinecraftServer mcServer;
-    private static FabricLogAppender logAppender;
+    private static PlatformLogAppender logAppender;
 
-    private static final int HB_TICK_SAMPLES = 18_000;
+    // --- tick statistics (fed by the mixin around MinecraftServer#tickChildren) -----------
+
+    private static final int HB_TICK_SAMPLES = 1_200;
     private static final long[] HB_TICK_NANOS = new long[HB_TICK_SAMPLES];
-    private static int HB_TICK_INDEX = 0;
-    private static long HB_TICK_COUNT = 0;
-    private static boolean HB_TICK_WARMED = false;
+    private static int tickIndex = 0;
+    private static long tickCount = 0;
 
-    private static final double TARGET_MS = 50.0; // ideal tick time
-    private static double ema20 = TARGET_MS;      // ~20-tick window
-    private static double ema1200 = TARGET_MS;    // ~1 minute
-    private static double ema6000 = TARGET_MS;    // ~5 minutes
+    private static final double TARGET_MS = 50.0;
+    private static double ema20 = TARGET_MS;     // ~1 second
+    private static double ema1200 = TARGET_MS;   // ~1 minute
+    private static double ema6000 = TARGET_MS;   // ~5 minutes
+    private static double ema18000 = TARGET_MS;  // ~15 minutes
 
     public static synchronized void recordTick(long nanos) {
-        double ms = nanos / 1_000_000.0;
-
-        HB_TICK_NANOS[HB_TICK_INDEX] = nanos;
-        HB_TICK_INDEX = (HB_TICK_INDEX + 1) % HB_TICK_SAMPLES;
-        HB_TICK_COUNT++;
-        if (!HB_TICK_WARMED && HB_TICK_COUNT >= HB_TICK_SAMPLES) {
-            HB_TICK_WARMED = true;
-        }
-
-        // smoothing factors
-        double alpha20 = 1.0 / 20.0;
-        double alpha1200 = 1.0 / 1200.0;
-        double alpha6000 = 1.0 / 6000.0;
-
-        // update EMAs
-        ema20 = ema20 + alpha20 * (ms - ema20);
-        ema1200 = ema1200 + alpha1200 * (ms - ema1200);
-        ema6000 = ema6000 + alpha6000 * (ms - ema6000);
+        HB_TICK_NANOS[tickIndex] = nanos;
+        tickIndex = (tickIndex + 1) % HB_TICK_SAMPLES;
+        tickCount++;
+        // A tick never takes less than the 50 ms tick interval from the game's point of view.
+        double ms = Math.max(TARGET_MS, nanos / 1_000_000.0);
+        ema20 += (ms - ema20) / 20.0;
+        ema1200 += (ms - ema1200) / 1200.0;
+        ema6000 += (ms - ema6000) / 6000.0;
+        ema18000 += (ms - ema18000) / 18000.0;
     }
 
-    public static synchronized boolean isTickHistoryWarmed() {
-        return HB_TICK_WARMED;
-    }
-
-    /**
-     * Average tick time (ms) over the last `samples` ticks.
-     */
+    /** Average tick duration (ms) over the last {@code samples} ticks, -1 if none yet. */
     public static synchronized double getAverageTickMs(int samples) {
-        if (samples <= 0) return -1.0;
-        long available = Math.min(HB_TICK_COUNT, HB_TICK_SAMPLES);
-        if (available == 0) return -1.0;
-
+        long available = Math.min(tickCount, HB_TICK_SAMPLES);
+        if (samples <= 0 || available == 0) return -1.0;
         int toRead = (int) Math.min(samples, available);
         long sum = 0L;
-        int idx = (HB_TICK_INDEX - 1 + HB_TICK_SAMPLES) % HB_TICK_SAMPLES;
-
+        int idx = (tickIndex - 1 + HB_TICK_SAMPLES) % HB_TICK_SAMPLES;
         for (int i = 0; i < toRead; i++) {
             sum += HB_TICK_NANOS[idx];
             idx = (idx - 1 + HB_TICK_SAMPLES) % HB_TICK_SAMPLES;
         }
-
-        double avgNanos = (double) sum / toRead;
-        return avgNanos / 1_000_000.0;
+        return (double) sum / toRead / 1_000_000.0;
     }
 
-    private static double clampGameSpeed(double rawTps) {
-        if (rawTps <= 0.0) return -1.0;
-        return Math.min(20.0, rawTps);
+    private static double tps(double emaMs) {
+        if (tickCount == 0) return -1.0;
+        return Math.round(Math.min(20.0, 1000.0 / emaMs) * 10.0) / 10.0;
     }
 
-    public static synchronized double getTps20() {
-        double raw = 1000.0 / ema20;
-        return clampGameSpeed(raw);
-    }
+    public static synchronized double getTps20() { return tps(ema20); }
+    public static synchronized double getTps1m() { return tps(ema1200); }
+    public static synchronized double getTps5m() { return tps(ema6000); }
+    public static synchronized double getTps15m() { return tps(ema18000); }
 
-    public static synchronized double getTps1m() {
-        double raw = 1000.0 / ema1200;
-        return clampGameSpeed(raw);
-    }
-
-    public static synchronized double getTps5m() {
-        double raw = 1000.0 / ema6000;
-        return clampGameSpeed(raw);
-    }
+    // --- lifecycle --------------------------------------------------------------------------
 
     @Override
     public void onInitializeServer() {
-        ADAPTER.log("INFO", "HungerBridge initializing.");
+        LOG.log("INFO", "HungerBridge initializing.");
     }
 
-    // Called by mixin on first server tick
+    /** Called by the mixin on the first server tick. */
     public static void onServerStarted(MinecraftServer server) {
-        ADAPTER.log("INFO", "HungerBridge starting...");
-
         mcServer = server;
-
-        org.apache.logging.log4j.core.Logger root =
-                (org.apache.logging.log4j.core.Logger) org.apache.logging.log4j.LogManager.getRootLogger();
-        logAppender = new FabricLogAppender();
-        logAppender.start();
-        root.addAppender(logAppender);
-
-        Logger logger = new FabricLoggerAdapter();
+        logAppender = PlatformLogAppender.install("HungerBridgeFabricLogAppender");
 
         Path configDir = server.getFile("config").resolve("HungerBridge");
-        Config config = Config.load(configDir, logger);
+        Config config = Config.load(configDir, LOG);
 
-        // initialize token manager for HMAC token support
-        TokenManager tm = new TokenManager(configDir, logger);
+        TokenManager tm = new TokenManager(configDir, LOG);
         tm.setDebug(config.isDebug());
         config.setTokenManager(tm);
 
-        // auditing, IP lists and rate limiting removed
-
         config.setPlatform("fabric");
         config.setMinecraftVersion(server.getServerVersion());
-
-        String modVersion = FabricLoader.getInstance()
-                .getModContainer("hungerbridge")
+        config.setBridgeVersion(FabricLoader.getInstance().getModContainer("hungerbridge")
                 .map(c -> c.getMetadata().getVersion().getFriendlyString())
-                .orElse("unknown");
-        config.setBridgeVersion(modVersion);
+                .orElse("unknown"));
 
-        CommandExecutor executor = new FabricCommandExecutor(server);
-
-        bridgeServer = new BridgeServer(configDir, config, logger, executor, () -> {
-            if (mcServer == null) {
-                return;
-            }
-            mcServer.halt(false);
+        // halt(false) is what the vanilla /stop command uses; safe to call off-thread.
+        bridgeServer = new BridgeServer(configDir, config, LOG, new FabricCommandExecutor(server), () -> {
+            MinecraftServer s = mcServer;
+            if (s != null) s.halt(false);
         });
-        // Start the bridge server on a dedicated thread named "HungerBridge"
-        bridgeThread = new Thread(() -> {
-            try {
-                bridgeServer.start();
-            } catch (Throwable t) {
-                ADAPTER.log("ERROR", "Bridge server thread terminated with error: " + t.toString());
-                t.printStackTrace();
-            }
-        }, "HungerBridge");
-        bridgeThread.setDaemon(false);
-        bridgeThread.start();
-
-        // register brigadier command names (always enabled) using fabric registrar
-        try {
-            var dispatcher = server.getCommands().getDispatcher();
-            com.hungerbridge.fabric.FabricCommandRegistrar.register(dispatcher, bridgeServer, com.hungerbridge.common.CommandConstants.ROOT);
-            com.hungerbridge.fabric.FabricCommandRegistrar.register(dispatcher, bridgeServer, com.hungerbridge.common.CommandConstants.ALIAS);
-        } catch (Exception ignored) {}
-
-        ADAPTER.log("INFO", "HungerBridge started on port " + config.getPort());
+        bridgeServer.start();
+        registerCommands(server);
+        LOG.log("INFO", "HungerBridge started (fabric, Minecraft " + config.getMinecraftVersion() + ").");
     }
 
-    
+    private static void registerCommands(MinecraftServer server) {
+        var dispatcher = server.getCommands().getDispatcher();
+        FabricCommandRegistrar.register(dispatcher, bridgeServer, CommandConstants.ROOT);
+        FabricCommandRegistrar.register(dispatcher, bridgeServer, CommandConstants.ALIAS);
+    }
 
-    // Called by mixin on server shutdown
+    /** Called by the mixin when the server stops. */
     public static void onServerStopping() {
         if (bridgeServer != null) {
-            ADAPTER.log("INFO", "HungerBridge stopping...");
+            LOG.log("INFO", "HungerBridge stopping...");
             bridgeServer.stop();
             bridgeServer = null;
         }
-        if (logAppender != null) {
-            org.apache.logging.log4j.core.Logger root =
-                    (org.apache.logging.log4j.core.Logger) org.apache.logging.log4j.LogManager.getRootLogger();
-            root.removeAppender(logAppender);
-            logAppender.stop();
-            logAppender = null;
-        }
-
+        PlatformLogAppender.uninstall(logAppender);
+        logAppender = null;
         mcServer = null;
     }
 
-    // Called by mixin when the server performs a resource reload (e.g. via /reload)
+    /** Called by the mixin after /reload rebuilt the command dispatcher. */
     public static void onServerReload(MinecraftServer server) {
-        ADAPTER.log("INFO", "HungerBridge detected server reload; reloading config...");
+        if (bridgeServer == null || server == null) return;
+        bridgeServer.reloadConfig();
         try {
-            if (bridgeServer != null) bridgeServer.reloadConfig();
-        } catch (Exception e) {
-            ADAPTER.log("ERROR", "Failed to reload HungerBridge config on server reload: " + e.getMessage());
+            registerCommands(server);
+            LOG.log("INFO", "HungerBridge reloaded config and re-registered commands.");
+        } catch (RuntimeException e) {
+            LOG.log("WARN", "Failed to re-register HungerBridge commands after reload: " + e.getMessage());
         }
-        // Re-register brigadier commands because dispatcher may be rebuilt during reload
-        try {
-            if (server != null && bridgeServer != null) {
-                var cmds = server.getCommands();
-                if (cmds != null) {
-                    var dispatcher = cmds.getDispatcher();
-                    if (dispatcher != null) {
-                        try {
-                            com.hungerbridge.fabric.FabricCommandRegistrar.register(dispatcher, bridgeServer, com.hungerbridge.common.CommandConstants.ROOT);
-                            com.hungerbridge.fabric.FabricCommandRegistrar.register(dispatcher, bridgeServer, com.hungerbridge.common.CommandConstants.ALIAS);
-                            ADAPTER.log("INFO", "Re-registered HungerBridge commands after reload.");
-                        } catch (Exception e) {
-                            ADAPTER.log("WARN", "Failed to re-register HungerBridge commands on reload: " + e.getMessage());
-                        }
-                    }
-                }
-            }
-        } catch (Throwable ignored) {}
     }
 
     public static MinecraftServer getServer() {

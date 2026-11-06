@@ -1,63 +1,80 @@
-Building and validating multi-version HungerBridge
+# Building and validating HungerBridge
 
-Supported targets
-- Paper: 1.21.11, 26.1.2, 26.2
-- Fabric: 1.21.11, 26.1.2, 26.2
+## Layout
 
-Java requirements
-- Building 26.x targets requires a JDK 25 runtime for Gradle. Use a distribution that exposes a Java version string Kotlin accepts (some Temurin builds include an additional suffix that can cause Kotlin parsing errors).
-- Recommended: run builds in a Docker/CI image that has JDK 25 installed (BellSoft Liberica / Azul Zulu / official OpenJDK 25 images).
+```
+common/                         loader-independent core (HTTP API, auth, config, SSE) + tests
+paper/src/main/java             Paper/Purpur/Folia plugin sources (shared by all versions)
+paper/versions/<mc>-paper/      per-version build (paperweight userdev dev bundle) + plugin.yml
+fabric/src/main/java            Fabric mod sources (shared by all versions)
+fabric/compat/mc1_21|mc26/java  tiny per-era seam (FabricCompat) for API differences
+fabric/versions/<mc>-fabric/    per-version build (Loom) + fabric.mod.json
+autogen/HungerBridge/           templates bundled into the jar; copied only when missing
+```
 
-Environment variables
-- `STONECUTTER_ACTIVE` — selects the active Fabric target (e.g. `26.2-fabric`). Defaults to `1.21.11-fabric`.
-- `STONECUTTER_ACTIVE_PAPER` — selects the active Paper target (e.g. `26.2-paper`). Overrides `STONECUTTER_ACTIVE` for Paper.
+Targets: `1.21.11`, `26.1.2`, `26.2`, `26.3` × `paper`, `fabric` (8 jars). The Paper jar
+is also the Folia jar.
 
-Example local run (select Paper 26.2)
+## Requirements
+
+* JDK 25 to run Gradle (wrapper 9.7.0) and to compile 26.x targets.
+* JDK 21 for the `common` module and the 1.21.11 targets (their toolchain is 21 so the jars
+  run on Java 21). Gradle must be able to find both JDKs — auto-detected from standard
+  locations, or pass `-Porg.gradle.java.installations.paths=<jdk21>,<jdk25>` (CI uses
+  `-Porg.gradle.java.installations.fromEnv=JAVA_HOME_21_X64,JAVA_HOME_25_X64`).
+
+## Selecting a target
+
+Only one Minecraft target is configured per Gradle invocation (Loom/paperweight are heavy).
+Select it with `STONECUTTER_ACTIVE=<mc>-<loader>` — the name is historical; the Stonecutter
+plugin is not used. Without it, only `:common` is configured.
 
 ```bash
-export JAVA_HOME=/path/to/jdk25
-export PATH="$JAVA_HOME/bin:$PATH"
-export TMPDIR=/home/$USER/.tmp
-export GRADLE_USER_HOME=/home/$USER/.gradle
-export JAVA_TOOL_OPTIONS='-Djava.io.tmpdir=$TMPDIR'
-export STONECUTTER_ACTIVE_PAPER=26.2-paper
-./gradlew :paper:help --no-daemon
+./gradlew :common:test                                  # unit + in-process HTTP integration tests
+
+export STONECUTTER_ACTIVE=26.3-paper
+./gradlew :paper:versions:26.3-paper:build --no-daemon  # → paper/versions/26.3-paper/build/libs/
+
+export STONECUTTER_ACTIVE=1.21.11-fabric
+./gradlew :fabric:versions:1.21.11-fabric:build --no-daemon
 ```
 
-Build specific version (Paper 26.1.2)
+(`STONECUTTER_ACTIVE_PAPER`, mentioned by older docs, was never read by the build.)
+
+## CI (`.github/workflows/build-and-release.yml`)
+
+| Job | What it runs |
+|---|---|
+| `test` | `./gradlew :common:test` |
+| `protocol` | starts `./gradlew :common:standaloneBridge` (real HTTP stack, fake game backend), checks out HungerBridgePy and runs its unit tests + live protocol suite against it |
+| `build-matrix` | `./gradlew :<loader>:versions:<target>:build` for the 8 targets (Temurin 21 + 25, `-Xmx6g`) and uploads `build/libs/*.jar` |
+| `release` | on push to main: GitHub release `v<version.yaml version>` with all 8 jars |
+
+## Adding a Minecraft version
+
+1. Copy the newest `paper/versions/<mc>-paper` and `fabric/versions/<mc>-fabric` directory,
+   update the dev bundle / `minecraft(...)` coordinates, `api-version` and the
+   `"minecraft"` range in `fabric.mod.json`.
+2. Add both targets to the CI matrix.
+3. Build. If a Minecraft API changed, put the difference behind `FabricCompat`
+   (`fabric/compat/...`) — the mixin targets `MinecraftServer#tickChildren`, `stopServer`
+   and `reloadResources`, and mixin failures only show up at runtime.
+4. Boot-test Paper, Folia and Fabric with the HungerBridgePy live suite (below).
+
+## Runtime validation
+
+The live suite in HungerBridgePy (`tests/test_live.py`) is the acceptance test for a server:
 
 ```bash
-export STONECUTTER_ACTIVE_PAPER=26.1.2-paper
-./gradlew :paper:build --no-daemon
+# on the server console
+hb token create hbtest admin           # with an "admin" policy granting "*"
+# on the client
+HB_PICKUP_URL='http://127.0.0.1:1913/pickup/<id>?passkey=<hex>' \
+HB_EXPECT_PLATFORM=paper HB_EXPECT_MC=26.3 HB_ALLOW_STOP=1 \
+pytest -m live tests/test_live.py
 ```
 
-Build specific Fabric version (26.2)
-
-```bash
-export STONECUTTER_ACTIVE=26.2-fabric
-./gradlew :fabric:build --no-daemon
-```
-
-CI recommendation
-- Use a runner with JDK 25 available (Docker images `bellsoft/liberica-openjdk:25`, `azul/zulu:25`, or `openjdk:25` if available). Example GitHub Actions job step:
-
-```yaml
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up JDK 25
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin' # or 'zulu' / 'liberica'
-          java-version: '25'
-      - name: Build Paper 26.2
-        env:
-          STONECUTTER_ACTIVE_PAPER: 26.2-paper
-        run: ./gradlew :paper:build --no-daemon --stacktrace
-```
-
-Notes
-- I attempted to install Temurin JDK 25 locally; Kotlin's Java detection may reject certain `java.version` formats (e.g. `25.0.4.1`) and fail the Kotlin script compilation. If you see `IllegalArgumentException: 25.0.4.1` during Kotlin compile, try a different JDK 25 image (BellSoft Liberica or Azul Zulu) in CI or Docker.
-- If you want, I can continue trying alternate JDK 25 distributions locally, but the fastest path to a validated build is to run CI in a JDK25 container and report back results.
+It checks auth (including replay, clock-skew and tamper rejection), every endpoint, command
+output capture, log → SSE delivery, 404/400 handling, rate limiting with retry and finally
+`/server/stop`. Without a Minecraft server, use `./gradlew :common:standaloneBridge` and
+`HB_EXPECT_PLATFORM=standalone`.

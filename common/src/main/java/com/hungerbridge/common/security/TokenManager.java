@@ -36,12 +36,8 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
 /**
- * Minimal token manager implementing HMAC verification, nonce replay protection,
- * and JSON-backed token storage. This is intentionally small and focussed on
- * server-side verification for the new token format "id:secret".
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+ * Token manager implementing HMAC verification, nonce replay protection,
+ * and JSON-backed token storage (token format "id:secret").
  */
 public final class TokenManager {
 
@@ -253,7 +249,7 @@ public final class TokenManager {
     private static final Gson GSON = new Gson();
 
     private final ScheduledExecutorService sweepExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
-        Thread t = new Thread(r, "HungerBridge");
+        Thread t = new Thread(r, "HungerBridge-TokenSweeper");
         t.setDaemon(true);
         return t;
     });
@@ -632,59 +628,60 @@ public final class TokenManager {
     }
 
     /**
-     * Detailed HMAC verification returning a VerifyResult for precise failure reasons.
+     * Detailed HMAC verification.
+     *
+     * <p>Check order matters for security:
+     * <ol>
+     *   <li>timestamp window — checked <i>before</i> the token lookup so a stale request
+     *       is answered identically whether or not the token exists (no enumeration);</li>
+     *   <li>token lookup and signature — unknown token and wrong signature are
+     *       indistinguishable ({@code NO_TOKEN} / {@code BAD_SIGNATURE} are both reported
+     *       to clients as {@code invalid_credentials});</li>
+     *   <li>nonce replay — only authentic requests reach the replay cache, so forged
+     *       requests can neither burn a legitimate nonce nor cause disk writes;</li>
+     *   <li>revocation / expiry — only revealed to callers that hold the secret.</li>
+     * </ol>
      */
     public VerifyResult verifyHmacDetailed(String tokenId, String timestampStr, String nonce, String signature, String method, String path, String canonicalBody, long allowedSkewSeconds) {
-        if (tokenId == null) return VerifyResult.NO_TOKEN;
-        Token tk = tokens.get(tokenId);
-        if (tk == null) return VerifyResult.NO_TOKEN;
-        if (tk.revoked) return VerifyResult.REVOKED;
         try {
-            // 1) Validate timestamp
+            // 1) timestamp window
             long now = Instant.now().getEpochSecond();
             if (timestampStr == null || timestampStr.isBlank()) return VerifyResult.BAD_TIMESTAMP;
             long ts;
             try {
                 ts = Long.parseLong(timestampStr.trim());
-            } catch (Exception e) {
+            } catch (NumberFormatException e) {
                 return VerifyResult.BAD_TIMESTAMP;
             }
             long skew = allowedSkewSeconds > 0 ? allowedSkewSeconds : this.defaultAllowedSkewSeconds;
             if (Math.abs(now - ts) > skew) return VerifyResult.BAD_TIMESTAMP;
-            if (tk.expiry > 0L && now > tk.expiry) return VerifyResult.EXPIRED;
 
-            // 2) Validate nonce
-            if (nonce == null || nonce.isBlank()) return VerifyResult.NONCE_REPLAY;
-            String nk = tokenId + ":" + nonce;
-            long expiry = ts + skew;
-            Long prev = nonceExpiries.putIfAbsent(nk, expiry);
-            if (prev != null) {
-                return VerifyResult.NONCE_REPLAY;
-            }
-
-            // Persist sessions on change (best-effort)
-            persistSessions();
-
-            // 3) Verify signature
+            // 2) token + signature
+            if (tokenId == null) return VerifyResult.NO_TOKEN;
+            Token tk = tokens.get(tokenId);
+            if (tk == null || signature == null || nonce == null || nonce.isBlank()) return VerifyResult.NO_TOKEN;
             String normalizedPath = normalizePath(path);
             String msgCanonical = (method == null ? "" : method.trim().toUpperCase()) + "\n" + normalizedPath + "\n" + timestampStr + "\n" + nonce + "\n" + (canonicalBody == null ? "" : canonicalBody);
-            javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
-            byte[] key = deriveTokenKey(tk.id, tk.salt);
-            javax.crypto.spec.SecretKeySpec ks = new javax.crypto.spec.SecretKeySpec(key, "HmacSHA256");
-            mac.init(ks);
-            String exp = bytesToHex(mac.doFinal(msgCanonical.getBytes(StandardCharsets.UTF_8)));
-            // DEBUG: log verification attempt only when debug enabled
+            String exp = hmacHex(deriveTokenKey(tk.id, tk.salt), msgCanonical);
             boolean match = constantTimeEqualsHex(exp, signature);
             if (logger != null && debugEnabled) {
-                // Safe debug output: log only non-secret diagnostics.
-                // Use a custom HMAC-DEBUG level so it is more severe than INFO and distinct from DEBUG.
-                logger.log("DBG", "[HMAC] tokenId=" + tokenId + " salt=" + tk.salt);
-                logger.log("DBG", "[HMAC] original_path=" + path + " normalized_path=" + normalizedPath);
-                logger.log("DBG", "[HMAC] canonical_string=" + msgCanonical.replace("\n", "\\n"));
-                logger.log("DBG", "[HMAC] match=" + match);
+                // Non-secret diagnostics only, at a dedicated level distinct from DEBUG.
+                logger.log("HMAC-DEBUG", "[HMAC] tokenId=" + tokenId + " salt=" + tk.salt);
+                logger.log("HMAC-DEBUG", "[HMAC] original_path=" + path + " normalized_path=" + normalizedPath);
+                logger.log("HMAC-DEBUG", "[HMAC] canonical_string=" + msgCanonical.replace("\n", "\\n"));
+                logger.log("HMAC-DEBUG", "[HMAC] match=" + match);
             }
-            if (match) return VerifyResult.OK;
-            return VerifyResult.BAD_SIGNATURE;
+            if (!match) return VerifyResult.BAD_SIGNATURE;
+
+            // 3) replay protection (authentic requests only)
+            Long prev = nonceExpiries.putIfAbsent(tokenId + ":" + nonce, ts + skew);
+            if (prev != null) return VerifyResult.NONCE_REPLAY;
+            persistSessions();
+
+            // 4) token state
+            if (tk.revoked) return VerifyResult.REVOKED;
+            if (tk.expiry > 0L && now > tk.expiry) return VerifyResult.EXPIRED;
+            return VerifyResult.OK;
         } catch (Exception e) {
             if (logger != null) logger.log("ERROR", "HMAC verification error: " + e.getMessage());
             return VerifyResult.INTERNAL_ERROR;
@@ -695,19 +692,6 @@ public final class TokenManager {
         StringBuilder sb = new StringBuilder(data.length * 2);
         for (byte b : data) sb.append(String.format("%02x", b & 0xff));
         return sb.toString();
-    }
-
-    private static String canonicalizeBodyForHmac(String body) {
-        if (body == null || body.isBlank()) return "";
-        String trimmed = body.trim();
-        if (trimmed.isEmpty()) return "";
-        try {
-            com.google.gson.JsonElement el = com.google.gson.JsonParser.parseString(trimmed);
-            if (el == null || el.isJsonNull()) return "";
-            return canonicalizeJson(el);
-        } catch (Exception ignored) {
-            return trimmed;
-        }
     }
 
     public boolean hasToken(String id) { return tokens.containsKey(id); }

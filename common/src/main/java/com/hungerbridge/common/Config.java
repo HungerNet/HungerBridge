@@ -37,6 +37,8 @@ public final class Config {
     private boolean debug = false;
     
     private com.hungerbridge.common.TokensConfig tokensConfig;
+    // Parsed once at load/reload instead of on every request.
+    private volatile TokenManager.RateLimitSettings rateLimitSettings = TokenManager.loadRateLimitSettings(null);
 
     public Config(
             int port,
@@ -170,6 +172,7 @@ public final class Config {
                 cfg.allowedRemoteIps = allowedRemoteIps;
                 cfg.ipMode = ipMode;
                 cfg.debug = debug;
+                cfg.rateLimitSettings = TokenManager.loadRateLimitSettings(configDir);
 
                 // attach parsed auxiliary configs
                 cfg.setTokensConfig(tc != null ? tc : com.hungerbridge.common.TokensConfig.defaults());
@@ -185,6 +188,8 @@ public final class Config {
     public TokenManager getTokenManager() { return tokenManager; }
 
     public boolean isDebug() { return debug; }
+
+    public TokenManager.RateLimitSettings getRateLimitSettings() { return rateLimitSettings; }
     
 
     public void setTokensConfig(com.hungerbridge.common.TokensConfig tc) { this.tokensConfig = tc; }
@@ -327,6 +332,7 @@ public final class Config {
                         String ipMode = loadIpMode(this.configDir, logger);
                         this.allowedRemoteIps = allowedRemoteIps == null ? java.util.List.of() : allowedRemoteIps;
                         this.ipMode = ipMode == null ? this.ipMode : ipMode;
+                        this.rateLimitSettings = TokenManager.loadRateLimitSettings(this.configDir);
                         anyOk = true;
                         if (logger != null) logger.log("INFO", "Reloaded: security.yaml");
                     }

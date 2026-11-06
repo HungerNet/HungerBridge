@@ -2,6 +2,8 @@ plugins {
     id("io.papermc.paperweight.userdev") version "2.0.0-beta.23"
 }
 
+// Paper / Purpur / Folia 1.21.11 — Java 21. Uses only the Paper API (no NMS); the jar
+// is mojang-mapped (paperweight-mappings-namespace: mojang).
 version = rootProject.version.toString()
 
 repositories {
@@ -16,6 +18,10 @@ dependencies {
     implementation(project(":common"))
 }
 
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
+}
+
 sourceSets {
     named("main") {
         java.srcDir(rootProject.file("paper/src/main/java"))
@@ -24,13 +30,8 @@ sourceSets {
 }
 
 tasks.named<Jar>("jar") {
-    val commonJava = project(":common")
-        .extensions
-        .getByType<JavaPluginExtension>()
-        .sourceSets["main"]
-        .output
-
-    from(commonJava)
+    // Embed the loader-independent core. SnakeYAML, Gson and Log4j are provided by the server.
+    from(project(":common").extensions.getByType<JavaPluginExtension>().sourceSets["main"].output)
 }
 
 tasks.processResources {

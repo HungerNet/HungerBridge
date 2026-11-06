@@ -6,22 +6,48 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.Level;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
+import java.util.function.ToIntFunction;
 
+/**
+ * Fabric implementation. All game state is read on the server thread (the HTTP API runs
+ * on its own threads), with a timeout so a stalled server cannot hang API requests.
+ * Uses compiled Minecraft calls only — no reflection on mapped names, which silently
+ * failed at runtime (intermediary names on 1.21.11) and reported 0/"world" for everything.
+ */
 public final class FabricCommandExecutor implements CommandExecutor {
+
+    private static final long COMMAND_TIMEOUT_MS = 5_000L;
+    private static final long METRIC_TIMEOUT_MS = 2_000L;
+    private static final int CURRENT_SAMPLES = 100;
 
     private final MinecraftServer server;
 
     public FabricCommandExecutor(MinecraftServer server) {
         this.server = server;
+    }
+
+    private <T> T onServerThread(Supplier<T> task, T fallback, long timeoutMs) {
+        try {
+            if (server.isSameThread()) return task.get();
+            CompletableFuture<T> future = server.submit(task);
+            T value = future.get(timeoutMs, TimeUnit.MILLISECONDS);
+            return value != null ? value : fallback;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return fallback;
+        } catch (Exception e) {
+            return fallback;
+        }
     }
 
     private CommandSourceStack console() {
@@ -30,26 +56,16 @@ public final class FabricCommandExecutor implements CommandExecutor {
 
     @Override
     public void execute(String command) {
-        server.execute(() ->
-                server.getCommands().performPrefixedCommand(console(), command)
-        );
+        server.execute(() -> server.getCommands().performPrefixedCommand(console(), command));
     }
 
     @Override
     public List<String> executeWithOutput(String command, boolean showConsole) {
-        CompletableFuture<List<String>> future = new CompletableFuture<>();
-        server.execute(() -> future.complete(CommandCapture.capture(() ->
-                server.getCommands().performPrefixedCommand(console(), command), showConsole)));
-
-        try {
-            return future.get(5, TimeUnit.SECONDS);
-        } catch (Exception e) {
-            return List.of();
-        }
+        return onServerThread(() -> CommandCapture.capture(
+                () -> server.getCommands().performPrefixedCommand(console(), command), showConsole), List.of(), COMMAND_TIMEOUT_MS);
     }
 
-
-    private static final int CURRENT_SAMPLES = 100; // for tick_time_ms
+    // --- TPS / MSPT (recorded by MinecraftServerMixin) ------------------------------------
 
     @Override
     public double getTps() {
@@ -68,34 +84,47 @@ public final class FabricCommandExecutor implements CommandExecutor {
 
     @Override
     public double getTps15m() {
-        // simple passthrough, will remove method later
-        return HungerBridgeFabric.getTps5m();
+        return HungerBridgeFabric.getTps15m();
     }
 
     @Override
     public double getTickTimeMs() {
         double ms = HungerBridgeFabric.getAverageTickMs(CURRENT_SAMPLES);
-        return ms <= 0.0 ? -1.0 : ms;
+        return ms <= 0.0 ? -1.0 : Math.round(ms * 1000.0) / 1000.0;
     }
 
+    // --- world state ------------------------------------------------------------------------
+
+    @Override
     public String getWeather() {
-        ServerLevel overworld = server.getLevel(Level.OVERWORLD);
-        if (overworld == null) return "clear";
-        if (overworld.isThundering()) return "thunder";
-        if (overworld.isRaining()) return "rain";
-        return "clear";
+        return onServerThread(() -> {
+            ServerLevel overworld = server.getLevel(Level.OVERWORLD);
+            if (overworld == null) return "clear";
+            if (overworld.isThundering()) return "thunder";
+            if (overworld.isRaining()) return "rain";
+            return "clear";
+        }, "clear", METRIC_TIMEOUT_MS);
     }
 
-    // ---------- Players ----------
+    @Override
+    public long getWorldFullTime() {
+        return onServerThread(() -> {
+            ServerLevel overworld = server.getLevel(Level.OVERWORLD);
+            return overworld == null ? -1L : FabricCompat.dayTime(overworld);
+        }, -1L, METRIC_TIMEOUT_MS);
+    }
+
+    // --- players ------------------------------------------------------------------------------
 
     @Override
     public List<String> getOnlinePlayerNames() {
-        List<String> names = new ArrayList<>();
-        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-            Component name = player.getName();
-            names.add(name.getString());
-        }
-        return names;
+        return onServerThread(() -> {
+            List<String> names = new ArrayList<>();
+            for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+                names.add(player.getName().getString());
+            }
+            return names;
+        }, List.of(), METRIC_TIMEOUT_MS);
     }
 
     @Override
@@ -103,87 +132,41 @@ public final class FabricCommandExecutor implements CommandExecutor {
         return server.getPlayerList().getMaxPlayers();
     }
 
+    // --- chunks / entities -----------------------------------------------------------------
+
     @Override
     public Map<String, Integer> getWorldChunkCounts() {
-        Map<String, Integer> counts = new HashMap<>();
-        for (ServerLevel level : server.getAllLevels()) {
-            String key = normalizeWorldKey(getDimensionKey(level));
-            counts.put(key, getLoadedChunkCount(level));
-        }
-        return counts;
+        return perLevel(level -> level.getChunkSource().getLoadedChunksCount());
     }
 
     @Override
     public Map<String, Integer> getWorldEntityCounts() {
-        Map<String, Integer> counts = new HashMap<>();
-        for (ServerLevel level : server.getAllLevels()) {
-            String key = normalizeWorldKey(getDimensionKey(level));
-            counts.put(key, getEntityCount(level));
-        }
-        return counts;
+        return perLevel(level -> {
+            int n = 0;
+            for (Entity ignored : level.getAllEntities()) n++;
+            return n;
+        });
     }
 
-    private static String getDimensionKey(ServerLevel level) {
-        try {
-            Object dimension = level.dimension();
-            Object keyObj = dimension.getClass().getMethod("getRegistryKey").invoke(dimension);
-            try {
-                Object location = keyObj.getClass().getMethod("location").invoke(keyObj);
-                if (location != null) return location.toString();
-            } catch (ReflectiveOperationException ignored) {
-                // Some older Fabric mappings use different accessors.
+    private Map<String, Integer> perLevel(ToIntFunction<ServerLevel> counter) {
+        return onServerThread(() -> {
+            Map<String, Integer> counts = new LinkedHashMap<>();
+            for (ServerLevel level : server.getAllLevels()) {
+                counts.put(levelKey(level), counter.applyAsInt(level));
             }
-            return String.valueOf(keyObj);
-        } catch (ReflectiveOperationException ignored) {
-            return "minecraft:overworld";
-        }
+            return counts;
+        }, Map.of(), METRIC_TIMEOUT_MS);
     }
 
-    private static int getLoadedChunkCount(ServerLevel level) {
-        try {
-            Object chunkSource = level.getChunkSource();
-            var method = chunkSource.getClass().getMethod("getLoadedChunks");
-            Object value = method.invoke(chunkSource);
-            if (value instanceof Number number) return number.intValue();
-        } catch (ReflectiveOperationException ignored) {
-            // Fall back to the server-chunk-cache map size for older Fabric mappings.
-        }
-        try {
-            Object chunkSource = level.getChunkSource();
-            Object chunkMap = chunkSource.getClass().getMethod("getChunkMap").invoke(chunkSource);
-            Object size = chunkMap.getClass().getMethod("size").invoke(chunkMap);
-            if (size instanceof Number number) return number.intValue();
-        } catch (ReflectiveOperationException ignored) {
-            // No chunk count available; return zero instead of crashing the API.
-        }
-        return 0;
-    }
-
-    private static int getEntityCount(ServerLevel level) {
-        try {
-            var method = level.getClass().getMethod("getEntityCount");
-            Object value = method.invoke(level);
-            if (value instanceof Number number) return number.intValue();
-        } catch (ReflectiveOperationException ignored) {
-            // Some Fabric versions expose entity counts through a different manager API.
-        }
-        try {
-            Object entityManager = level.getClass().getMethod("getEntityManager").invoke(level);
-            var method = entityManager.getClass().getMethod("getEntityCount");
-            Object value = method.invoke(entityManager);
-            if (value instanceof Number number) return number.intValue();
-        } catch (ReflectiveOperationException ignored) {
-            // Fall back to zero rather than breaking the HTTP API.
-        }
-        return 0;
-    }
-
-    private static String normalizeWorldKey(String worldKey) {
-        if (worldKey == null || worldKey.isBlank()) return "world";
-        String key = worldKey.replace("minecraft:", "");
-        if ("overworld".equals(key)) return "world";
-        if ("the_nether".equals(key)) return "world_nether";
-        if ("the_end".equals(key)) return "world_the_end";
-        return key;
+    /** Protocol keys for the vanilla dimensions; other dimensions use their id ("mod:name"). */
+    static String levelKey(ServerLevel level) {
+        var dim = level.dimension();
+        if (dim.equals(Level.OVERWORLD)) return "world";
+        if (dim.equals(Level.NETHER)) return "world_nether";
+        if (dim.equals(Level.END)) return "world_the_end";
+        // ResourceKey#toString() = "ResourceKey[minecraft:dimension / <id>]" on all supported versions
+        String s = dim.toString();
+        int slash = s.lastIndexOf(" / ");
+        return slash >= 0 && s.endsWith("]") ? s.substring(slash + 3, s.length() - 1) : s;
     }
 }

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.hungerbridge.common.RegressionTest" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-11-05T02:42:39.088Z" hostname="WIN-VICTUS-S-R5" time="0.401">
+  <properties/>
+  <testcase name="meaningfulPermissionDetection()" classname="com.hungerbridge.common.RegressionTest" time="0.004"/>
+  <testcase name="shippedPolicyTemplateOnlyGrantsRealNodes()" classname="com.hungerbridge.common.RegressionTest" time="0.053"/>
+  <testcase name="streamLinesUseTheDocumentedConsoleFormat()" classname="com.hungerbridge.common.RegressionTest" time="0.108"/>
+  <testcase name="builtInDefaultPolicyOnlyGrantsRealNodes()" classname="com.hungerbridge.common.RegressionTest" time="0.001"/>
+  <testcase name="forgedRequestsDoNotPopulateTheReplayCache()" classname="com.hungerbridge.common.RegressionTest" time="0.077"/>
+  <testcase name="legacyPermissionAliasesExpandToRealNodes()" classname="com.hungerbridge.common.RegressionTest" time="0.001"/>
+  <testcase name="verificationOrderDoesNotLeakTokenExistenceViaTimestamp()" classname="com.hungerbridge.common.RegressionTest" time="0.133"/>
+  <testcase name="ssePayloadEscapingAndRedaction()" classname="com.hungerbridge.common.RegressionTest" time="0.002"/>
+  <testcase name="commandErrorsAreShownToTheSender()" classname="com.hungerbridge.common.RegressionTest" time="0.002"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

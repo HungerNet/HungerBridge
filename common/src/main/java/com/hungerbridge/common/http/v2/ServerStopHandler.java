@@ -4,51 +4,28 @@ import com.google.gson.JsonObject;
 import com.hungerbridge.common.Config;
 import com.hungerbridge.common.Json;
 import com.hungerbridge.common.Logger;
+import com.hungerbridge.common.http.ApiHandler;
 import com.hungerbridge.common.http.HttpUtil;
+import com.hungerbridge.common.security.Permissions;
 import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpHandler;
 
 import java.io.IOException;
 
-public final class ServerStopHandler implements HttpHandler {
-    private final Config config;
-    private final Logger logger;
-    private final com.hungerbridge.common.BridgeServer bridgeServer;
+/** POST /server/stop — stops the Minecraft server (the response is sent first). */
+public final class ServerStopHandler extends ApiHandler {
 
-    public ServerStopHandler(Config config, Logger logger, com.hungerbridge.common.BridgeServer bridgeServer) {
-        this.config = config;
-        this.logger = logger;
-        this.bridgeServer = bridgeServer;
+    private final Runnable stopAction;
+
+    public ServerStopHandler(Config config, Logger logger, Runnable stopAction) {
+        super(config, logger, "/server/stop", "POST", Permissions.SERVER_STOP);
+        this.stopAction = stopAction;
     }
 
     @Override
-    public void handle(HttpExchange ex) throws IOException {
-        if (!"POST".equalsIgnoreCase(ex.getRequestMethod())) {
-            HttpUtil.error(ex, 405, "method_not_allowed", "Use POST", config);
-            return;
-        }
-        JsonObject payload;
-        try {
-            payload = HttpUtil.readJson(ex);
-        } catch (IOException e) {
-            HttpUtil.error(ex, 413, "request_too_large", "Request body exceeds the maximum size", config);
-            return;
-        }
-        if (!HttpUtil.auth(ex, config, payload)) {
-            HttpUtil.error(ex, 401, "unauthorized", "Authentication required", config);
-            return;
-        }
-        if (!HttpUtil.checkAcl(ex, config, "server.stop")) {
-            HttpUtil.error(ex, 403, "forbidden", "Token not permitted to stop the server", config);
-            return;
-        }
-        if (!HttpUtil.rateLimit(ex, config, "server.stop")) return;
-
-        boolean force = payload != null && payload.has("force") && payload.get("force").getAsBoolean();
-        if (logger != null) logger.log("INFO", "Stop requested via API");
-        if (bridgeServer != null) {
-            bridgeServer.stopMinecraftServer();
-        }
+    protected void handleAuthorized(HttpExchange ex, JsonObject body) throws IOException {
+        boolean force = optBoolean(body, "force", false);
+        if (logger != null) logger.log("INFO", "Stop requested via API by token " + HttpUtil.authTokenId(ex));
         HttpUtil.writeJson(ex, 200, Json.obj("ok", true, "stopped", true, "force", force));
+        if (stopAction != null) stopAction.run();
     }
 }

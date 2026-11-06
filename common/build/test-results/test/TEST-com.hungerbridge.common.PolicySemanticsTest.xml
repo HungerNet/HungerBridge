@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.hungerbridge.common.PolicySemanticsTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-11-05T02:42:38.145Z" hostname="WIN-VICTUS-S-R5" time="0.906">
+  <properties/>
+  <testcase name="tokenPermissionsAreMergedWithPolicyPermissions()" classname="com.hungerbridge.common.PolicySemanticsTest" time="0.201"/>
+  <testcase name="wildcardPermissionMatchesNewPermissionModel()" classname="com.hungerbridge.common.PolicySemanticsTest" time="0.003"/>
+  <testcase name="emptyPermissionsPolicyDeniesAllActions()" classname="com.hungerbridge.common.PolicySemanticsTest" time="0.103"/>
+  <testcase name="debugModeRoutesHmacDiagnosticsToDebugLevel()" classname="com.hungerbridge.common.PolicySemanticsTest" time="0.136"/>
+  <testcase name="constantTimeHexComparisonRejectsMismatchedSignature()" classname="com.hungerbridge.common.PolicySemanticsTest" time="0.002"/>
+  <testcase name="jsonBodyFieldOrderDoesNotAffectHmacVerification()" classname="com.hungerbridge.common.PolicySemanticsTest" time="0.156"/>
+  <testcase name="securityYamlParsesRateLimitSettings()" classname="com.hungerbridge.common.PolicySemanticsTest" time="0.204"/>
+  <testcase name="debugModeLogsExpiredNonceSweepAtDbgLevel()" classname="com.hungerbridge.common.PolicySemanticsTest" time="0.088"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

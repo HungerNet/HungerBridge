@@ -1,112 +1,89 @@
 # HungerBridge
 
-HungerBridge is a unified **Fabric + Paper/Purpur** backend used by
-**HungerLib** to execute commands and write logs inside a Minecraft server
-without using RCON.
+HungerBridge is a server-side **Paper / Purpur / Folia** plugin and **Fabric** mod that exposes
+a small, authenticated HTTP API for running console commands, writing to the server log,
+streaming the console (SSE) and reading server/world/JVM metrics — without RCON.
 
-It exposes a small, secure HTTP API:
+The Python client is [HungerBridgePy](https://github.com/HungerNet/HungerBridgePy)
+(`pip install hungerbridge`).
 
- - `POST /server/run` — execute a command as console (with optional silent mode)
- - `POST /server/log` — write raw text to the server console
- - `GET /ping` — health check
- - `GET /system/memory` — heap and non-heap memory statistics
- - `GET /system/gc` — garbage collector metrics
- - `GET /system/threads` — JVM thread usage
- - `GET /system/network` — network throughput snapshot
- - `GET /world/chunks` — chunk totals by world
- - `GET /world/entities` — entity totals by world
+## Supported platforms
 
-HungerBridge works identically on:
+| Minecraft | Paper / Purpur | Folia | Fabric (Loader ≥ 0.19.2, **no Fabric API needed**) | Java |
+|---|---|---|---|---|
+| 1.21.11 | ✅ | ✅ | ✅ | 21+ |
+| 26.1.2 | ✅ | ✅ | ✅ | 25+ |
+| 26.2 | ✅ | ✅ (Folia beta) | ✅ | 25+ |
+| 26.3 | ✅ | ✅ (Folia alpha) | ✅ | 25+ |
 
-- **Paper/Purpur 1.21.11**
-- **Fabric 1.21.11**
+Every cell was boot-tested on a real server and passed the HungerBridgePy live protocol
+suite (see BUILDING.md → *Runtime validation*). One jar per Minecraft version: the Paper jar
+runs on Paper, Purpur and Folia (the threading model is detected at runtime).
 
----
+## Quick start
+
+1. Drop the jar into `plugins/` (Paper/Purpur/Folia) or `mods/` (Fabric) and start the server.
+   Configuration is generated in `plugins/HungerBridge/` or `config/HungerBridge/`.
+2. Add a policy to `policies.yaml` if the shipped read-only `default` policy is not enough:
+
+   ```yaml
+   policies:
+     - id: admin
+       default-expiry: 0
+       permissions: ["*"]
+   ```
+
+   and run `/hb reload`.
+3. From the **server console**: `/hb token create my-bot admin` — it prints a single-use
+   pickup URL (`/pickup/<uuid>?passkey=<hex>`, valid 5 minutes).
+4. Redeem it from your client:
+
+   ```python
+   from hungerbridge import BridgeClient
+   client = BridgeClient.fromPickup("http://127.0.0.1:1913/pickup/<uuid>?passkey=<hex>")
+   print(client.getServerMeta(), client.getTPS("1m"))
+   print(client.runCommand("list"))
+   ```
+
+The full API (endpoints, authentication, error codes, SSE format) is in [ENDPOINTS.md](ENDPOINTS.md).
 
 ## Configuration
 
-Generated automatically on first run.
-
-Autogen templates are bundled inside the plugin JAR and are used only to create
-missing runtime files on first startup. Existing runtime configuration (for
-example `config.yaml` or `policies.yaml`) is never overwritten by the server
-on restart — operators should edit the live files in the `config` directory
-directly to make persistent changes.
+`config.yaml`
 
 ```yaml
 port: 1913
-
+bind-address: 127.0.0.1   # keep it local unless you put TLS in front of it
+debug: false              # HMAC diagnostics in the log — never in production
 players:
-  max-list: 50
+  max-list: 50            # cap on names returned by /players/list
 ```
 
-### Debug mode WARNING
+`security.yaml` — `skew-seconds` (timestamp window, default 300), `rate-limits` (`per-ip`,
+`per-token`, `pickup` token buckets) and `ips` (`whitelist`/`blacklist`, CIDR supported;
+default: localhost only).
 
-- `debug: true` enables additional internal diagnostic logging (HMAC verification diagnostics and request body markers). DO NOT enable in production. While debug outputs are now carefully filtered to avoid exposing token secrets, enabling debug mode can still increase the amount of sensitive operational telemetry recorded in logs and broadcast to connected SSE clients. Only enable debug for short-lived troubleshooting in a trusted environment.
+`policies.yaml` — named permission sets (see ENDPOINTS.md → *Permission nodes*). Unknown
+or legacy node names are reported in the log at load time.
 
-### Streaming server logs
+Runtime files are created only when missing — edits are never overwritten. Secrets live in
+`storage/` (`master.key`, `tokens.json`, `pickups.json`, `sessions.json`, owner-only file
+permissions where the filesystem supports them); audit logs in `logs/<date>.audit.log`.
 
-Use the SSE stream to receive Minecraft log lines in real time:
-
-```bash
-curl -N \
-  -H "X-Auth-Id: bridge-client" \
-  -H "X-Auth-Timestamp: $(date +%s)" \
-  -H "X-Auth-Nonce: $(openssl rand -hex 16)" \
-  -H "X-Auth-Signature: <hmac-signature>" \
-  http://localhost:1913/server/stream
-```
-
-The server sends each line as an SSE event:
-
-```text
-data:[00:00:00 INFO]: Server started!
+## Console commands (console only)
 
 ```
-
-## Token management (HMAC tokens)
-
-HungerBridge supports per-client HMAC-signed tokens. Tokens are provisioned via the server CLI (`hb token create <tokenId> <policyId>`).
-
-- The CLI prints a pickup URL: `/pickup/{UUID}`. Visit that URL once to retrieve the plaintext secret; pickups are single-use and expire automatically.
-
-Storage and example files
-- Example runtime policies: `config/HungerBridge/policies.yaml`
-- Token storage: `autogen/HungerBridge/tokens.json`
-- Pickup storage: `autogen/HungerBridge/pickups.json`
-
-Do NOT commit production secrets to source control. Ensure `config/HungerBridge`
-is protected by filesystem permissions in your deployment.
-
-## Streaming server logs (SSE)
-
-Use the SSE stream to receive Minecraft log lines in real time:
-
-```bash
-curl -N \
-  -H "X-Auth-Id: bridge-client" \
-  -H "X-Auth-Timestamp: $(date +%s)" \
-  -H "X-Auth-Nonce: $(openssl rand -hex 16)" \
-  -H "X-Auth-Signature: <hmac-signature>" \
-  http://localhost:1913/server/stream
+/hb help
+/hb reload
+/hb token list
+/hb token create <id> <policyId> [expirySeconds]
+/hb token rotate <id>      (new secret, printed as a new single-use pickup URL)
+/hb token revoke <id>
+/hb token remove <id>
 ```
 
-## Python client (`hungerlib`)
+## Building
 
-The `hungerlib` Python client `BridgeClient` signs requests using the canonical HMAC scheme (headers: `X-Auth-Id`, `X-Auth-Timestamp`, `X-Auth-Nonce`, `X-Auth-Signature`). It also provides an SSE `Stream` helper.
-
-Example usage:
-
-```python
-from hungerlib.bridgeclient import BridgeClient
-
-# token is id:secret
-client = BridgeClient('http://localhost:1913', 'abcd1234:<secret>')
-
-# run a command
-print(client.runCommand('say hello'))
-
-# Stream logs with signed headers
-stream = client.stream
-stream.connect(history=50)
-```
+See [BUILDING.md](BUILDING.md). Architecture and the 2026-11 release-readiness work are
+documented in [PLAN.md](PLAN.md) and [CHANGELOG.md](CHANGELOG.md); proposed next steps are in
+[docs/design/](docs/design/README.md).

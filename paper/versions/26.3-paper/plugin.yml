@@ -1,0 +1,27 @@
+name: HungerBridge
+description: HTTP bridge for Paper, Folia and Fabric servers.
+author: iFamished
+website: https://modrinth.com/project/hungerbridge
+
+main: com.hungerbridge.paper.HungerBridgePlugin
+version: ${version}
+api-version: 26.3
+# Scheduling goes through PlatformScheduler (region/global schedulers on Folia).
+folia-supported: true
+
+load: STARTUP
+prefix: HungerBridge
+
+commands:
+  hungerbridge:
+    description: HungerBridge commands (console only)
+    usage: /hungerbridge <token|reload|help>
+    aliases: [hb]
+    permission: hungerbridge.admin
+    permission-message: You do not have permission to use this command
+
+permissions:
+  hungerbridge.admin:
+    default: op
+
+default-permission: op

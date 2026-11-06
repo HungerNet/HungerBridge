@@ -77,7 +77,18 @@ public final class TokensConfig {
                 Object permissions = raw.get("permissions");
                 if (permissions instanceof List) {
                     for (Object p : (List<?>) permissions) {
-                        if (p != null) policy.permissions.add(String.valueOf(p));
+                        if (p == null) continue;
+                        String node = String.valueOf(p).trim();
+                        policy.permissions.add(node);
+                        if (logger == null) continue;
+                        if (com.hungerbridge.common.security.Permissions.isLegacy(node)) {
+                            logger.log("WARN", "policies.yaml: policy '" + id + "' uses legacy permission node '" + node
+                                    + "', treated as " + com.hungerbridge.common.security.Permissions.LEGACY_ALIASES.get(node)
+                                    + ". Please update the policy.");
+                        } else if (!com.hungerbridge.common.security.Permissions.isMeaningful(node)) {
+                            logger.log("WARN", "policies.yaml: policy '" + id + "' grants '" + node
+                                    + "', which no endpoint checks. Known nodes: " + new java.util.TreeSet<>(com.hungerbridge.common.security.Permissions.KNOWN));
+                        }
                     }
                 }
                 config.policies.put(id, policy);
@@ -96,7 +107,9 @@ public final class TokensConfig {
         TokensConfig config = new TokensConfig();
         TokenPolicy moderator = new TokenPolicy();
         moderator.id = "moderator";
-        moderator.permissions.add("ping");
+        moderator.permissions.add("server.ping");
+        moderator.permissions.add("server.meta");
+        moderator.permissions.add("players.list");
         moderator.permissions.add("server.log");
         moderator.permissions.add("server.stream");
         moderator.permissions.add("server.run");

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.hungerbridge.common.ConfigTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-11-05T02:42:34.903Z" hostname="WIN-VICTUS-S-R5" time="3.226">
+  <properties/>
+  <testcase name="reloadConfigLoadsNamedTokenPolicies()" classname="com.hungerbridge.common.ConfigTest" time="0.532"/>
+  <testcase name="readsEnabledEndpointsAndNewSecuritySchema()" classname="com.hungerbridge.common.ConfigTest" time="1.627"/>
+  <testcase name="hyphenatedKeysAreReadAndSnakeCaseIsIgnored()" classname="com.hungerbridge.common.ConfigTest" time="0.401"/>
+  <testcase name="rejectsUnknownTokenPolicyIdOnCreate()" classname="com.hungerbridge.common.ConfigTest" time="0.197"/>
+  <testcase name="rateLimiterRefillsAcrossMilliseconds()" classname="com.hungerbridge.common.ConfigTest" time="0.001"/>
+  <testcase name="rotateTokenChangesTheActiveSigningSecret()" classname="com.hungerbridge.common.ConfigTest" time="0.076"/>
+  <testcase name="policyDefaultExpiryIsLoaded()" classname="com.hungerbridge.common.ConfigTest" time="0.365"/>
+  <testcase name="commandUsageIsPerCommand()" classname="com.hungerbridge.common.ConfigTest" time="0.008"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

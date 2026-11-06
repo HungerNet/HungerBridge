@@ -8,21 +8,99 @@ on:
     branches:
       - main
       - master
+  pull_request:
   workflow_dispatch:
 
-jobs:
-  build-matrix:
-    runs-on: ubuntu-latest
+env:
+  # setup-java exports JAVA_HOME_<n>_X64; let Gradle toolchains use both JDKs
+  # (1.21.11 targets compile for Java 21, 26.x targets for Java 25).
+  GRADLE_TOOLCHAINS: -Porg.gradle.java.installations.fromEnv=JAVA_HOME_21_X64,JAVA_HOME_25_X64 -Porg.gradle.java.installations.auto-download=false
 
+jobs:
+  test:
+    name: Unit & integration tests (common)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: |
+            21
+            25
+
+      - name: Test
+        run: ./gradlew :common:test --no-daemon --stacktrace $GRADLE_TOOLCHAINS
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: common/build/reports/tests/
+
+  protocol:
+    name: Cross-language protocol tests (HungerBridgePy)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Checkout HungerBridgePy
+        uses: actions/checkout@v4
+        with:
+          repository: HungerNet/HungerBridgePy
+          path: HungerBridgePy
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: |
+            21
+            25
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Start standalone bridge (real HTTP stack, fake game backend)
+        run: |
+          ./gradlew :common:standaloneBridge --no-daemon $GRADLE_TOOLCHAINS -Phb.standalone.port=19130 > bridge.log 2>&1 &
+          for i in $(seq 1 240); do grep -q '^PICKUP_URL=' bridge.log && break; sleep 1; done
+          grep -m1 '^PICKUP_URL=' bridge.log | cut -d= -f2- > pickup.txt
+          test -s pickup.txt || (cat bridge.log; exit 1)
+
+      - name: Run HungerBridgePy unit + live protocol tests
+        working-directory: HungerBridgePy
+        run: |
+          pip install -e ".[test]"
+          pytest -q
+          HB_PICKUP_URL="$(cat ../pickup.txt)" HB_EXPECT_PLATFORM=standalone pytest -q -m live tests/test_live.py
+
+      - name: Bridge log
+        if: always()
+        run: cat bridge.log || true
+
+  build-matrix:
+    name: Build ${{ matrix.name }}
+    runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         include:
-          - { name: paper-1.21.11, project: paper, target: 1.21.11-paper, jdk: '25' }
-          - { name: paper-26.1.2, project: paper, target: 26.1.2-paper, jdk: '25' }
-          - { name: paper-26.2, project: paper, target: 26.2-paper, jdk: '25' }
-          - { name: fabric-1.21.11, project: fabric, target: 1.21.11-fabric, jdk: '25' }
-          - { name: fabric-26.1.2, project: fabric, target: 26.1.2-fabric, jdk: '25' }
-          - { name: fabric-26.2, project: fabric, target: 26.2-fabric, jdk: '25' }
+          - { name: paper-1.21.11, project: paper, target: 1.21.11-paper }
+          - { name: paper-26.1.2, project: paper, target: 26.1.2-paper }
+          - { name: paper-26.2, project: paper, target: 26.2-paper }
+          - { name: paper-26.3, project: paper, target: 26.3-paper }
+          - { name: fabric-1.21.11, project: fabric, target: 1.21.11-fabric }
+          - { name: fabric-26.1.2, project: fabric, target: 26.1.2-fabric }
+          - { name: fabric-26.2, project: fabric, target: 26.2-fabric }
+          - { name: fabric-26.3, project: fabric, target: 26.3-fabric }
 
     steps:
       - name: Checkout
@@ -32,39 +110,29 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: ${{ matrix.jdk }}
-
-      - name: Set active Stonecutter target
-        run: |
-          echo "STONECUTTER_ACTIVE=${{ matrix.target }}" >> $GITHUB_ENV
-          if [ "${{ matrix.project }}" = "paper" ]; then
-            echo "STONECUTTER_ACTIVE_PAPER=${{ matrix.target }}" >> $GITHUB_ENV
-          else
-            echo "STONECUTTER_ACTIVE_PAPER=__none__" >> $GITHUB_ENV
-          fi
+          java-version: |
+            21
+            25
 
       - name: Build version
+        env:
+          STONECUTTER_ACTIVE: ${{ matrix.target }}
         run: |
           export JAVA_TOOL_OPTIONS="-Xmx6g"
           export GRADLE_OPTS="-Dorg.gradle.jvmargs=-Xmx6g"
-
-          if [ "${{ matrix.project }}" = "paper" ]; then
-            ./gradlew :paper:versions:${{ matrix.target }}:build --no-daemon --stacktrace
-          else
-            ./gradlew :fabric:versions:${{ matrix.target }}:build --no-daemon --stacktrace
-          fi
+          ./gradlew :${{ matrix.project }}:versions:${{ matrix.target }}:build --no-daemon --stacktrace $GRADLE_TOOLCHAINS
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}
-          path: |
-            paper/versions/${{ matrix.target }}/build/libs/*.jar
-            fabric/versions/${{ matrix.target }}/build/libs/*.jar
+          path: ${{ matrix.project }}/versions/${{ matrix.target }}/build/libs/*.jar
+          if-no-files-found: error
 
   release:
     runs-on: ubuntu-latest
-    needs: build-matrix
+    needs: [test, protocol, build-matrix]
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
 
     steps:
       - name: Checkout
@@ -73,13 +141,16 @@ jobs:
       - name: Read version.yaml
         id: version
         run: |
-          VERSION=$(grep '^version:' version.yaml | sed 's/version:[[:space:]]*"\(.*\)"/\1/')
+          # accepts quoted and unquoted values
+          VERSION=$(grep -m1 '^version:' version.yaml | sed -E 's/^version:[[:space:]]*"?([^"]*)"?[[:space:]]*$/\1/')
+          test -n "$VERSION"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: release/
+          pattern: '*-*.*'
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -88,7 +159,8 @@ jobs:
           name: HungerBridge ${{ steps.version.outputs.version }}
           body: |
             HungerBridge multiloader release.
-            Includes Paper and Fabric builds for all supported versions.
+            Paper jars also run on Purpur and Folia. Fabric jars need only Fabric Loader (no Fabric API).
+            Minecraft 1.21.11, 26.1.2, 26.2 and 26.3.
           files: release/**/*.jar
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

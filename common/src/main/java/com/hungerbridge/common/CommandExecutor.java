@@ -98,4 +98,19 @@ public interface CommandExecutor {
     default Map<String, Integer> getWorldEntityCounts() {
         return Collections.emptyMap();
     }
+
+    /**
+     * Absolute overworld day-time in ticks ({@code /time query daytime} without the modulo),
+     * or -1 if unavailable. {@code /world/time} derives tick-of-day and day number from it.
+     */
+    default long getWorldFullTime() {
+        return -1L;
+    }
+
+    /**
+     * Overworld weather: {@code clear}, {@code rain} or {@code thunder}.
+     */
+    default String getWeather() {
+        return "clear";
+    }
 }

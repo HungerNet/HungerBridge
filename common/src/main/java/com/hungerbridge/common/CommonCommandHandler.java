@@ -76,7 +76,7 @@ public final class CommonCommandHandler {
                             }
 
                             TokenManager.IssueResult res = tm.issueTokenWithPickup(tokenId, expirySeconds, null, 300);
-                            if (res == null) { return out; }
+                            if (res == null) { addError(out, bridgeServer, "Token id already exists or is pending pickup: " + tokenId); return out; }
                             tm.setTokenPolicyId(res.tokenId, policyId);
                             if (expirySeconds > 0L) {
                                 TokenManager.Token token = tm.listTokens().get(res.tokenId);
@@ -91,9 +91,13 @@ public final class CommonCommandHandler {
                         case "rotate": {
                             if (args.length < 3) { out.add("Usage: /hungerbridge token rotate <id>"); return out; }
                             if (tm == null) { addError(out, bridgeServer, "Token manager unavailable."); return out; }
-                            TokenManager.Token rotated = tm.rotateToken(args[2]);
-                            if (rotated == null) { addError(out, bridgeServer, "Token not found: " + args[2]); return out; }
-                            addSuccess(out, bridgeServer, "Rotated token: " + args[2]);
+                            // Rotation changes the secret, so it must come with a new pickup;
+                            // otherwise nobody can ever obtain the new secret.
+                            TokenManager.IssueResult rotated = tm.rotateTokenWithPickup(args[2], 300);
+                            if (rotated == null) { addError(out, bridgeServer, "Token not found or revoked: " + args[2]); return out; }
+                            addSuccess(out, bridgeServer, "Rotated token: " + args[2] + " (the old secret no longer works)");
+                            addSuccess(out, bridgeServer, "Pickup passkey: " + rotated.passkey);
+                            addSuccess(out, bridgeServer, "Retrieve the new secret at: /pickup/" + rotated.pickupId + "?passkey=" + rotated.passkey);
                             return out;
                         }
                         case "revoke": {
@@ -136,48 +140,10 @@ public final class CommonCommandHandler {
         return out;
     }
 
-    public static boolean isConsoleSource(Object source) {
-        if (source == null) {
-            return false;
-        }
-
-        String typeName = source.getClass().getName();
-        String lower = typeName.toLowerCase();
-        if (lower.contains("console") || lower.contains("dedicatedserver") || lower.contains("commandsourcestack") || lower.contains("servercommandsource")) {
-            try {
-                java.lang.reflect.Method getEntity = source.getClass().getMethod("getEntity");
-                Object entity = getEntity.invoke(source);
-                return entity == null;
-            } catch (Exception ignored) {
-                return true;
-            }
-        }
-
-        try {
-            java.lang.reflect.Method getEntity = source.getClass().getMethod("getEntity");
-            Object entity = getEntity.invoke(source);
-            return entity == null;
-        } catch (Exception ignored) {
-            try {
-                Class<?> bukkit = Class.forName("org.bukkit.Bukkit");
-                Object server = bukkit.getMethod("getServer").invoke(null);
-                if (server != null) {
-                    Object consoleSender = server.getClass().getMethod("getConsoleSender").invoke(server);
-                    if (consoleSender != null && consoleSender.equals(source)) return true;
-                }
-            } catch (Exception ignored2) {
-                // ignore
-            }
-            return false;
-        }
-    }
-
+    // Errors are returned to the command sender (previously they were only logged, so a
+    // failed "token create" printed nothing at all).
     private static void addError(List<String> out, BridgeServer bridgeServer, String message) {
-        try { if (bridgeServer != null && bridgeServer.getLogger() != null) bridgeServer.getLogger().log("ERROR", message); } catch (Exception ignored) {}
-    }
-
-    private static void addWarning(List<String> out, BridgeServer bridgeServer, String message) {
-        try { if (bridgeServer != null && bridgeServer.getLogger() != null) bridgeServer.getLogger().log("WARN", message); } catch (Exception ignored) {}
+        out.add(CommandMessages.error("Error: " + message));
     }
 
     private static void addSuccess(List<String> out, BridgeServer bridgeServer, String message) {

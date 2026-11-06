@@ -4,64 +4,31 @@ import com.google.gson.JsonObject;
 import com.hungerbridge.common.Config;
 import com.hungerbridge.common.Json;
 import com.hungerbridge.common.Logger;
+import com.hungerbridge.common.http.ApiHandler;
 import com.hungerbridge.common.http.HttpUtil;
+import com.hungerbridge.common.security.Permissions;
 import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpHandler;
 
 import java.io.IOException;
 
 /**
- * /log
- * POST, requires a valid HMAC-authenticated token
- * Body: { "message": "...", "level": "info" }
+ * POST /server/log — {@code {"message": "...", "level": "info", "thread": "optional"}}.
+ * {@code level} may be any builtin or custom level name.
  */
-public final class LogHandler implements HttpHandler {
-
-    private final Config config;
-    private final Logger logger;
+public final class LogHandler extends ApiHandler {
 
     public LogHandler(Config config, Logger logger) {
-        this.config = config;
-        this.logger = logger;
+        super(config, logger, "/server/log", "POST", Permissions.SERVER_LOG);
     }
 
     @Override
-    public void handle(HttpExchange ex) throws IOException {
-        if (!"POST".equalsIgnoreCase(ex.getRequestMethod())) {
-            HttpUtil.error(ex, 405, "method_not_allowed", "Use POST", config);
-            return;
-        }
-
-        JsonObject json;
-        try {
-            json = HttpUtil.readJson(ex);
-        } catch (IOException e) {
-            HttpUtil.error(ex, 413, "request_too_large", "Request body exceeds the maximum size", config);
-            return;
-        }
-        if (!HttpUtil.auth(ex, config, json)) {  // pass canonical body into auth
-            HttpUtil.error(ex, 401, "unauthorized", "Authentication required", config);
-            return;
-        }
-
-        if (json == null || !json.has("message")) {
-            HttpUtil.error(ex, 400, "bad_request", "Missing field: message", config);
-            return;
-        }
-
-        String level = json.has("level") ? json.get("level").getAsString() : "info";
-        String thread = json.has("thread") ? json.get("thread").getAsString() : null;
-        String msg = json.get("message").getAsString();
-
-        if (!HttpUtil.checkAcl(ex, config, "server.log")) {
-            HttpUtil.error(ex, 403, "forbidden", "Token not permitted to post logs", config);
-            return;
-        }
-
-        if (!HttpUtil.rateLimit(ex, config, "server.log")) return;
-
+    protected void handleAuthorized(HttpExchange ex, JsonObject body) throws IOException {
+        if (!body.has("message")) throw new HttpUtil.BadRequestException("Missing field: message");
+        String msg = optString(body, "message", "");
+        String level = optString(body, "level", "INFO").trim();
+        String thread = optString(body, "thread", null);
         if (logger != null) {
-            logger.log(level == null ? "INFO" : level.trim(), thread, msg);
+            logger.log(level.isEmpty() ? "INFO" : level, thread, msg);
         }
         HttpUtil.writeJson(ex, 200, Json.obj("ok", true));
     }

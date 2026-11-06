@@ -6,103 +6,76 @@ import com.hungerbridge.common.Config;
 import com.hungerbridge.common.Logger;
 import com.hungerbridge.common.log.PlatformLogAppender;
 import com.hungerbridge.common.security.TokenManager;
+import com.hungerbridge.paper.scheduler.PlatformScheduler;
 import org.bukkit.Bukkit;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.server.ServerCommandEvent;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.apache.logging.log4j.LogManager;
 
 import java.nio.file.Path;
 
+/**
+ * Paper / Purpur / Folia entry point. The platform (and threading model) is detected at
+ * runtime; see {@link PlatformScheduler}.
+ */
 public final class HungerBridgePlugin extends JavaPlugin {
 
     private BridgeServer bridgeServer;
     private PlatformLogAppender logAppender;
-    private static final org.apache.logging.log4j.Logger HB_LOGGER = LogManager.getLogger("HungerBridge");
-    private Thread bridgeThread;
-    private Logger hbAdapter;
+    private Logger logger;
 
     @Override
     public void onEnable() {
-        org.apache.logging.log4j.core.Logger root =
-            (org.apache.logging.log4j.core.Logger) org.apache.logging.log4j.LogManager.getRootLogger();
-        logAppender = new PlatformLogAppender("HungerBridgePaperLogAppender");
-        logAppender.start();
-        root.addAppender(logAppender);
+        logger = new PaperLoggerAdapter();
+        PlatformScheduler scheduler = PlatformScheduler.create(this);
 
-        Logger logger = new PaperLoggerAdapter();
+        logAppender = PlatformLogAppender.install("HungerBridgePaperLogAppender");
 
         Path configDir = getDataFolder().toPath();
         Config config = Config.load(configDir, logger);
 
-        // initialize token manager for HMAC token support
         TokenManager tm = new TokenManager(configDir, logger);
         tm.setDebug(config.isDebug());
         config.setTokenManager(tm);
 
-        // auditing, IP lists and rate limiting removed
-
-        config.setPlatform("paper");
+        config.setPlatform(scheduler.platformName());
         config.setMinecraftVersion(normalizeMinecraftVersion(Bukkit.getMinecraftVersion(), Bukkit.getVersion()));
-        config.setBridgeVersion(getDescription() != null ? getDescription().getVersion() : "unknown");
+        config.setBridgeVersion(pluginVersion());
 
-        CommandExecutor executor = new PaperCommandExecutor(this);
+        CommandExecutor executor = new PaperCommandExecutor(this, scheduler);
 
-        // NOTE: PaperServerInfoProvider exists but is NOT passed into BridgeServer anymore.
-        PaperServerInfoProvider infoProvider = new PaperServerInfoProvider(getServer());
+        // /server/stop: Bukkit.shutdown() must run on the main thread (Paper) or the
+        // global region thread (Folia), exactly like the vanilla /stop command.
+        bridgeServer = new BridgeServer(configDir, config, logger, executor, () -> scheduler.runGlobal(Bukkit::shutdown));
+        bridgeServer.start();
 
-            bridgeServer = new BridgeServer(configDir, config, logger, executor, () -> {
-            if (getServer() != null) {
-                Bukkit.shutdown();
-            }
-        });
-        hbAdapter = logger;
-        // Start the bridge server on a dedicated thread named "HungerBridge"
-        bridgeThread = new Thread(() -> {
-            try {
-                bridgeServer.start();
-            } catch (Throwable t) {
-                if (hbAdapter != null) {
-                    hbAdapter.log("ERROR", "Bridge server thread terminated with error: " + t.toString());
-                } else {
-                    HB_LOGGER.error("Bridge server thread terminated with error", t);
+        PaperCommandRegistrar.register(this, bridgeServer);
+
+        // Bukkit's `/reload` re-creates plugins; re-read HungerBridge config too.
+        getServer().getPluginManager().registerEvents(new Listener() {
+            @EventHandler
+            public void onServerCommand(ServerCommandEvent ev) {
+                String cmd = ev.getCommand() == null ? "" : ev.getCommand().trim().toLowerCase();
+                if ((cmd.equals("reload") || cmd.startsWith("reload ")) && bridgeServer != null) {
+                    bridgeServer.reloadConfig();
                 }
-                t.printStackTrace();
             }
-        }, "HungerBridge");
-        bridgeThread.setDaemon(false);
-        bridgeThread.start();
+        }, this);
 
-        // register in-game admin command (always enabled) via common adapter
-        try {
-            PaperCommandRegistrar.register(this, bridgeServer);
-        } catch (Exception ignored) {}
-
-        // Listen for server-level '/reload' and trigger HungerBridge reload as well.
-        try {
-            org.bukkit.plugin.PluginManager pm = getServer().getPluginManager();
-            pm.registerEvents(new org.bukkit.event.Listener() {
-                @org.bukkit.event.EventHandler
-                public void onServerCommand(org.bukkit.event.server.ServerCommandEvent ev) {
-                    try {
-                        String cmd = ev.getCommand();
-                        if (cmd != null) {
-                            String trimmed = cmd.trim().toLowerCase();
-                            if (trimmed.equals("reload") || trimmed.startsWith("reload ")) {
-                                try {
-                                    if (bridgeServer != null) bridgeServer.reloadConfig();
-                                    // Re-register plugin commands as the server may rebuild command maps
-                                    try { com.hungerbridge.paper.PaperCommandRegistrar.register(HungerBridgePlugin.this, bridgeServer); } catch (Exception ignored) {}
-                                } catch (Exception ignored) {}
-                            }
-                        }
-                    } catch (Exception ignored) {}
-                }
-            }, this);
-        } catch (Exception ignored) {}
-
-        if (hbAdapter != null) hbAdapter.log("INFO", "HungerBridge enabled."); else HB_LOGGER.info("HungerBridge enabled.");
+        logger.log("INFO", "HungerBridge enabled (" + scheduler.platformName() + ", Minecraft " + config.getMinecraftVersion() + ").");
     }
 
-    private static String normalizeMinecraftVersion(String version, String rawVersion) {
+    @SuppressWarnings("deprecation") // getDescription() fallback for servers without plugin meta
+    private String pluginVersion() {
+        try {
+            return getPluginMeta().getVersion();
+        } catch (Throwable t) {
+            return getDescription().getVersion();
+        }
+    }
+
+    static String normalizeMinecraftVersion(String version, String rawVersion) {
         if (version != null && !version.isBlank()) {
             return version.trim();
         }
@@ -125,18 +98,9 @@ public final class HungerBridgePlugin extends JavaPlugin {
         if (bridgeServer != null) {
             bridgeServer.stop();
             bridgeServer = null;
-            if (bridgeThread != null) {
-                try { bridgeThread.interrupt(); bridgeThread.join(2000); } catch (InterruptedException ignored) {}
-                bridgeThread = null;
-            }
         }
-        if (logAppender != null) {
-            org.apache.logging.log4j.core.Logger root =
-                    (org.apache.logging.log4j.core.Logger) org.apache.logging.log4j.LogManager.getRootLogger();
-            root.removeAppender(logAppender);
-            logAppender.stop();
-            logAppender = null;
-        }
-        if (hbAdapter != null) hbAdapter.log("INFO", "HungerBridge disabled."); else HB_LOGGER.info("HungerBridge disabled.");
+        PlatformLogAppender.uninstall(logAppender);
+        logAppender = null;
+        if (logger != null) logger.log("INFO", "HungerBridge disabled.");
     }
 }

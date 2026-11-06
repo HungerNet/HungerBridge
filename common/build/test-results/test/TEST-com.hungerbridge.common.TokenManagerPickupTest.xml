@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.hungerbridge.common.TokenManagerPickupTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-11-05T02:42:39.490Z" hostname="WIN-VICTUS-S-R5" time="0.179">
+  <properties/>
+  <testcase name="issueAndConsumePickup()" classname="com.hungerbridge.common.TokenManagerPickupTest" time="0.087"/>
+  <testcase name="issueAndConsumePickupRequiresPasskey()" classname="com.hungerbridge.common.TokenManagerPickupTest" time="0.088"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

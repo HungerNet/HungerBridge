@@ -1,13 +1,11 @@
 plugins {
-    id "java"
+    id 'java'
 }
-
-// Version is defined per-version via Stonecutter in the versioned subprojects
 
 repositories {
     mavenCentral()
 }
 
-// Version-specific Fabric configuration lives under fabric/versions/*.
-// Keep the root project as a thin wrapper so the active target is the only one
-// applying Loom and resolving Minecraft mappings.
+// Thin parent project. Each fabric/versions/<mc>-fabric project applies Loom for its Minecraft
+// version and compiles fabric/src/main/java plus one fabric/compat/<era>/java seam; only the
+// target selected via STONECUTTER_ACTIVE is included (see settings.gradle.kts).

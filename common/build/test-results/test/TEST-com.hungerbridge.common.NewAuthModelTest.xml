@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.hungerbridge.common.NewAuthModelTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-11-05T02:42:38.131Z" hostname="WIN-VICTUS-S-R5" time="0.011">
+  <properties/>
+  <testcase name="canonicalRequestUsesNormalizedMethodPathAndJsonBody()" classname="com.hungerbridge.common.NewAuthModelTest" time="0.001"/>
+  <testcase name="hkdfDerivationAndPermissionMatchingUseNewModel()" classname="com.hungerbridge.common.NewAuthModelTest" time="0.002"/>
+  <testcase name="hmacVerifiesWithDerivedTokenKey()" classname="com.hungerbridge.common.NewAuthModelTest" time="0.002"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

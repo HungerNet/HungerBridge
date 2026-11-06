@@ -1,19 +1,21 @@
 name: HungerBridge
-description: Multiloader HTTP bridge for Paper and Fabric.
+description: HTTP bridge for Paper, Folia and Fabric servers.
 author: iFamished
 website: https://modrinth.com/project/hungerbridge
 
 main: com.hungerbridge.paper.HungerBridgePlugin
 version: ${version}
 api-version: 26.1
+# Scheduling goes through PlatformScheduler (region/global schedulers on Folia).
+folia-supported: true
 
 load: STARTUP
 prefix: HungerBridge
 
 commands:
   hungerbridge:
-    description: HungerBridge commands
-    usage: /hungerbridge <child> <args>
+    description: HungerBridge commands (console only)
+    usage: /hungerbridge <token|reload|help>
     aliases: [hb]
     permission: hungerbridge.admin
     permission-message: You do not have permission to use this command

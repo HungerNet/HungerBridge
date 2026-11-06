@@ -2,129 +2,139 @@ package com.hungerbridge.paper;
 
 import com.hungerbridge.common.CommandExecutor;
 import com.hungerbridge.common.platform.CommandCapture;
+import com.hungerbridge.paper.scheduler.PlatformScheduler;
 import org.bukkit.Bukkit;
-import org.bukkit.Chunk;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
+import java.util.function.ToIntFunction;
 
+/**
+ * Paper / Purpur / Folia implementation. Every access to game state goes through
+ * {@link PlatformScheduler}, so the same code is correct on the single-threaded Paper
+ * main loop and on Folia's regionized threads. Only Bukkit/Paper API is used (no NMS),
+ * which keeps the plugin independent of server internals across Minecraft versions.
+ */
 public final class PaperCommandExecutor implements CommandExecutor {
 
-    private final JavaPlugin plugin;
-    private final PaperBridgeAdapter bridgeAdapter;
+    /** Upper bound for any blocking hop onto a server thread. */
+    static final long COMMAND_TIMEOUT_MS = 5_000L;
+    static final long METRIC_TIMEOUT_MS = 2_000L;
 
-    public PaperCommandExecutor(JavaPlugin plugin) {
+    private final JavaPlugin plugin;
+    private final PlatformScheduler scheduler;
+
+    public PaperCommandExecutor(JavaPlugin plugin, PlatformScheduler scheduler) {
         this.plugin = plugin;
-        this.bridgeAdapter = new PaperBridgeAdapter(plugin);
+        this.scheduler = scheduler;
     }
+
+    // --- commands -------------------------------------------------------------------
 
     @Override
     public void execute(String command) {
-        plugin.getServer().getScheduler().runTask(plugin, () ->
-                plugin.getServer().dispatchCommand(
-                        plugin.getServer().getConsoleSender(),
-                        command
-                )
-        );
+        scheduler.runGlobal(() -> Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command));
     }
 
     @Override
     public List<String> executeWithOutput(String command, boolean showConsole) {
-        CompletableFuture<List<String>> future = new CompletableFuture<>();
-
-        plugin.getServer().getScheduler().runTask(plugin, () -> future.complete(CommandCapture.capture(() ->
-                plugin.getServer().dispatchCommand(plugin.getServer().getConsoleSender(), command), showConsole)));
-
-        try {
-            return future.get(5, TimeUnit.SECONDS);
-        } catch (Exception e) {
-            return List.of();
-        }
+        // Console commands must run on the main thread (Paper) / global region (Folia).
+        return scheduler.callGlobal(
+                () -> CommandCapture.capture(() -> Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command), showConsole),
+                List.of(),
+                COMMAND_TIMEOUT_MS);
     }
 
-    // --- TPS / tick time ---
+    // --- TPS / MSPT -------------------------------------------------------------------
+
+    private World overworld() {
+        List<World> worlds = Bukkit.getWorlds();
+        return worlds.isEmpty() ? null : worlds.get(0);
+    }
+
+    /**
+     * Server TPS array ({@code [1m, 5m, 15m]}). On Folia TPS is tracked per region, so the
+     * value is read from the region that owns the overworld spawn.
+     */
+    private double[] tpsArray() {
+        if (scheduler.isFolia()) {
+            return scheduler.callInWorld(overworld(), () -> Bukkit.getServer().getTPS(), null, METRIC_TIMEOUT_MS);
+        }
+        return scheduler.callGlobal(() -> Bukkit.getServer().getTPS(), null, METRIC_TIMEOUT_MS);
+    }
+
+    private static double clampTps(double raw) {
+        if (!Double.isFinite(raw) || raw <= 0.0) return -1.0;
+        return Math.round(Math.min(20.0, raw) * 10.0) / 10.0;
+    }
+
+    private double tpsAt(int index) {
+        double[] tps = tpsArray();
+        if (tps == null || tps.length <= index) return -1.0;
+        return clampTps(tps[index]);
+    }
 
     @Override
     public double getTps() {
-        return getTPS();
+        double mspt = averageTickTime();
+        if (mspt <= 0.0) return tpsAt(0);
+        return clampTps(1000.0 / mspt);
     }
 
     @Override
     public double getTps1m() {
-        return callSync(() -> {
-            double[] tps = Bukkit.getServer().getTPS();
-            if (tps == null || tps.length < 3) return -1.0;
-            double raw = tps[0];
-            if (!Double.isFinite(raw) || raw <= 0.0) return -1.0;
-            return Math.round(Math.min(20.0, raw) * 10.0) / 10.0;
-        }, -1.0);
+        return tpsAt(0);
     }
 
     @Override
     public double getTps5m() {
-        return callSync(() -> {
-            double[] tps = Bukkit.getServer().getTPS();
-            if (tps == null || tps.length < 3) return -1.0;
-            double raw = tps[1];
-            if (!Double.isFinite(raw) || raw <= 0.0) return -1.0;
-            return Math.round(Math.min(20.0, raw) * 10.0) / 10.0;
-        }, -1.0);
+        return tpsAt(1);
     }
 
     @Override
     public double getTps15m() {
-        return callSync(() -> {
-            double[] tps = Bukkit.getServer().getTPS();
-            if (tps == null || tps.length < 3) return 20.0;
-            double raw = tps[2];
-            if (!Double.isFinite(raw) || raw <= 0.0) return 20.0;
-            return Math.round(Math.min(20.0, raw) * 10.0) / 10.0;
-        }, 20.0);
+        return tpsAt(2);
+    }
+
+    private double averageTickTime() {
+        Double value = scheduler.isFolia()
+                ? scheduler.callInWorld(overworld(), () -> Bukkit.getServer().getAverageTickTime(), -1.0, METRIC_TIMEOUT_MS)
+                : scheduler.callGlobal(() -> Bukkit.getServer().getAverageTickTime(), -1.0, METRIC_TIMEOUT_MS);
+        return value != null && Double.isFinite(value) ? value : -1.0;
     }
 
     @Override
     public double getTickTimeMs() {
-        return callSync(() -> {
-            long[] times = Bukkit.getServer().getTickTimes();
-            if (times == null || times.length == 0) return -1.0;
-
-            long avg = 0L;
-            for (long t : times) avg += t;
-            avg /= times.length;
-
-            return avg / 1_000_000.0;
-        }, -1.0);
+        double avg = averageTickTime();
+        return avg > 0.0 ? Math.round(avg * 1000.0) / 1000.0 : -1.0;
     }
 
-    public double getTPS() {
-        return bridgeAdapter.getTPS();
-    }
+    // --- world state ------------------------------------------------------------------
 
-    public CompletableFuture<Double> getTPSAsync() {
-        return bridgeAdapter.getTPSAsync();
-    }
-
+    @Override
     public String getWeather() {
-        World world = Bukkit.getWorlds().isEmpty() ? null : Bukkit.getWorlds().get(0);
+        World world = overworld();
         if (world == null) return "clear";
-        if (world.isThundering()) return "thunder";
-        if (world.hasStorm()) return "rain";
-        return "clear";
+        return scheduler.callGlobal(() -> world.isThundering() ? "thunder" : world.hasStorm() ? "rain" : "clear", "clear", METRIC_TIMEOUT_MS);
     }
 
-    // --- Players ---
+    @Override
+    public long getWorldFullTime() {
+        World world = overworld();
+        if (world == null) return -1L;
+        return scheduler.callGlobal(world::getFullTime, -1L, METRIC_TIMEOUT_MS);
+    }
+
+    // --- players ----------------------------------------------------------------------
 
     @Override
     public List<String> getOnlinePlayerNames() {
+        // The online-player view is a concurrent snapshot on Paper and Folia.
         List<String> names = new ArrayList<>();
         for (Player p : Bukkit.getOnlinePlayers()) {
             names.add(p.getName());
@@ -134,91 +144,53 @@ public final class PaperCommandExecutor implements CommandExecutor {
 
     @Override
     public int getMaxPlayers() {
-        return bridgeAdapter.getMaxPlayersSafe();
+        return Bukkit.getMaxPlayers();
     }
 
-    public List<Map<String, Object>> getOnlinePlayersSafe() {
-        return bridgeAdapter.getOnlinePlayersSafe();
-    }
-
-    public CompletableFuture<List<Map<String, Object>>> getOnlinePlayersAsync() {
-        return bridgeAdapter.getOnlinePlayersAsync();
-    }
-
-    public int getMaxPlayersSafe() {
-        return bridgeAdapter.getMaxPlayersSafe();
-    }
-
-    public CompletableFuture<Integer> getMaxPlayersAsync() {
-        return bridgeAdapter.getMaxPlayersAsync();
-    }
+    // --- chunks / entities --------------------------------------------------------------
 
     @Override
     public Map<String, Integer> getWorldChunkCounts() {
-        return bridgeAdapter.getLoadedChunkCountsSync();
-    }
-
-    public Map<String, Integer> getWorldChunkCountsSync() {
-        return bridgeAdapter.getLoadedChunkCountsSync();
-    }
-
-    public CompletableFuture<Map<String, Integer>> getWorldChunkCountsAsync() {
-        return bridgeAdapter.getLoadedChunkCountsAsync();
-    }
-
-    public Map<String, Integer> getLoadedChunksSync(World world) {
-        Map<String, Integer> result = new HashMap<>();
-        if (world == null) return result;
-        result.put(normalizeWorldKey(world.getName()), bridgeAdapter.getLoadedChunksSync(world).length);
-        return result;
-    }
-
-    public CompletableFuture<Map<String, Integer>> getLoadedChunksAsync(World world) {
-        return bridgeAdapter.getLoadedChunksAsync(world).thenApply(chunks -> {
-            Map<String, Integer> result = new HashMap<>();
-            if (world != null) {
-                result.put(normalizeWorldKey(world.getName()), chunks.length);
-            }
-            return result;
-        });
+        return perWorld(World::getChunkCount);
     }
 
     @Override
     public Map<String, Integer> getWorldEntityCounts() {
-        return bridgeAdapter.getWorldEntityCountsSync();
+        return perWorld(World::getEntityCount);
     }
 
-    public Map<String, Integer> getWorldEntityCountsSync(World world) {
-        return bridgeAdapter.getWorldEntityCountsSync(world);
-    }
-
-    public CompletableFuture<Map<String, Integer>> getWorldEntityCountsAsync(World world) {
-        return bridgeAdapter.getWorldEntityCountsAsync(world);
-    }
-
-    private <T> T callSync(java.util.concurrent.Callable<T> task, T fallback) {
-        try {
-            if (Bukkit.isPrimaryThread()) {
-                return task.call();
-            }
-            Future<T> future = Bukkit.getScheduler().callSyncMethod(plugin, task);
-            if (future == null) return fallback;
-            return future.get();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return fallback;
-        } catch (ExecutionException e) {
-            return fallback;
-        } catch (Exception e) {
-            return fallback;
+    private Map<String, Integer> perWorld(ToIntFunction<World> counter) {
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        for (Map.Entry<String, World> e : worldKeys().entrySet()) {
+            World world = e.getValue();
+            Integer value = scheduler.callInWorld(world, () -> counter.applyAsInt(world), -1, METRIC_TIMEOUT_MS);
+            counts.put(e.getKey(), value == null ? -1 : value);
         }
+        return counts;
     }
 
-    private static String normalizeWorldKey(String worldName) {
-        if (worldName == null || worldName.isBlank()) return "world";
-        if ("world".equals(worldName)) return "world";
-        if ("world_nether".equals(worldName)) return "world_nether";
-        if ("world_the_end".equals(worldName)) return "world_the_end";
-        return worldName;
+    /**
+     * Maps worlds to the protocol keys {@code world}, {@code world_nether} and
+     * {@code world_the_end} by environment (independent of {@code level-name}); any
+     * additional worlds are reported under their own name.
+     */
+    static Map<String, World> worldKeys() {
+        Map<String, World> out = new LinkedHashMap<>();
+        for (World world : Bukkit.getWorlds()) {
+            if (world == null) continue;
+            String key = switch (world.getEnvironment()) {
+                case NORMAL -> "world";
+                case NETHER -> "world_nether";
+                case THE_END -> "world_the_end";
+                default -> world.getName();
+            };
+            if (out.containsKey(key)) key = world.getName();
+            out.putIfAbsent(key, world);
+        }
+        return out;
+    }
+
+    JavaPlugin plugin() {
+        return plugin;
     }
 }

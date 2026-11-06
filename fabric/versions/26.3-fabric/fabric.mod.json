@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "hungerbridge",
+  "version": "${version}",
+  "name": "HungerBridge",
+  "description": "HTTP bridge for Paper, Folia and Fabric servers",
+  "authors": ["iFamished"],
+  "license": "MIT",
+  "environment": "server",
+  "entrypoints": {
+    "server": [
+      "com.hungerbridge.fabric.HungerBridgeFabric"
+    ]
+  },
+  "mixins": [
+    "hungerbridge.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.19.2",
+    "minecraft": "~26.3",
+    "java": ">=25"
+  }
+}

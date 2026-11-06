@@ -3,7 +3,7 @@
   "id": "hungerbridge",
   "version": "${version}",
   "name": "HungerBridge",
-  "description": "Multiloader HTTP bridge for Paper and Fabric",
+  "description": "HTTP bridge for Paper, Folia and Fabric servers",
   "authors": ["iFamished"],
   "license": "MIT",
   "environment": "server",
@@ -15,11 +15,9 @@
   "mixins": [
     "hungerbridge.mixins.json"
   ],
-
   "depends": {
-    "fabricloader": ">=0.19.3",
-    "minecraft": ">=26.1.2",
-    "java": ">=25",
-    "fabric-api": "*"
+    "fabricloader": ">=0.19.2",
+    "minecraft": "~26.1.2",
+    "java": ">=25"
   }
 }
