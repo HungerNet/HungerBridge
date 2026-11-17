@@ -35,7 +35,7 @@ tasks.processResources {
         include("fabric.mod.json")
     }
     filesMatching("fabric.mod.json") {
-        expand("version" to project.version)
+        expand(mapOf("version" to rootProject.extra["hungerBridgeVersion"]))
     }
 }
 

@@ -37,6 +37,6 @@ tasks.named<Jar>("jar") {
 tasks.processResources {
     from("plugin.yml")
     filesMatching("plugin.yml") {
-        expand("version" to project.version)
+        expand(mapOf("version" to rootProject.extra["hungerBridgeVersion"]))
     }
 }

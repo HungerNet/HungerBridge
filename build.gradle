@@ -14,7 +14,15 @@ plugins {
 }
 
 def versionYaml = new Yaml().load(file("version.yaml").text)
-version = versionYaml["version"]
+def hungerBridgeVersion = versionYaml["version"]?.toString()?.trim()
+if (!hungerBridgeVersion) {
+    throw new GradleException("version.yaml must define a non-empty version")
+}
+
+version = hungerBridgeVersion
+allprojects {
+    ext.hungerBridgeVersion = hungerBridgeVersion
+}
 
 subprojects {
     apply plugin: 'java'
