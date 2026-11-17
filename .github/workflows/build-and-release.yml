@@ -120,13 +120,13 @@ jobs:
         run: |
           export JAVA_TOOL_OPTIONS="-Xmx6g"
           export GRADLE_OPTS="-Dorg.gradle.jvmargs=-Xmx6g"
-          ./gradlew :${{ matrix.project }}:versions:${{ matrix.target }}:build --no-daemon --stacktrace $GRADLE_TOOLCHAINS
+          ./gradlew :${{ matrix.project }}:versions:${{ matrix.target }}:clean :${{ matrix.project }}:versions:${{ matrix.target }}:build --no-daemon --stacktrace $GRADLE_TOOLCHAINS
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}
-          path: ${{ matrix.project }}/versions/${{ matrix.target }}/build/libs/*.jar
+          path: ${{ matrix.project }}/versions/${{ matrix.target }}/build/libs/HungerBridge-*.jar
           if-no-files-found: error
 
   release:

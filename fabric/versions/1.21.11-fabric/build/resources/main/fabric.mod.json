@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "hungerbridge",
-  "version": "4-alpha.95",
+  "version": "4-alpha.96",
   "name": "HungerBridge",
   "description": "HTTP bridge for Paper, Folia and Fabric servers",
   "authors": ["iFamished"],
