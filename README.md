@@ -47,6 +47,22 @@ runs on Paper, Purpur and Folia (the threading model is detected at runtime).
 
 The full API (endpoints, authentication, error codes, SSE format) is in [ENDPOINTS.md](ENDPOINTS.md).
 
+Release jars are named `HungerBridge-<loader>-<minecraft>-<version>.jar`.
+
+### From CalagoAPI (Calagopus panel)
+
+If your servers run on a Calagopus panel, the `calagoapi-minecraft` extension of
+[CalagoAPI](https://github.com/HungerNet/CalagoAPI) combines the panel API with HungerBridge
+(through HungerBridgePy): it installs the right jar, creates a token through the console, and
+gives `MinecraftServer.sendCommand()` / `streamConsole()` real command output and log streaming.
+
+```python
+server = panel.minecraft.getServer('abc123', bridge_url='http://10.0.0.5:1913')
+server.installBridge()           # picks the jar for the installed loader and version
+server.createBridgeToken()       # runs /hb token create on the console and redeems the pickup
+print(server.sendCommand('list'))
+```
+
 ## Configuration
 
 `config.yaml`

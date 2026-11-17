@@ -24,4 +24,15 @@ subprojects {
             languageVersion = JavaLanguageVersion.of(21)
         }
     }
+
+    // Per-target projects are named "<minecraft>-<loader>" (e.g. 26.2-paper). Their jars are
+    // released as HungerBridge-<loader>-<minecraft>-<version>.jar, which is self-describing in
+    // plugins/ or mods/ and is the format HungerBridgePy's release finder (hungerbridge.releases)
+    // looks for.
+    def target = project.name =~ /^(\d+\.\d+(?:\.\d+)?)-(paper|fabric)$/
+    if (target.matches()) {
+        base {
+            archivesName = "HungerBridge-${target.group(2)}-${target.group(1)}"
+        }
+    }
 }

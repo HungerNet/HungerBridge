@@ -13,7 +13,9 @@ autogen/HungerBridge/           templates bundled into the jar; copied only when
 ```
 
 Targets: `1.21.11`, `26.1.2`, `26.2`, `26.3` × `paper`, `fabric` (8 jars). The Paper jar
-is also the Folia jar.
+is also the Folia jar. Jars are named `HungerBridge-<loader>-<minecraft>-<version>.jar`
+(set in the root `build.gradle`), the format HungerBridgePy's `hungerbridge.releases` and
+CalagoAPI's `installBridge()` look for.
 
 ## Requirements
 

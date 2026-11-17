@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased: release artifact names
+
+* Release jars are named `HungerBridge-<loader>-<minecraft>-<version>.jar`
+  (e.g. `HungerBridge-paper-26.2-4-alpha.94.jar`) instead of the Gradle project name
+  (`26.2-paper-4-alpha.93.jar`). They are self-describing once copied into `plugins/` or `mods/`,
+  and HungerBridgePy (`hungerbridge.releases.find_release`) and CalagoAPI's `calagoapi-minecraft`
+  `installBridge()` select them by that name. HungerBridgePy still recognises the old names.
+
 ## Unreleased — compatibility, protocol and release-readiness pass (2026-11)
 
 ### Platforms
