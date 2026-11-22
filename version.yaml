@@ -1,8 +1,10 @@
 run: true
-version: "5-dev.1"
+version: "5.0-dev.2"
 description: |
   Dev 1:
   - Protocol v2: native command feedback capture (show_console works on every loader)
   - Structured log stream with resume, custom loggers, message normalization
   - New console styling, Modrinth releases. See CHANGELOG.md and docs/migrating-to-5.md
   - Matched version with HungerBridgePy
+  Dev 2:
+  - Update Modrinth publishing

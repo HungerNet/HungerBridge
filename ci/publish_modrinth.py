@@ -1,6 +1,6 @@
 """Publish the built HungerBridge jars to Modrinth (the only release channel).
 
-    MODRINTH_TOKEN=... python ci/publish_modrinth.py --version 5-alpha.1 --changelog CHANGELOG.md --artifacts release/
+    MODRINTH_TOKEN=... python ci/publish_modrinth.py --version 5-alpha.1 --type alpha --changelog CHANGELOG.md --artifacts release/
 
 ``--artifacts`` contains one directory per build target, each with the jar and the
 ``target.json`` written by the build job: ``{"loader": "paper", "minecraft": "26.3"}``.
@@ -28,10 +28,6 @@ USER_AGENT = "HungerBridge-CI-release/1.0 (+https://github.com/HungerNet/HungerB
 LOADERS = {"paper": ["paper", "purpur", "folia"], "fabric": ["fabric"]}
 NAMES = {"paper": "Paper/Purpur/Folia", "fabric": "Fabric"}
 
-
-def versionType(version: str) -> str:
-    lowered = version.lower()
-    return "alpha" if "alpha" in lowered else "beta" if ("beta" in lowered or "rc" in lowered) else "release"
 
 
 def firstSection(markdown: str) -> str:
@@ -74,10 +70,15 @@ def multipart(data: dict, jar: Path):
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--version", required=True)
+    parser.add_argument("--type", choices=["alpha", "beta", "release"], required=True)
     parser.add_argument("--artifacts", required=True, type=Path)
     parser.add_argument("--changelog", type=Path)
     parser.add_argument("--dry-run", action="store_true")
+
     args = parser.parse_args()
+
+    if "-dev." in args.version.lower():
+        raise SystemExit("development builds must not be published to Modrinth")
 
     token = os.environ.get("MODRINTH_TOKEN")
     if not token and not args.dry_run:
@@ -100,7 +101,7 @@ def main() -> int:
             "changelog": changelog,
             "dependencies": [],
             "game_versions": [meta["minecraft"]],
-            "version_type": versionType(args.version),
+            "version_type": args.type,
             "loaders": loaders,
             "featured": False,
             "status": "listed",

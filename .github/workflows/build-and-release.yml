@@ -190,9 +190,25 @@ jobs:
         run: |
           RUN=$(grep -m1 '^run:' version.yaml | sed -E 's/^run:[[:space:]]*//')
           VERSION=$(grep -m1 '^version:' version.yaml | sed -E 's/^version:[[:space:]]*"?([^"]*)"?[[:space:]]*$/\1/')
+
           test -n "$VERSION"
+
+          RELEASE_TYPE="release"
+          PUBLISH_MODRINTH="true"
+
+          if [[ "$VERSION" == *"-dev."* ]]; then
+            RELEASE_TYPE="alpha"
+            PUBLISH_MODRINTH="false"
+          elif [[ "$VERSION" == *"-alpha."* ]]; then
+            RELEASE_TYPE="alpha"
+          elif [[ "$VERSION" == *"-beta."* ]]; then
+            RELEASE_TYPE="beta"
+          fi
+
           echo "run=$RUN" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "release_type=$RELEASE_TYPE" >> "$GITHUB_OUTPUT"
+          echo "publish_modrinth=$PUBLISH_MODRINTH" >> "$GITHUB_OUTPUT"
 
       - uses: actions/download-artifact@v4
         if: steps.version.outputs.run == 'true'
@@ -201,12 +217,13 @@ jobs:
           path: release/
 
       - name: Publish to Modrinth
-        if: steps.version.outputs.run == 'true'
+        if: steps.version.outputs.run == 'true' && steps.version.outputs.publish_modrinth == 'true'
         env:
           MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
         run: |
           python ci/publish_modrinth.py \
             --version "${{ steps.version.outputs.version }}" \
+            --type "${{ steps.version.outputs.release_type }}" \
             --changelog CHANGELOG.md \
             --artifacts release/
 
