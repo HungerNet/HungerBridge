@@ -78,8 +78,7 @@ public final class SystemHandlers {
 
     /**
      * GET /system/memory → heap / non-heap / JVM / process bytes. {@code nonheap_max_bytes}
-     * is {@code null} when unbounded. Legacy aliases {@code used_bytes}, {@code total_bytes},
-     * {@code free_bytes}, {@code max_bytes} refer to the heap.
+     * is {@code null} when unbounded.
      */
     public static final class Memory extends ApiHandler {
         public Memory(Config config, Logger logger) {
@@ -119,11 +118,7 @@ public final class SystemHandlers {
                     "jvm_committed_bytes", heapCommitted + nonheapCommitted,
                     "jvm_max_bytes", nonheapMax == null ? heapMax : heapMax + nonheapMax,
                     "process_used_bytes", processUsed,
-                    "process_virtual_bytes", processVirtual,
-                    "used_bytes", heapUsed,
-                    "total_bytes", heapCommitted,
-                    "free_bytes", Math.max(0L, heapCommitted - heapUsed),
-                    "max_bytes", heapMax));
+                    "process_virtual_bytes", processVirtual));
         }
     }
 

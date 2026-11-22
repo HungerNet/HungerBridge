@@ -7,7 +7,7 @@ import org.bukkit.plugin.Plugin;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Future;
 
 /**
  * Folia: regionized multithreading. Never touches {@code BukkitScheduler} (it throws on
@@ -42,51 +42,37 @@ final class FoliaPlatformScheduler implements PlatformScheduler {
     }
 
     @Override
-    public <T> T callGlobal(Callable<T> task, T fallback, long timeoutMs) {
-        if (Bukkit.isGlobalTickThread()) {
-            return callDirect(task, fallback);
-        }
+    public <T> Future<T> submitGlobal(Callable<T> task) {
+        if (Bukkit.isGlobalTickThread()) return PlatformScheduler.callNow(task);
         CompletableFuture<T> future = new CompletableFuture<>();
         try {
             Bukkit.getGlobalRegionScheduler().execute(plugin, () -> complete(future, task));
-        } catch (Exception e) {
-            return fallback;
+        } catch (RuntimeException e) {
+            future.completeExceptionally(e);
         }
-        return await(future, fallback, timeoutMs);
+        return future;
     }
 
     @Override
-    public <T> T callInWorld(World world, Callable<T> task, T fallback, long timeoutMs) {
-        if (world == null) return fallback;
+    public <T> Future<T> submitInWorld(World world, Callable<T> task) {
         int chunkX;
         int chunkZ;
         try {
             Location spawn = world.getSpawnLocation();
             chunkX = spawn.getBlockX() >> 4;
             chunkZ = spawn.getBlockZ() >> 4;
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             chunkX = 0;
             chunkZ = 0;
         }
-        if (Bukkit.isOwnedByCurrentRegion(world, chunkX, chunkZ)) {
-            return callDirect(task, fallback);
-        }
+        if (Bukkit.isOwnedByCurrentRegion(world, chunkX, chunkZ)) return PlatformScheduler.callNow(task);
         CompletableFuture<T> future = new CompletableFuture<>();
         try {
             Bukkit.getRegionScheduler().execute(plugin, world, chunkX, chunkZ, () -> complete(future, task));
-        } catch (Exception e) {
-            return fallback;
+        } catch (RuntimeException e) {
+            future.completeExceptionally(e);
         }
-        return await(future, fallback, timeoutMs);
-    }
-
-    private static <T> T callDirect(Callable<T> task, T fallback) {
-        try {
-            T value = task.call();
-            return value != null ? value : fallback;
-        } catch (Exception e) {
-            return fallback;
-        }
+        return future;
     }
 
     private static <T> void complete(CompletableFuture<T> future, Callable<T> task) {
@@ -94,18 +80,6 @@ final class FoliaPlatformScheduler implements PlatformScheduler {
             future.complete(task.call());
         } catch (Throwable t) {
             future.completeExceptionally(t);
-        }
-    }
-
-    private static <T> T await(CompletableFuture<T> future, T fallback, long timeoutMs) {
-        try {
-            T value = future.get(timeoutMs, TimeUnit.MILLISECONDS);
-            return value != null ? value : fallback;
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return fallback;
-        } catch (Exception e) {
-            return fallback;
         }
     }
 }

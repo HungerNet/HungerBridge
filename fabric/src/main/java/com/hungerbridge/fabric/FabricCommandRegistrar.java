@@ -2,13 +2,12 @@ package com.hungerbridge.fabric;
 
 import com.hungerbridge.common.BridgeServer;
 import com.hungerbridge.common.CommonCommandHandler;
+import com.hungerbridge.common.message.BridgeMessage;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.LongArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
-import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
-import net.minecraft.network.chat.Component;
 
 /**
  * Brigadier tree for {@code /hungerbridge} and {@code /hb}. Console only (sources without
@@ -48,20 +47,10 @@ public final class FabricCommandRegistrar {
     }
 
     private static int run(BridgeServer bridgeServer, CommandSourceStack source, String... args) {
-        for (String line : CommonCommandHandler.handle(bridgeServer, source, args)) {
-            ChatFormatting style = styleFor(line);
-            source.sendSuccess(() -> Component.literal(line).withStyle(style), false);
+        for (BridgeMessage message : CommonCommandHandler.handle(bridgeServer, args)) {
+            source.sendSuccess(() -> FabricMessages.render(message), false);
         }
         return 1;
     }
-
-    private static ChatFormatting styleFor(String line) {
-        if (line.startsWith("Error:")) return ChatFormatting.RED;
-        if (line.startsWith("Warning:")) return ChatFormatting.GOLD;
-        if (line.startsWith("Success:")) return ChatFormatting.GREEN;
-        if (line.startsWith("Usage:")) return ChatFormatting.AQUA;
-        return ChatFormatting.GRAY;
-    }
-
     private FabricCommandRegistrar() {}
 }

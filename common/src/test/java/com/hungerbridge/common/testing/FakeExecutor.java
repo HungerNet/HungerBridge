@@ -1,6 +1,7 @@
 package com.hungerbridge.common.testing;
 
 import com.hungerbridge.common.CommandExecutor;
+import com.hungerbridge.common.CommandTimeoutException;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -8,30 +9,51 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Consumer;
 
-/** Deterministic stand-in for a Minecraft server, used by tests and the standalone bridge. */
+/**
+ * Deterministic stand-in for a Minecraft server, used by tests and the standalone bridge.
+ * Like the real platforms, feedback reaches the console ({@code console}) only when
+ * {@code showConsole} is true.
+ */
 public class FakeExecutor implements CommandExecutor {
 
+    /** Command text that simulates a server thread that does not answer in time. */
+    public static final String TIMEOUT_COMMAND = "hb-test-timeout";
+
     public final List<String> executed = new CopyOnWriteArrayList<>();
+    public final List<Boolean> showConsoleFlags = new CopyOnWriteArrayList<>();
     public volatile List<String> players = new ArrayList<>();
+    private final Consumer<String> console;
     private final long startedAt = System.currentTimeMillis();
 
-    @Override
-    public void execute(String command) {
-        executed.add(command);
+    public FakeExecutor() {
+        this(line -> {});
+    }
+
+    /** @param console receives feedback lines echoed to the console */
+    public FakeExecutor(Consumer<String> console) {
+        this.console = console;
     }
 
     @Override
-    public List<String> executeWithOutput(String command, boolean showConsole) {
+    public List<String> run(String command, boolean showConsole) throws CommandTimeoutException {
         executed.add(command);
+        showConsoleFlags.add(showConsole);
         String cmd = command.startsWith("/") ? command.substring(1) : command;
+        if (cmd.equals(TIMEOUT_COMMAND)) throw new CommandTimeoutException(command, COMMAND_TIMEOUT_MS);
+        List<String> feedback;
         if (cmd.equals("list")) {
-            return List.of("There are " + players.size() + " of a max of 20 players online: " + String.join(", ", players));
+            feedback = List.of("There are " + players.size() + " of a max of 20 players online: " + String.join(", ", players));
+        } else if (cmd.equals("seed")) {
+            feedback = List.of("Seed: [1234567890]");
+        } else if (cmd.startsWith("say ")) {
+            feedback = List.of("[Server] " + cmd.substring(4));
+        } else {
+            feedback = List.of("Unknown or incomplete command: " + cmd);
         }
-        if (cmd.startsWith("say ")) {
-            return List.of("[Server] " + cmd.substring(4));
-        }
-        return List.of("Unknown or incomplete command: " + cmd);
+        if (showConsole) feedback.forEach(console);
+        return feedback;
     }
 
     @Override public double getTps() { return 20.0; }

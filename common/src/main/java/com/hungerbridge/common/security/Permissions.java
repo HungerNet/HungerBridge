@@ -4,15 +4,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
-/**
- * Permission nodes checked by the HTTP API, plus aliases for node names that earlier
- * releases shipped in their default {@code policies.yaml} but that no endpoint ever
- * checked ({@code server.info}, {@code player.list}, {@code world.read}). Without the
- * aliases, tokens created from that shipped policy could not call any endpoint.
- */
+/** Permission nodes checked by the HTTP API. Wildcards: {@code server.*}, {@code world.*}, {@code system.*}, {@code *}. */
 public final class Permissions {
 
     public static final String SERVER_PING = "server.ping";
@@ -42,29 +36,14 @@ public final class Permissions {
             WORLD_TPS, WORLD_MSPT, WORLD_TIME, WORLD_WEATHER, WORLD_CHUNKS, WORLD_ENTITIES,
             SYSTEM_UPTIME, SYSTEM_CPU, SYSTEM_MEMORY, SYSTEM_GC, SYSTEM_THREADS, SYSTEM_NETWORK);
 
-    /** Legacy node → nodes it was evidently meant to grant (all read-only). */
-    public static final Map<String, List<String>> LEGACY_ALIASES = Map.of(
-            "server.info", List.of(SERVER_META, SERVER_PING),
-            "player.list", List.of(PLAYERS_LIST),
-            "world.read", List.of("world.*"),
-            "ping", List.of(SERVER_PING));
-
-    /** Expands legacy aliases; unknown nodes are kept as-is. Order is preserved. */
-    public static List<String> expand(Collection<String> granted) {
+    /** Trimmed, de-duplicated nodes in their original order. */
+    public static List<String> normalize(Collection<String> granted) {
         LinkedHashSet<String> out = new LinkedHashSet<>();
         if (granted == null) return new ArrayList<>();
         for (String raw : granted) {
-            if (raw == null || raw.isBlank()) continue;
-            String p = raw.trim();
-            List<String> alias = LEGACY_ALIASES.get(p);
-            if (alias != null) out.addAll(alias); else out.add(p);
+            if (raw != null && !raw.isBlank()) out.add(raw.trim());
         }
         return new ArrayList<>(out);
-    }
-
-    /** True if {@code node} is a legacy alias (callers log a migration hint). */
-    public static boolean isLegacy(String node) {
-        return node != null && LEGACY_ALIASES.containsKey(node.trim());
     }
 
     /** True if {@code node} can ever match an endpoint: a known node or a wildcard covering one. */

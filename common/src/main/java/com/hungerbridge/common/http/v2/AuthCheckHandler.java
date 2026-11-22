@@ -14,7 +14,7 @@ import java.io.IOException;
 
 /**
  * GET /auth/check — identity and <i>effective</i> permissions of the calling token
- * (token + policy permissions, legacy aliases expanded). Available to every valid token;
+ * (token + policy permissions). Available to every valid token;
  * failures are regular 401 responses with a {@code reason}.
  */
 public final class AuthCheckHandler extends ApiHandler {
@@ -28,7 +28,7 @@ public final class AuthCheckHandler extends ApiHandler {
         TokenManager.Token t = HttpUtil.authToken(ex);
         JsonArray perms = new JsonArray();
         for (String p : HttpUtil.mergedPermissions(t, config)) perms.add(p);
-        JsonObject resp = Json.obj("ok", true, "tokenId", t.id, "policyId", t.policyId, "permissions", perms);
+        JsonObject resp = Json.obj("ok", true, "token_id", t.id, "policy_id", t.policyId, "permissions", perms);
         resp.addProperty("expiry", t.expiry);
         HttpUtil.writeJson(ex, 200, resp);
     }

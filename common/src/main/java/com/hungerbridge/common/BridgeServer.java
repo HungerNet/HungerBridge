@@ -12,10 +12,11 @@ import com.hungerbridge.common.http.v2.PingHandler;
 import com.hungerbridge.common.http.v2.PlayersListHandler;
 import com.hungerbridge.common.http.v2.RunHandler;
 import com.hungerbridge.common.http.v2.ServerStopHandler;
-import com.hungerbridge.common.http.v2.StreamLogsHandler;
+import com.hungerbridge.common.http.v2.StreamHandler;
 import com.hungerbridge.common.http.v2.SystemHandlers;
 import com.hungerbridge.common.http.v2.WorldHandlers;
 import com.hungerbridge.common.security.TokenManager;
+import com.hungerbridge.common.stream.LogDistributor;
 import com.sun.net.httpserver.Filter;
 import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpExchange;
@@ -41,7 +42,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public final class BridgeServer {
 
     /** Wire-protocol major version, advertised in {@value #PROTOCOL_HEADER} and /server/meta. */
-    public static final int PROTOCOL_VERSION = 1;
+    public static final int PROTOCOL_VERSION = 2;
     public static final String PROTOCOL_HEADER = "X-HungerBridge-Protocol";
 
     /**
@@ -98,7 +99,7 @@ public final class BridgeServer {
         api.add(new ServerStopHandler(config, logger, this::stopMinecraftServer));
         api.add(new LogHandler(config, logger));
         api.add(new MetaHandler(config, logger, this::getPort));
-        api.add(new StreamLogsHandler(config, logger));
+        api.add(new StreamHandler(config, logger));
         api.add(new PlayersListHandler(config, logger, executor));
         api.addAll(SystemHandlers.all(config, logger));
         api.addAll(WorldHandlers.all(config, logger, executor));
@@ -116,9 +117,7 @@ public final class BridgeServer {
 
         server.start();
         if (logger != null) {
-            logger.log("INFO", "HungerBridge HTTP server listening on " + bindAddress + ":" + getPort() + " (protocol v" + PROTOCOL_VERSION + ")");
-            routes.remove("/");
-            logger.log("INFO", "Registered endpoints: " + String.join(", ", routes.keySet()));
+            logger.info("HTTP API listening on " + bindAddress + ":" + getPort() + " (protocol v" + PROTOCOL_VERSION + ", " + (routes.size() - 1) + " endpoints)");
         }
     }
 
@@ -142,7 +141,7 @@ public final class BridgeServer {
             if (tm != null) tm.shutdown();
         } catch (Exception ignored) {
         }
-        if (logger != null) logger.log("INFO", "HungerBridge HTTP server stopped.");
+        if (logger != null) logger.info("HTTP API stopped");
     }
 
     public void stopMinecraftServer() {
@@ -261,7 +260,7 @@ public final class BridgeServer {
             HttpUtil.resetRateLimits();
             return ok;
         } catch (Exception e) {
-            if (logger != null) logger.log("WARN", "Failed to reload config: " + e.getMessage());
+            if (logger != null) logger.warn("Failed to reload config: " + e.getMessage());
             return false;
         }
     }

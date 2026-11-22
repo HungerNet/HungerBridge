@@ -11,7 +11,7 @@ import com.sun.net.httpserver.HttpExchange;
 
 import java.io.IOException;
 
-/** POST /server/stop — stops the Minecraft server (the response is sent first). */
+/** {@code POST /server/stop} — stops the Minecraft server like {@code /stop} (the response is sent first). */
 public final class ServerStopHandler extends ApiHandler {
 
     private final Runnable stopAction;
@@ -23,9 +23,8 @@ public final class ServerStopHandler extends ApiHandler {
 
     @Override
     protected void handleAuthorized(HttpExchange ex, JsonObject body) throws IOException {
-        boolean force = optBoolean(body, "force", false);
-        if (logger != null) logger.log("INFO", "Stop requested via API by token " + HttpUtil.authTokenId(ex));
-        HttpUtil.writeJson(ex, 200, Json.obj("ok", true, "stopped", true, "force", force));
+        if (logger != null) logger.info("Server stop requested through the API by token " + HttpUtil.authTokenId(ex));
+        HttpUtil.writeJson(ex, 200, Json.obj("ok", true, "stopped", true));
         if (stopAction != null) stopAction.run();
     }
 }

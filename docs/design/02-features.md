@@ -381,7 +381,7 @@ metrics:
 - Usage:
 
   ```python
-  async with AsyncBridgeClient(url, "id:secret") as hb:
+  async with AsyncBridgeClient(url, token_id="bot", token_secret="...") as hb:
       print(await hb.getTPS("1m"))
       async for ev in hb.events(types=["player_join"]):
           ...
@@ -413,7 +413,7 @@ metrics:
 - Commands:
 
 ```
-hb login <pickup-url> [--profile NAME]      # redeem pickup, store id:secret (file perms 600 / owner-only ACL)
+hb login <pickup-url> [--profile NAME]      # redeem pickup, store token_id + token_secret (file perms 600 / owner-only ACL)
 hb ping | hb meta | hb whoami
 hb run "<command>" [--silent] [--json]
 hb log "<message>" [--level L] [--thread T]

@@ -1,16 +1,15 @@
 # HungerBridge design documents
 
-These are design proposals for work that builds on the 2026-11 release-readiness pass
-([REPORT.md](../../REPORT.md)). Each document opens with a plain-language summary
+These are design proposals for work that builds on the 2026-11 release-readiness pass. Each document opens with a plain-language summary
 covering the problem, the proposal, the effort, and the decisions an owner needs to make.
 After that comes an implementation spec precise enough to build from directly: files,
 formats, tests, acceptance criteria and an ordered task list.
 
 | Doc | Scope | Repos | Effort | Status |
 |---|---|---|---|---|
-| [01 — Engineering foundations](01-engineering-foundations.md) | Boot tests in CI, reproducible versions + Renovate, OpenAPI contract, target-variable rename | HungerBridge, HungerBridgePy | M | Proposed |
-| [02 — Features](02-features.md) | Structured event stream, player management, Prometheus metrics, async client, CLI, safe restart | both | L (split into 6 shippable parts) | Proposed |
-| [03 — Security hardening](03-security-hardening.md) | Signed query strings (protocol v2), TLS / reverse proxy, per-token IP binding + rate limits, `show_console` | both | M | Proposed |
+| [01 — Engineering foundations](01-engineering-foundations.md) | Boot tests in CI, reproducible versions + Renovate, OpenAPI contract, target-variable rename | HungerBridge, HungerBridgePy | M | §1 boot tests and §4 `HB_TARGET`: **done in 5-alpha.1**; rest proposed |
+| [02 — Features](02-features.md) | Structured event stream, player management, Prometheus metrics, async client, CLI, safe restart | both | L (split into 6 shippable parts) | §1: structured *log* events **done in 5-alpha.1** (protocol v2 stream); typed game events and the rest proposed |
+| [03 — Security hardening](03-security-hardening.md) | Signed query strings (protocol v3), TLS / reverse proxy, per-token IP binding + rate limits, `show_console` | both | M | §4 `show_console`: **fixed in 5-alpha.1** (native capture, not the appender proposal); rest proposed |
 | [04 — Bigger bets](04-bigger-bets.md) | Velocity proxy plugin, NeoForge, web dashboard | HungerBridge (+ new repo for dashboard) | XL, spike first | Exploratory |
 
 Effort scale: **S** ≈ under a day, **M** ≈ 1–3 days, **L** ≈ 1–2 weeks, **XL** ≈ multi-week.
@@ -29,9 +28,8 @@ Effort scale: **S** ≈ under a day, **M** ≈ 1–3 days, **L** ≈ 1–2 weeks
 
 ## Conventions used in every doc
 
-- **Protocol compatibility.** New server features must not break HungerBridgePy ≥ the
-  2026-11 release. New behaviour is opt-in, either through a new endpoint or a field old
-  clients ignore. Breaking changes require protocol v2 negotiation (see 03 §1).
+- **Protocol compatibility.** New server features must not break HungerBridgePy 2 (protocol v2). New behaviour is opt-in, either through a new endpoint or a field old
+  clients ignore. Breaking changes require a new protocol version (see 03 §1).
 - **Thread rules.** All game-state access goes through `PlatformScheduler` (Paper/Folia) or
   `FabricCommandExecutor.onServerThread` (Fabric), with timeouts.
 - **Permissions.** Every new endpoint gets its own node, registered in

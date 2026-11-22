@@ -74,7 +74,7 @@ public abstract class ApiHandler implements HttpHandler {
         } catch (HttpUtil.BadRequestException e) {
             HttpUtil.error(ex, 400, "bad_request", e.getMessage(), config);
         } catch (Exception e) {
-            if (logger != null) logger.log("ERROR", "Unhandled error in " + path + ": " + e);
+            if (logger != null) logger.error("Unhandled error in " + path + ": " + e);
             if (!HttpUtil.hasResponded(ex)) {
                 HttpUtil.error(ex, 500, "internal_error", "Internal server error", config);
             } else {

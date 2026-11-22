@@ -3,5 +3,5 @@ plugins {
 }
 
 // Thin parent project. Each paper/versions/<mc>-paper project applies paperweight with its own
-// dev bundle and compiles paper/src/main/java; only the target selected via STONECUTTER_ACTIVE
+// dev bundle and compiles paper/src/main/java; only the target selected via HB_TARGET
 // is included (see settings.gradle.kts).

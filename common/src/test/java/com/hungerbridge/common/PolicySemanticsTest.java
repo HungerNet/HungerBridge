@@ -19,7 +19,7 @@ public final class PolicySemanticsTest {
         Files.writeString(dir.resolve("config.yaml"), "port: 1913\n");
         Files.writeString(dir.resolve("policies.yaml"), "policies:\n  - id: locked\n    permissions: []\n");
 
-        Config config = Config.load(dir, (level, thread, message) -> {});
+        Config config = Config.load(dir, entry -> {});
         TokenManager tm = new TokenManager(dir, null);
         config.setTokenManager(tm);
 
@@ -54,7 +54,7 @@ public final class PolicySemanticsTest {
         Files.writeString(dir.resolve("config.yaml"), "port: 1913\n");
         Files.writeString(dir.resolve("policies.yaml"), "policies:\n  - id: admin\n    permissions:\n      - '*'\n");
 
-        Config config = Config.load(dir, (level, thread, message) -> {});
+        Config config = Config.load(dir, entry -> {});
         TokenManager.Token token = new TokenManager.Token();
         token.policyId = "admin";
         token.permissions = List.of("auth.check");
@@ -140,9 +140,9 @@ public final class PolicySemanticsTest {
     public void debugModeRoutesHmacDiagnosticsToDebugLevel() throws Exception {
         Path dir = Files.createTempDirectory("hb-hmac-debug-level");
         java.util.List<String> debugLevels = new java.util.ArrayList<>();
-        Logger logger = (level, thread, message) -> {
-            if (message != null && message.startsWith("[HMAC]")) {
-                debugLevels.add(level);
+        Logger logger = entry -> {
+            if (entry.message().startsWith("[HMAC]")) {
+                debugLevels.add(entry.level());
             }
         };
 
@@ -163,16 +163,16 @@ public final class PolicySemanticsTest {
 
         assertTrue(tm.verifyHmac(res.tokenId, ts, nonce, signature, "POST", "/server/log", body, 300));
         assertFalse(debugLevels.isEmpty());
-        assertTrue(debugLevels.stream().allMatch(level -> "HMAC-DEBUG".equalsIgnoreCase(level)));
+        assertTrue(debugLevels.stream().allMatch(level -> Logger.DEBUG_LEVEL.equals(level)));
     }
 
     @Test
     public void debugModeLogsExpiredNonceSweepAtDbgLevel() throws Exception {
         Path dir = Files.createTempDirectory("hb-nonce-sweep-dbg");
         java.util.List<String> dbgLevels = new java.util.ArrayList<>();
-        Logger logger = (level, thread, message) -> {
-            if (message != null && message.contains("Swept expired nonce sessions")) {
-                dbgLevels.add(level);
+        Logger logger = entry -> {
+            if (entry.message().contains("Swept expired nonce sessions")) {
+                dbgLevels.add(entry.level());
             }
         };
 
@@ -190,7 +190,7 @@ public final class PolicySemanticsTest {
         sweep.invoke(tm);
 
         assertFalse(dbgLevels.isEmpty());
-        assertTrue(dbgLevels.stream().allMatch(level -> "DBG".equalsIgnoreCase(level)));
+        assertTrue(dbgLevels.stream().allMatch(level -> Logger.DEBUG_LEVEL.equals(level)));
     }
 
     private static byte[] hexToBytes(String hex) {

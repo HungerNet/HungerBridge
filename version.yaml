@@ -1,4 +1,8 @@
 run: true
-version: "4-alpha.97"
+version: "5-dev.1"
 description: |
-  New multiloader setup
+  Dev 1:
+  - Protocol v2: native command feedback capture (show_console works on every loader)
+  - Structured log stream with resume, custom loggers, message normalization
+  - New console styling, Modrinth releases. See CHANGELOG.md and docs/migrating-to-5.md
+  - Matched version with HungerBridgePy

@@ -245,7 +245,7 @@ public final class HttpUtil {
     // Authorization
     // ------------------------------------------------------------------------------------
 
-    /** Token permissions + policy permissions, with legacy aliases expanded. */
+    /** Token permissions + policy permissions. */
     public static List<String> mergedPermissions(TokenManager.Token token, Config config) {
         LinkedHashSet<String> perms = new LinkedHashSet<>();
         if (token != null && token.permissions != null) perms.addAll(token.permissions);
@@ -253,7 +253,7 @@ public final class HttpUtil {
             var pol = config.getTokensConfig().getPolicy(token.policyId);
             if (pol != null) perms.addAll(pol.permissions);
         }
-        return new ArrayList<>(Permissions.expand(perms));
+        return Permissions.normalize(perms);
     }
 
     /** Token authenticated for the current request (null before/without authentication). */

@@ -8,4 +8,4 @@ repositories {
 
 // Thin parent project. Each fabric/versions/<mc>-fabric project applies Loom for its Minecraft
 // version and compiles fabric/src/main/java plus one fabric/compat/<era>/java seam; only the
-// target selected via STONECUTTER_ACTIVE is included (see settings.gradle.kts).
+// target selected via HB_TARGET is included (see settings.gradle.kts).

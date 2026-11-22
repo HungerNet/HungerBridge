@@ -1,7 +1,7 @@
 package com.hungerbridge.fabric;
 
 import com.hungerbridge.common.CommandExecutor;
-import com.hungerbridge.common.platform.CommandCapture;
+import com.hungerbridge.common.CommandTimeoutException;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -14,7 +14,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
 import java.util.function.ToIntFunction;
 
@@ -26,7 +28,6 @@ import java.util.function.ToIntFunction;
  */
 public final class FabricCommandExecutor implements CommandExecutor {
 
-    private static final long COMMAND_TIMEOUT_MS = 5_000L;
     private static final long METRIC_TIMEOUT_MS = 2_000L;
     private static final int CURRENT_SAMPLES = 100;
 
@@ -50,19 +51,30 @@ public final class FabricCommandExecutor implements CommandExecutor {
         }
     }
 
-    private CommandSourceStack console() {
-        return server.createCommandSourceStack();
-    }
-
+    /**
+     * Runs as the console (same permissions and position as {@code createCommandSourceStack()})
+     * but with a {@link CapturingCommandSource}, so feedback is captured natively and only
+     * echoed to the console when asked.
+     */
     @Override
-    public void execute(String command) {
-        server.execute(() -> server.getCommands().performPrefixedCommand(console(), command));
-    }
-
-    @Override
-    public List<String> executeWithOutput(String command, boolean showConsole) {
-        return onServerThread(() -> CommandCapture.capture(
-                () -> server.getCommands().performPrefixedCommand(console(), command), showConsole), List.of(), COMMAND_TIMEOUT_MS);
+    public List<String> run(String command, boolean showConsole) throws CommandTimeoutException {
+        CapturingCommandSource source = new CapturingCommandSource(showConsole ? server::sendSystemMessage : null);
+        Supplier<List<String>> task = () -> {
+            CommandSourceStack stack = server.createCommandSourceStack().withSource(source);
+            server.getCommands().performPrefixedCommand(stack, command);
+            return source.lines();
+        };
+        if (server.isSameThread()) return task.get();
+        try {
+            return server.submit(task).get(COMMAND_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        } catch (TimeoutException e) {
+            throw new CommandTimeoutException(command, COMMAND_TIMEOUT_MS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new CommandTimeoutException(command, COMMAND_TIMEOUT_MS);
+        } catch (ExecutionException e) {
+            throw new IllegalStateException("Command failed: " + command, e.getCause());
+        }
     }
 
     // --- TPS / MSPT (recorded by MinecraftServerMixin) ------------------------------------

@@ -2,6 +2,7 @@ package com.hungerbridge.common;
 
 import com.google.gson.JsonObject;
 import com.hungerbridge.common.security.TokenManager;
+import com.hungerbridge.common.stream.LogDistributor;
 import com.hungerbridge.common.testing.FakeExecutor;
 import com.hungerbridge.common.testing.SignedHttp;
 import org.junit.jupiter.api.AfterEach;
@@ -37,6 +38,7 @@ public final class BridgeServerIntegrationTest {
     private String base;
     private final AtomicBoolean stopRequested = new AtomicBoolean();
     private final List<String> logged = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private final List<String> executorConsole = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     private void start(String securityYaml, String policiesYaml) throws Exception {
         dir = Files.createTempDirectory("hb-it");
@@ -45,14 +47,14 @@ public final class BridgeServerIntegrationTest {
         Files.writeString(dir.resolve("security.yaml"), securityYaml != null ? securityYaml
                 : "rate-limits:\n  per-ip:\n    burst: 1000\n    rps: 1000\n  per-token:\n    burst: 1000\n    rps: 1000\n");
         if (policiesYaml != null) Files.writeString(dir.resolve("policies.yaml"), policiesYaml);
-        Logger logger = (level, thread, message) -> logged.add(level + "|" + thread + "|" + message);
+        Logger logger = entry -> logged.add(entry.level() + "|" + entry.thread() + "|" + entry.logger() + "|" + entry.message());
         Config config = Config.load(dir, logger);
         tm = new TokenManager(dir, logger);
         config.setTokenManager(tm);
         config.setPlatform("test");
         config.setMinecraftVersion("26.3");
         config.setBridgeVersion("test-version");
-        executor = new FakeExecutor();
+        executor = new FakeExecutor(executorConsole::add);
         server = new BridgeServer(dir, config, logger, executor, () -> stopRequested.set(true));
         server.start();
         base = "http://127.0.0.1:" + server.getPort();
@@ -175,16 +177,14 @@ public final class BridgeServerIntegrationTest {
     }
 
     @Test
-    public void legacyPermissionNodesAreAliased() throws Exception {
+    public void legacyPermissionNodesGrantNothingAndAreReported() throws Exception {
         start(null, "policies:\n  - id: legacy\n    permissions: [\"server.info\", \"player.list\", \"world.read\"]\n");
         SignedHttp legacy = token("legacy", "legacy");
-        for (String p : List.of("/ping", "/server/meta", "/players/list", "/world/tps", "/world/chunks")) {
-            assertEquals(200, legacy.get(p).status, p);
+        for (String p : List.of("/ping", "/server/meta", "/players/list", "/world/tps")) {
+            assertEquals(403, legacy.get(p).status, p);
         }
-        assertEquals(403, legacy.get("/system/memory").status);
-        JsonObject check = legacy.get("/auth/check").json();
-        assertTrue(check.getAsJsonArray("permissions").toString().contains("players.list"), check.toString());
-        assertTrue(logged.stream().anyMatch(l -> l.contains("legacy permission node")), logged.toString());
+        assertEquals(200, legacy.get("/auth/check").status);
+        assertTrue(logged.stream().anyMatch(l -> l.contains("'server.info', which no endpoint checks")), logged.toString());
     }
 
     @Test
@@ -192,8 +192,8 @@ public final class BridgeServerIntegrationTest {
         startDefault();
         SignedHttp reader = token("rd", "reader");
         JsonObject check = reader.get("/auth/check").json();
-        assertEquals("rd", check.get("tokenId").getAsString());
-        assertEquals("reader", check.get("policyId").getAsString());
+        assertEquals("rd", check.get("token_id").getAsString());
+        assertEquals("reader", check.get("policy_id").getAsString());
         assertEquals("[\"server.ping\",\"players.list\"]", check.getAsJsonArray("permissions").toString());
         tm.revokeToken("rd");
         SignedHttp.Result revoked = reader.get("/auth/check");
@@ -231,14 +231,15 @@ public final class BridgeServerIntegrationTest {
     public void runLogAndWorldEndpoints() throws Exception {
         startDefault();
         SignedHttp admin = token("admin7", "admin");
-        SignedHttp.Result run = admin.post("/server/run", "{\"command\":\"say \\ud83d\\ude00 caf\\u00e9\",\"show_console\":true,\"silent\":false}");
+        SignedHttp.Result run = admin.post("/server/run", "{\"command\":\"say \\ud83d\\ude00 caf\\u00e9\",\"show_console\":true}");
         assertEquals(200, run.status, run.body);
         assertEquals("say 😀 café", executor.executed.get(0));
         assertEquals("[Server] 😀 café", run.json().getAsJsonArray("output").get(0).getAsString());
-        assertFalse(admin.post("/server/run", "{\"command\":\"list\",\"silent\":true}").json().has("output"));
+        assertEquals("[\"Seed: [1234567890]\"]", admin.post("/server/run", "{\"command\":\"seed\"}").json().getAsJsonArray("output").toString());
+        assertEquals(List.of(true, false), executor.showConsoleFlags, "show_console must reach the executor; default off");
 
         assertEquals(200, admin.post("/server/log", "{\"level\":\"BRIDGE\",\"message\":\"hello\",\"thread\":\"worker\"}").status);
-        assertTrue(logged.contains("BRIDGE|worker|hello"), logged.toString());
+        assertTrue(logged.contains("BRIDGE|worker|HungerBridge|hello"), logged.toString());
 
         JsonObject time = admin.get("/world/time").json();
         long full = time.get("full_time").getAsLong();
@@ -260,34 +261,115 @@ public final class BridgeServerIntegrationTest {
 
         JsonObject stop = admin.post("/server/stop", "{}").json();
         assertTrue(stop.get("stopped").getAsBoolean());
+        assertFalse(stop.has("force"));
         assertTrue(stopRequested.get());
     }
 
     @Test
-    public void streamSendsHistoryThenMarkerThenLiveLines() throws Exception {
+    public void runTimeoutIsA504() throws Exception {
+        // Regression: a command the server thread did not run in time returned ok with no output.
+        startDefault();
+        SignedHttp admin = token("admin-timeout", "admin");
+        SignedHttp.Result r = admin.post("/server/run", "{\"command\":\"" + FakeExecutor.TIMEOUT_COMMAND + "\"}");
+        assertEquals(504, r.status, r.body);
+        assertEquals("command_timeout", r.json().get("error").getAsString());
+    }
+
+    @Test
+    public void logSupportsLoggerNamesNormalizationAndValidatesNames() throws Exception {
+        startDefault();
+        SignedHttp admin = token("admin-log", "admin");
+        SignedHttp.Result ok = admin.post("/server/log",
+                "{\"level\":\"customlevel\",\"logger\":\"CustomLogger\",\"message\":\"example message\",\"thread\":\"CustomThread\"}");
+        assertEquals(200, ok.status, ok.body);
+        assertTrue(logged.contains("CUSTOMLEVEL|CustomThread|CustomLogger|example message"), logged.toString());
+
+        SignedHttp.Result normalized = admin.post("/server/log", "{\"message\":\"System chat: Hello\",\"normalize\":true}");
+        assertEquals("Hello", normalized.json().get("message").getAsString());
+        assertTrue(logged.contains("INFO|HungerBridge|HungerBridge|Hello"), logged.toString());
+
+        assertEquals(400, admin.post("/server/log", "{\"level\":\"not a level\",\"message\":\"x\"}").status);
+        assertEquals(400, admin.post("/server/log", "{\"logger\":\"\",\"message\":\"x\"}").status);
+        assertEquals(400, admin.post("/server/log", "{\"thread\":\"" + "t".repeat(65) + "\",\"message\":\"x\"}").status);
+        assertEquals(400, admin.post("/server/log", "{\"message\":\"bell\\u0007\"}").status);
+        assertEquals(400, admin.post("/server/log", "{\"message\":\"x\",\"normalize\":\"yes\"}").status);
+    }
+
+    @Test
+    public void streamReplaysHistoryThenReadyThenLiveEvents() throws Exception {
         startDefault();
         SignedHttp admin = token("admin8", "admin");
-        LogDistributor.get().publish("old-1");
-        LogDistributor.get().publish("old-2");
-        LogDistributor.get().publish("old-3");
-        try (SseReader sse = SseReader.open(admin, "/server/stream?history=2")) {
-            assertEquals("data:old-2", sse.nextNonEmpty());
-            assertEquals("data:old-3", sse.nextNonEmpty());
-            assertEquals(":history-end", sse.nextNonEmpty());
-            LogDistributor.get().publish("multi\nline pickup passkey=abcdef");
-            assertEquals("data:multi\\nline pickup passkey=[REDACTED]", sse.nextNonEmpty());
+        LogDistributor log = LogDistributor.get();
+        log.publish(1L, "INFO", "t", "Test", "old-1", null);
+        log.publish(2L, "INFO", "t", "Test", "old-2", null);
+        log.publish(3L, "INFO", "t", "Test", "old-3", null);
+        try (SseReader sse = SseReader.open(admin, "/server/stream?history=2", null)) {
+            SseEvent first = sse.next();
+            assertEquals("log", first.event);
+            assertEquals("old-2", first.data.get("message").getAsString());
+            assertEquals(log.epoch() + "." + first.data.get("seq").getAsLong(), first.id);
+            assertEquals("old-3", sse.next().data.get("message").getAsString());
+            SseEvent ready = sse.next();
+            assertEquals("ready", ready.event);
+            assertEquals(2, ready.data.get("replayed").getAsInt());
+            assertFalse(ready.data.get("gap").getAsBoolean());
+
+            log.publish(System.currentTimeMillis(), "WARN", "Server thread", "Mod", "multi\nline C:\\new passkey=abcdef", null);
+            JsonObject live = sse.next().data;
+            assertEquals("multi\nline C:\\new passkey=[REDACTED]", live.get("message").getAsString());
+            assertEquals("Mod", live.get("logger").getAsString());
+            assertTrue(live.get("line").getAsString().contains("[Server thread/WARN]: [Mod] multi\nline"), live.toString());
         }
     }
 
     @Test
-    public void streamWithoutHistoryFlushesMarkerImmediately() throws Exception {
+    public void streamResumesAfterTheLastEventId() throws Exception {
+        startDefault();
+        SignedHttp admin = token("admin-resume", "admin");
+        LogDistributor log = LogDistributor.get();
+        long seen = log.publish(1L, "INFO", "t", "Test", "seen", null).seq();
+        log.publish(2L, "INFO", "t", "Test", "missed", null);
+        try (SseReader sse = SseReader.open(admin, "/server/stream?history=50", log.epoch() + "." + seen)) {
+            SseEvent missed = sse.next();
+            assertEquals("missed", missed.data.get("message").getAsString(), "Last-Event-ID wins over history");
+            assertEquals("ready", sse.next().event);
+        }
+        assertEquals(400, rawStream(admin, "/server/stream", "garbage"));
+        assertEquals(400, rawStream(admin, "/server/stream?history=-1", null));
+        assertEquals(400, rawStream(admin, "/server/stream?history=lots", null));
+    }
+
+    @Test
+    public void suppressedCommandFeedbackNeverReachesTheStream() throws Exception {
+        startDefault();
+        SignedHttp admin = token("admin-quiet", "admin");
+        executorConsole.clear();
+        assertEquals(200, admin.post("/server/run", "{\"command\":\"seed\",\"show_console\":false}").status);
+        assertTrue(executorConsole.isEmpty(), executorConsole.toString());
+        assertEquals(200, admin.post("/server/run", "{\"command\":\"seed\",\"show_console\":true}").status);
+        assertEquals(List.of("Seed: [1234567890]"), executorConsole);
+    }
+
+    @Test
+    public void streamWithoutHistoryIsReadyImmediately() throws Exception {
         startDefault();
         SignedHttp admin = token("admin9", "admin");
         long t0 = System.nanoTime();
-        try (SseReader sse = SseReader.open(admin, "/server/stream")) {
-            assertEquals(":history-end", sse.nextNonEmpty());
+        try (SseReader sse = SseReader.open(admin, "/server/stream", null)) {
+            SseEvent ready = sse.next();
+            assertEquals("ready", ready.event);
+            assertEquals(0, ready.data.get("replayed").getAsInt());
             assertTrue(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - t0) < 3000);
         }
+    }
+
+    private int rawStream(SignedHttp http, String pathAndQuery, String lastEventId) throws Exception {
+        SignedHttp.Signed s = http.sign("GET", pathAndQuery.split("\\?", 2)[0], "");
+        HttpRequest.Builder b = HttpRequest.newBuilder(URI.create(http.base() + pathAndQuery))
+                .header("X-Auth-Id", s.tokenId).header("X-Auth-Timestamp", s.timestamp)
+                .header("X-Auth-Nonce", s.nonce).header("X-Auth-Signature", s.signature).GET();
+        if (lastEventId != null) b.header("Last-Event-ID", lastEventId);
+        return http.client().send(b.build(), HttpResponse.BodyHandlers.discarding()).statusCode();
     }
 
     @Test
@@ -298,8 +380,8 @@ public final class BridgeServerIntegrationTest {
         List<SseReader> streams = new ArrayList<>();
         try {
             for (int i = 0; i < 8; i++) {
-                SseReader r = SseReader.open(admin, "/server/stream");
-                assertEquals(":history-end", r.nextNonEmpty());
+                SseReader r = SseReader.open(admin, "/server/stream", null);
+                assertEquals("ready", r.next().event);
                 streams.add(r);
             }
             CompletableFuture<Integer> ping = CompletableFuture.supplyAsync(() -> {
@@ -348,7 +430,20 @@ public final class BridgeServerIntegrationTest {
         }
     }
 
-    /** Line reader over a raw SSE response body. */
+    /** One parsed SSE event. */
+    static final class SseEvent {
+        final String id;
+        final String event;
+        final JsonObject data;
+
+        SseEvent(String id, String event, JsonObject data) {
+            this.id = id;
+            this.event = event;
+            this.data = data;
+        }
+    }
+
+    /** Event reader over a raw SSE response body (comments and retry fields are skipped). */
     static final class SseReader implements AutoCloseable {
         private final InputStream in;
         private final BufferedReader reader;
@@ -358,25 +453,44 @@ public final class BridgeServerIntegrationTest {
             this.reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
         }
 
-        static SseReader open(SignedHttp http, String pathAndQuery) throws Exception {
+        static SseReader open(SignedHttp http, String pathAndQuery, String lastEventId) throws Exception {
             String path = pathAndQuery.split("\\?", 2)[0];
             SignedHttp.Signed s = http.sign("GET", path, "");
-            HttpRequest req = HttpRequest.newBuilder(URI.create(http.base() + pathAndQuery))
+            HttpRequest.Builder b = HttpRequest.newBuilder(URI.create(http.base() + pathAndQuery))
                     .header("X-Auth-Id", s.tokenId).header("X-Auth-Timestamp", s.timestamp)
                     .header("X-Auth-Nonce", s.nonce).header("X-Auth-Signature", s.signature)
-                    .timeout(Duration.ofSeconds(30)).GET().build();
-            HttpResponse<InputStream> resp = http.client().sendAsync(req, HttpResponse.BodyHandlers.ofInputStream()).get(5, TimeUnit.SECONDS);
+                    .timeout(Duration.ofSeconds(30)).GET();
+            if (lastEventId != null) b.header("Last-Event-ID", lastEventId);
+            HttpResponse<InputStream> resp = http.client().sendAsync(b.build(), HttpResponse.BodyHandlers.ofInputStream()).get(5, TimeUnit.SECONDS);
             assertEquals(200, resp.statusCode());
             assertTrue(resp.headers().firstValue("Content-Type").orElse("").startsWith("text/event-stream"));
             return new SseReader(resp.body());
         }
 
-        String nextNonEmpty() throws Exception {
-            CompletableFuture<String> f = CompletableFuture.supplyAsync(() -> {
+        SseEvent next() throws Exception {
+            CompletableFuture<SseEvent> f = CompletableFuture.supplyAsync(() -> {
                 try {
+                    String id = null;
+                    String event = null;
+                    StringBuilder data = null;
                     String line;
                     while ((line = reader.readLine()) != null) {
-                        if (!line.isEmpty()) return line;
+                        if (line.isEmpty()) {
+                            if (data != null) return new SseEvent(id, event, com.google.gson.JsonParser.parseString(data.toString()).getAsJsonObject());
+                            id = null;
+                            event = null;
+                            continue;
+                        }
+                        if (line.startsWith(":") || line.startsWith("retry:")) continue;
+                        int colon = line.indexOf(':');
+                        String field = colon < 0 ? line : line.substring(0, colon);
+                        String value = colon < 0 ? "" : line.substring(colon + 1).replaceFirst("^ ", "");
+                        switch (field) {
+                            case "id" -> id = value;
+                            case "event" -> event = value;
+                            case "data" -> data = data == null ? new StringBuilder(value) : data.append('\n').append(value);
+                            default -> { }
+                        }
                     }
                     return null;
                 } catch (Exception e) {

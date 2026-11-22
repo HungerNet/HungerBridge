@@ -1,0 +1,156 @@
+{
+  "description": "HungerBridge protocol v1 golden vectors. Keep identical copies in HungerBridge (common/src/test/resources/protocol-vectors.json) and HungerBridgePy (tests/data/protocol-vectors.json).",
+  "protocol_version": 1,
+  "canonical_json": [
+    {
+      "name": "empty-object",
+      "input": "{}",
+      "canonical": "{}"
+    },
+    {
+      "name": "key-order",
+      "input": "{\"message\": \"hello\", \"level\": \"info\"}",
+      "canonical": "{\"level\":\"info\",\"message\":\"hello\"}"
+    },
+    {
+      "name": "nested",
+      "input": "{\"b\": {\"y\": [1, 2, {\"z\": null}], \"x\": true}, \"a\": false}",
+      "canonical": "{\"a\":false,\"b\":{\"x\":true,\"y\":[1,2,{\"z\":null}]}}"
+    },
+    {
+      "name": "run-command",
+      "input": "{\"show_console\": false, \"silent\": false, \"command\": \"say hi\"}",
+      "canonical": "{\"command\":\"say hi\",\"show_console\":false,\"silent\":false}"
+    },
+    {
+      "name": "escapes",
+      "input": "{\"m\": \"q\\\" b\\\\ \\b\\f\\n\\r\\t\"}",
+      "canonical": "{\"m\":\"q\\\" b\\\\ \\b\\f\\n\\r\\t\"}"
+    },
+    {
+      "name": "control-chars",
+      "input": "{\"m\": \"\\u0000\\u001f\\u007f\"}",
+      "canonical": "{\"m\":\"\\u0000\\u001f\u007f\"}"
+    },
+    {
+      "name": "latin1-and-bmp",
+      "input": "{\"m\": \"caf\u00e9 \u20ac \u4e2d\"}",
+      "canonical": "{\"m\":\"caf\\u00e9 \\u20ac \\u4e2d\"}"
+    },
+    {
+      "name": "non-bmp-emoji",
+      "input": "{\"m\": \"hi \ud83d\ude00\"}",
+      "canonical": "{\"m\":\"hi \\ud83d\\ude00\"}"
+    },
+    {
+      "name": "non-bmp-escaped-input",
+      "input": "{\"m\": \"\\ud83d\\ude00\"}",
+      "canonical": "{\"m\":\"\\ud83d\\ude00\"}"
+    },
+    {
+      "name": "backspace-prefix",
+      "input": "{\"level\": \"info\", \"message\": \"\\b\\b\\bX\"}",
+      "canonical": "{\"level\":\"info\",\"message\":\"\\b\\b\\bX\"}"
+    },
+    {
+      "name": "numbers",
+      "input": "{\"i\": 42, \"n\": -7, \"f\": 1.5, \"z\": 0, \"big\": 12345678901234567890}",
+      "canonical": "{\"big\":12345678901234567890,\"f\":1.5,\"i\":42,\"n\":-7,\"z\":0}"
+    },
+    {
+      "name": "utf16-key-order",
+      "input": "{\"\uffff\": 1, \"\ud83d\ude00\": 2, \"a\": 3}",
+      "canonical": "{\"a\":3,\"\\ud83d\\ude00\":2,\"\\uffff\":1}"
+    },
+    {
+      "name": "unicode-key",
+      "input": "{\"\u00e9\": \"x\"}",
+      "canonical": "{\"\\u00e9\":\"x\"}"
+    },
+    {
+      "name": "array-root",
+      "input": "[3, \"a\", null]",
+      "canonical": "[3,\"a\",null]"
+    }
+  ],
+  "paths": [
+    {
+      "input": "/server/log",
+      "normalized": "/server/log"
+    },
+    {
+      "input": "server/log",
+      "normalized": "/server/log"
+    },
+    {
+      "input": "/server/stream?history=50",
+      "normalized": "/server/stream"
+    },
+    {
+      "input": "/world/tps/",
+      "normalized": "/world/tps"
+    },
+    {
+      "input": "/",
+      "normalized": "/"
+    },
+    {
+      "input": "",
+      "normalized": "/"
+    },
+    {
+      "input": "http://127.0.0.1:1913/ping?x=1#f",
+      "normalized": "/ping"
+    }
+  ],
+  "signatures": {
+    "secret_hex": "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+    "cases": [
+      {
+        "method": "GET",
+        "path": "/ping",
+        "timestamp": "1700000000",
+        "nonce": "nonce-1",
+        "body": "",
+        "string_to_sign": "GET\n/ping\n1700000000\nnonce-1\n",
+        "signature": "6f50333057e6a113133fe7ab6cbf87ca5bc9e7b42ad2ee6ea97f509d2621f99a"
+      },
+      {
+        "method": "get",
+        "path": "/server/stream?history=50",
+        "timestamp": "1700000001",
+        "nonce": "nonce-2",
+        "body": "",
+        "string_to_sign": "GET\n/server/stream\n1700000001\nnonce-2\n",
+        "signature": "96a7934ec8819943e24731fd005bffa0134ee2ae63777e6c2d2752f89c06c414"
+      },
+      {
+        "method": "POST",
+        "path": "/server/log",
+        "timestamp": "1700000002",
+        "nonce": "nonce-3",
+        "body": "{\"level\":\"info\",\"message\":\"hello\"}",
+        "string_to_sign": "POST\n/server/log\n1700000002\nnonce-3\n{\"level\":\"info\",\"message\":\"hello\"}",
+        "signature": "0537cc83b5d812c3b256b02d116c895503a1e4c0d2ca506e827cf68079550012"
+      },
+      {
+        "method": "POST",
+        "path": "/server/run",
+        "timestamp": "1700000003",
+        "nonce": "nonce-4",
+        "body": "{\"command\":\"say \\ud83d\\ude00 caf\\u00e9\",\"show_console\":true,\"silent\":false}",
+        "string_to_sign": "POST\n/server/run\n1700000003\nnonce-4\n{\"command\":\"say \\ud83d\\ude00 caf\\u00e9\",\"show_console\":true,\"silent\":false}",
+        "signature": "1d0e685f88892a08186ec3ced9c75edda12d62e73edbd9024686da655f9cac9a"
+      },
+      {
+        "method": "POST",
+        "path": "/server/stop",
+        "timestamp": "1700000004",
+        "nonce": "nonce-5",
+        "body": "{}",
+        "string_to_sign": "POST\n/server/stop\n1700000004\nnonce-5\n{}",
+        "signature": "99cf15332ee0b19cc2c104704228e57b252361d2d855dc4c0f7a10690e3c029e"
+      }
+    ]
+  }
+}

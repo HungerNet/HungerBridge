@@ -9,11 +9,10 @@ pluginManagement {
 rootProject.name = "HungerBridge"
 
 // One Minecraft target is configured per invocation (each applies Loom or paperweight,
-// which are heavy). Select it with STONECUTTER_ACTIVE=<mc>-<loader>, e.g. 26.3-paper or
-// 26.3-fabric (the variable name is historical; Stonecutter itself is not used).
+// which are heavy). Select it with HB_TARGET=<mc>-<loader>, e.g. 26.3-paper or 26.3-fabric.
 // A bare version ("26.3") means Paper. Without a target only :common is configured,
 // which is enough for `./gradlew :common:test`.
-val raw = (System.getenv("STONECUTTER_ACTIVE") ?: "").trim()
+val raw = (System.getenv("HB_TARGET") ?: "").trim()
 val mc = raw.filter { it.isDigit() || it == '.' }.trim('.')
 val active = when {
     mc.isEmpty() -> null
@@ -28,7 +27,7 @@ if (active != null) {
     val loader = active.substringAfterLast('-')
     val dir = file("$loader/versions/$active")
     require(dir.isDirectory) {
-        "Unknown target '$active' (from STONECUTTER_ACTIVE='$raw'). Available: " +
+        "Unknown target '$active' (from HB_TARGET='$raw'). Available: " +
             listOf("paper", "fabric").flatMap { l -> file("$l/versions").list()?.toList() ?: emptyList() }.sorted()
     }
     println("HungerBridge target: $active")

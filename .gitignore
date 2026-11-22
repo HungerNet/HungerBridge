@@ -1,7 +1,0 @@
-new-version/
-working-version/
-build/
-*.lock
-*.bin
-*.class
-.gradle/

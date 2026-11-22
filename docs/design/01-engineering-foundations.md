@@ -17,7 +17,7 @@ far from the code.
    the boot tests gate each bump.
 3. **An OpenAPI spec as the single source of truth for the HTTP API**, checked by tests on
    both sides so docs and code can't drift again.
-4. **Housekeeping.** Rename the misleading `STONECUTTER_ACTIVE` variable.
+4. **Housekeeping.** Rename the misleading `STONECUTTER_ACTIVE` variable (done in 5-alpha.1).
 
 **Effort:** M overall: §1 ≈ 1 day, §2 ≈ 0.5 day, §3 ≈ 1–2 days, §4 ≈ 1 hour.
 
@@ -207,7 +207,7 @@ paper-devbundle-26_3 = "26.3.build.242-stable"
 
 ---
 
-## §4 Rename `STONECUTTER_ACTIVE`
+## §4 Rename `STONECUTTER_ACTIVE` (done in 5-alpha.1: `HB_TARGET` only, no fallback)
 
 The Stonecutter plugin isn't used, so the variable name misleads people.
 

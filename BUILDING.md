@@ -3,80 +3,90 @@
 ## Layout
 
 ```
-common/                         loader-independent core (HTTP API, auth, config, SSE) + tests
-paper/src/main/java             Paper/Purpur/Folia plugin sources (shared by all versions)
+common/                         loader-independent core + tests
+  http/        endpoint handlers (protocol v2)
+  stream/      LogEvent, LogDistributor (ring, epoch/seq, subscriptions), StreamConnection
+  log/         BridgeLogger (Log4j, all loaders), LineFormat, MessageNormalizer, PlatformLogAppender
+  message/     BridgeMessage: the /hb output model rendered by each loader
+paper/src/main/java             Paper/Purpur/Folia plugin (CapturingSender via Bukkit.createCommandSender,
+                                PaperMessages, PlatformScheduler for Folia)
 paper/versions/<mc>-paper/      per-version build (paperweight userdev dev bundle) + plugin.yml
-fabric/src/main/java            Fabric mod sources (shared by all versions)
+fabric/src/main/java            Fabric mod (CapturingCommandSource, FabricMessages, mixin hooks)
 fabric/compat/mc1_21|mc26/java  tiny per-era seam (FabricCompat) for API differences
 fabric/versions/<mc>-fabric/    per-version build (Loom) + fabric.mod.json
-autogen/HungerBridge/           templates bundled into the jar; copied only when missing
+autogen/HungerBridge/           config templates bundled into the jar; copied only when missing
+ci/                             boot_test.py (real servers), publish_modrinth.py (releases)
 ```
 
-Targets: `1.21.11`, `26.1.2`, `26.2`, `26.3` × `paper`, `fabric` (8 jars). The Paper jar
-is also the Folia jar. Jars are named `HungerBridge-<loader>-<minecraft>-<version>.jar`
-(set in the root `build.gradle`), the format HungerBridgePy's `hungerbridge.releases` and
-CalagoAPI's `installBridge()` look for.
+Targets: `1.21.11`, `26.1.2`, `26.2`, `26.3` × `paper`, `fabric` (8 jars). The Paper jar is
+also the Purpur and Folia jar. Jars are named `HungerBridge-<loader>-<minecraft>-<version>.jar`;
+nothing depends on that name (releases are selected by Modrinth metadata).
 
 ## Requirements
 
 * JDK 25 to run Gradle (wrapper 9.7.0) and to compile 26.x targets.
-* JDK 21 for the `common` module and the 1.21.11 targets (their toolchain is 21 so the jars
-  run on Java 21). Gradle must be able to find both JDKs — auto-detected from standard
-  locations, or pass `-Porg.gradle.java.installations.paths=<jdk21>,<jdk25>` (CI uses
+* JDK 21 for `common` and the 1.21.11 targets. Gradle must find both JDKs (standard
+  locations, or `-Porg.gradle.java.installations.paths=<jdk21>,<jdk25>`; CI uses
   `-Porg.gradle.java.installations.fromEnv=JAVA_HOME_21_X64,JAVA_HOME_25_X64`).
+* On Windows, keep the Gradle user home on a short path (paperweight exceeds `MAX_PATH`
+  otherwise) and the checkout out of OneDrive (it locks `build/` files).
 
 ## Selecting a target
 
-Only one Minecraft target is configured per Gradle invocation (Loom/paperweight are heavy).
-Select it with `STONECUTTER_ACTIVE=<mc>-<loader>` — the name is historical; the Stonecutter
-plugin is not used. Without it, only `:common` is configured.
+One Minecraft target is configured per Gradle invocation (Loom and paperweight are heavy).
+Select it with `HB_TARGET=<mc>-<loader>`; without it only `:common` is configured.
 
 ```bash
-./gradlew :common:test                                  # unit + in-process HTTP integration tests
+./gradlew :common:test                                   # unit + in-process HTTP tests
 
-export STONECUTTER_ACTIVE=26.3-paper
-./gradlew :paper:versions:26.3-paper:build --no-daemon  # → paper/versions/26.3-paper/build/libs/
-
-export STONECUTTER_ACTIVE=1.21.11-fabric
-./gradlew :fabric:versions:1.21.11-fabric:build --no-daemon
+HB_TARGET=26.3-paper ./gradlew :paper:versions:26.3-paper:build     # → paper/versions/26.3-paper/build/libs/
+HB_TARGET=1.21.11-fabric ./gradlew :fabric:versions:1.21.11-fabric:build
 ```
 
-(`STONECUTTER_ACTIVE_PAPER`, mentioned by older docs, was never read by the build.)
+## CI
 
-## CI (`.github/workflows/build-and-release.yml`)
+`.github/workflows/build-and-release.yml`:
 
 | Job | What it runs |
 |---|---|
 | `test` | `./gradlew :common:test` |
-| `protocol` | starts `./gradlew :common:standaloneBridge` (real HTTP stack, fake game backend), checks out HungerBridgePy and runs its unit tests + live protocol suite against it |
-| `build-matrix` | `./gradlew :<loader>:versions:<target>:build` for the 8 targets (Temurin 21 + 25, `-Xmx6g`) and uploads `build/libs/*.jar` |
-| `release` | on push to main: GitHub release `v<version.yaml version>` with all 8 jars |
-
-## Adding a Minecraft version
-
-1. Copy the newest `paper/versions/<mc>-paper` and `fabric/versions/<mc>-fabric` directory,
-   update the dev bundle / `minecraft(...)` coordinates, `api-version` and the
-   `"minecraft"` range in `fabric.mod.json`.
-2. Add both targets to the CI matrix.
-3. Build. If a Minecraft API changed, put the difference behind `FabricCompat`
-   (`fabric/compat/...`) — the mixin targets `MinecraftServer#tickChildren`, `stopServer`
-   and `reloadResources`, and mixin failures only show up at runtime.
-4. Boot-test Paper, Folia and Fabric with the HungerBridgePy live suite (below).
+| `protocol` | starts `./gradlew :common:standaloneBridge` (the real HTTP stack with a fake game), runs HungerBridgePy's unit tests and its live suite against it |
+| `build` | the 8 targets; uploads each jar with `target.json` (`{"loader", "minecraft"}`) |
+| `boot` | Paper, Purpur, Folia and Fabric × 4 Minecraft versions: `ci/boot_test.py` downloads the real server, installs the jar, boots it and checks the console and the full live suite (below) |
+| `publish` | on push to `main` with `run: true` in `version.yaml`: `ci/publish_modrinth.py` publishes one Modrinth version per jar (needs the `MODRINTH_TOKEN` secret); versions that exist already are skipped |
 
 ## Runtime validation
 
-The live suite in HungerBridgePy (`tests/test_live.py`) is the acceptance test for a server:
+`ci/boot_test.py` is the acceptance test for a server, and runs locally too:
 
 ```bash
-# on the server console
-hb token create hbtest admin           # with an "admin" policy granting "*"
-# on the client
-HB_PICKUP_URL='http://127.0.0.1:1913/pickup/<id>?passkey=<hex>' \
-HB_EXPECT_PLATFORM=paper HB_EXPECT_MC=26.3 HB_ALLOW_STOP=1 \
-pytest -m live tests/test_live.py
+pip install -e ../HungerBridgePy
+python ci/boot_test.py --loader fabric --minecraft 26.3 \
+    --jar fabric/versions/26.3-fabric/build/libs/HungerBridge-fabric-26.3-5-alpha.1.jar \
+    --java /path/to/jdk25/bin/java --hungerbridgepy ../HungerBridgePy
 ```
 
-It checks auth (including replay, clock-skew and tamper rejection), every endpoint, command
-output capture, log → SSE delivery, 404/400 handling, rate limiting with retry and finally
-`/server/stop`. Without a Minecraft server, use `./gradlew :common:standaloneBridge` and
-`HB_EXPECT_PLATFORM=standalone`.
+On the real server console it verifies that `runCommand("seed", False)` keeps the feedback
+off the console, that `show_console=True` echoes it, and that
+`log(level="CUSTOMLEVEL", thread="CustomThread", logger="CustomLogger")` produces the
+loader's console line with `[CustomLogger]`. Then it runs HungerBridgePy's live suite
+(`tests/test_live.py`): authentication (replay, clock skew, tampering), every endpoint,
+command feedback, suppression observed through the stream, custom loggers, normalization,
+stream resume after a disconnect, error handling and rate limiting.
+
+Without a Minecraft server, use the standalone bridge:
+
+```bash
+./gradlew :common:standaloneBridge -Phb.standalone.port=19130    # prints PICKUP_URL=...
+HB_PICKUP_URL=... HB_EXPECT_PLATFORM=standalone pytest -m live tests/test_live.py   # in HungerBridgePy
+```
+
+## Adding a Minecraft version
+
+1. Copy the newest `paper/versions/<mc>-paper` and `fabric/versions/<mc>-fabric`, update
+   the dev bundle / `minecraft(...)` coordinates, `api-version` and the `"minecraft"` range
+   in `fabric.mod.json`.
+2. Add the targets to the `build` matrix and the version to the `boot` matrix.
+3. Build. Put Minecraft API differences behind `FabricCompat` (`fabric/compat/...`); the
+   mixin targets `MinecraftServer#tickChildren`, `stopServer` and `reloadResources`, and
+   mixin failures only show up at runtime, which the `boot` job catches.

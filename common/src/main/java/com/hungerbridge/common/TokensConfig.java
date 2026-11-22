@@ -43,13 +43,13 @@ public final class TokensConfig {
         try (InputStream in = Files.newInputStream(policiesFile)) {
             Object loaded = new Yaml().load(in);
             if (!(loaded instanceof Map)) {
-                if (logger != null) logger.log("WARN", "Invalid policies.yaml structure; expected mapping at root.");
+                if (logger != null) logger.warn("Invalid policies.yaml structure; expected mapping at root.");
                 return config;
             }
             Map<String, Object> root = (Map<String, Object>) loaded;
             Object policiesObj = root.get("policies");
             if (!(policiesObj instanceof List)) {
-                if (logger != null) logger.log("WARN", "Invalid policies.yaml: 'policies' is missing or not a list.");
+                if (logger != null) logger.warn("Invalid policies.yaml: 'policies' is missing or not a list.");
                 return config;
             }
             for (Object item : (List<?>) policiesObj) {
@@ -81,12 +81,8 @@ public final class TokensConfig {
                         String node = String.valueOf(p).trim();
                         policy.permissions.add(node);
                         if (logger == null) continue;
-                        if (com.hungerbridge.common.security.Permissions.isLegacy(node)) {
-                            logger.log("WARN", "policies.yaml: policy '" + id + "' uses legacy permission node '" + node
-                                    + "', treated as " + com.hungerbridge.common.security.Permissions.LEGACY_ALIASES.get(node)
-                                    + ". Please update the policy.");
-                        } else if (!com.hungerbridge.common.security.Permissions.isMeaningful(node)) {
-                            logger.log("WARN", "policies.yaml: policy '" + id + "' grants '" + node
+                        if (!com.hungerbridge.common.security.Permissions.isMeaningful(node)) {
+                            logger.warn("policies.yaml: policy '" + id + "' grants '" + node
                                     + "', which no endpoint checks. Known nodes: " + new java.util.TreeSet<>(com.hungerbridge.common.security.Permissions.KNOWN));
                         }
                     }
@@ -96,7 +92,7 @@ public final class TokensConfig {
             // Intentionally not logging here to avoid duplicate 'Loaded token policies' messages
         } catch (Exception e) {
             if (logger != null) {
-                logger.log("ERROR", "Failed to load policies.yaml: " + e.getClass().getSimpleName() + ": " + e.getMessage());
+                logger.error("Failed to load policies.yaml: " + e.getClass().getSimpleName() + ": " + e.getMessage());
             }
             return defaults();
         }

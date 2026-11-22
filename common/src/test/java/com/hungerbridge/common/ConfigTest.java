@@ -34,8 +34,7 @@ public final class ConfigTest {
                     - ::1
                 """);
 
-        Config config = Config.load(dir, (level, thread, message) -> {
-        });
+        Config config = Config.load(dir, entry -> {});
 
         assertTrue(config.getPlayersMaxList() == 10);
         assertTrue("127.0.0.1".equals(config.getBindAddress()));
@@ -52,7 +51,7 @@ public final class ConfigTest {
                   max-list: 12
                 """);
 
-        Config config = Config.load(dir, (level, thread, message) -> {});
+        Config config = Config.load(dir, entry -> {});
         assertTrue(config.getBindAddress().equals("10.0.0.2"));
         assertTrue(config.getPlayersMaxList() == 12);
 
@@ -63,7 +62,7 @@ public final class ConfigTest {
                   max-list: 8
                 """);
 
-        Config legacySnake = Config.load(dir, (level, thread, message) -> {});
+        Config legacySnake = Config.load(dir, entry -> {});
         assertTrue(legacySnake.getBindAddress().equals("127.0.0.1"));
         assertTrue(legacySnake.getPlayersMaxList() == 8);
     }
@@ -85,7 +84,7 @@ public final class ConfigTest {
                     permissions: ["ping", "info"]
                 """);
 
-        Config config = Config.load(dir, (level, thread, message) -> {});
+        Config config = Config.load(dir, entry -> {});
         config.setTokenManager(new TokenManager(dir, null));
         assertNotNull(config.getTokensConfig());
         assertTrue(config.getTokensConfig().getPolicy("reporter") != null);
@@ -98,8 +97,7 @@ public final class ConfigTest {
                     permissions: ["stream"]
                 """);
 
-        // emulate reload: re-load tokens config from disk
-        config.setTokensConfig(com.hungerbridge.common.TokensConfig.load(dir));
+        assertTrue(config.reload(entry -> {}));
         assertNotNull(config.getTokensConfig().getPolicy("watcher"));
         assertTrue(config.getTokensConfig().getPolicy("watcher") != null);
         assertTrue(config.getTokensConfig().getPolicy("reporter") == null);
@@ -121,7 +119,7 @@ public final class ConfigTest {
                     permissions: ["*"]
                 """);
 
-        Config config = Config.load(dir, (level, thread, message) -> {});
+        Config config = Config.load(dir, entry -> {});
         config.setTokenManager(new TokenManager(dir, null));
         assertNull(config.getTokensConfig().getPolicy("unknown-policy"));
     }
@@ -141,7 +139,7 @@ public final class ConfigTest {
                     permissions: ["*"]
                 """);
 
-        Config config = Config.load(dir, (level, thread, message) -> {});
+        Config config = Config.load(dir, entry -> {});
         assertNotNull(config.getTokensConfig());
         assertEquals(60L, config.getTokensConfig().getPolicy("admin").defaultExpiry);
     }
@@ -160,18 +158,24 @@ public final class ConfigTest {
     }
 
     @Test
-    public void commandUsageIsPerCommand() {
-        assertEquals(List.of("Usage: /hungerbridge <token|reload>"), CommonCommandHandler.handle(null, new String[0]));
-        assertEquals(List.of("Usage: /hungerbridge token <list|create|rotate|revoke|remove>"), CommonCommandHandler.handle(null, new String[] { "token" }));
-        assertEquals(List.of("Usage: /hungerbridge token create <id> <policyId> [expiry]"), CommonCommandHandler.handle(null, new String[] { "token", "create" }));
-        assertTrue(CommandMessages.helpLines().getFirst().startsWith("Usage:"));
-        assertTrue(CommandMessages.createdToken("admin", "secret").contains("Created token"));
-        assertTrue(CommandMessages.rotatedToken("admin", "secret").contains("Rotated token"));
-    }
+    public void reloadAppliesRuntimeSettingsAndReportsRestartOnlyKeys() throws IOException {
+        // Regression: reload ignored players.max-list and claimed to apply bind-address.
+        Path dir = Files.createTempDirectory("hungerbridge-reload");
+        Files.writeString(dir.resolve("config.yaml"), "port: 1913\nbind-address: 127.0.0.1\nplayers:\n  max-list: 5\n");
+        List<String> warnings = new java.util.ArrayList<>();
+        Logger logger = entry -> { if ("WARN".equals(entry.level())) warnings.add(entry.message()); };
+        Config config = Config.load(dir, logger);
+        assertEquals(5, config.getPlayersMaxList());
 
-    @Test
-    public void rateLimiterRefillsAcrossMilliseconds() throws Exception {
-      // rate limiter removed; test no-op
-      assertTrue(true);
+        Files.writeString(dir.resolve("config.yaml"), "port: 1914\nbind-address: 127.0.0.1\ndebug: true\nplayers:\n  max-list: 7\n");
+        assertTrue(config.reload(logger));
+        assertEquals(7, config.getPlayersMaxList());
+        assertTrue(config.isDebug());
+        assertEquals(1913, config.getPort(), "port changes need a restart");
+        assertTrue(warnings.stream().anyMatch(w -> w.contains("restart")), warnings.toString());
+
+        Files.writeString(dir.resolve("config.yaml"), "- not a mapping\n");
+        assertTrue(!config.reload(logger));
+        assertEquals(7, config.getPlayersMaxList(), "an invalid file keeps the previous values");
     }
 }

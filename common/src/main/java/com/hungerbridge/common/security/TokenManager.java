@@ -37,7 +37,7 @@ import javax.crypto.spec.SecretKeySpec;
 
 /**
  * Token manager implementing HMAC verification, nonce replay protection,
- * and JSON-backed token storage (token format "id:secret").
+ * and JSON-backed token storage (each token is an id plus a hex secret; clients pass them separately).
  */
 public final class TokenManager {
 
@@ -263,8 +263,8 @@ public final class TokenManager {
         try {
             if (!Files.exists(storageDir)) {
                 Files.createDirectories(storageDir);
-                if (logger != null) logger.log("INFO", "Created storage directory: " + storageDir);
-            } else if (logger != null) logger.log("INFO", "Using storage directory: " + storageDir);
+                if (logger != null) logger.info("Created storage directory: " + storageDir);
+            } else if (logger != null) logger.info("Using storage directory: " + storageDir);
             ensureDirectoryPermissions(storageDir, logger);
         } catch (IOException e) {
             throw new RuntimeException("Failed to create storage directory", e);
@@ -281,11 +281,11 @@ public final class TokenManager {
         // start periodic sweep to remove expired pickups every 5 minutes
         try {
             sweepExecutor.scheduleAtFixedRate(() -> {
-                try { sweepExpiredPickups(); } catch (Exception e) { if (logger != null) logger.log("WARN", "Pickup sweep failed: " + e.getMessage()); }
+                try { sweepExpiredPickups(); } catch (Exception e) { if (logger != null) logger.warn("Pickup sweep failed: " + e.getMessage()); }
             }, 300, 300, TimeUnit.SECONDS);
             // sweep expired nonces more frequently to keep cache small
             sweepExecutor.scheduleAtFixedRate(() -> {
-                try { sweepExpiredNonces(); } catch (Exception e) { if (logger != null) logger.log("WARN", "Nonce sweep failed: " + e.getMessage()); }
+                try { sweepExpiredNonces(); } catch (Exception e) { if (logger != null) logger.warn("Nonce sweep failed: " + e.getMessage()); }
             }, 60, 60, TimeUnit.SECONDS);
         } catch (Exception ignored) {}
     }
@@ -303,7 +303,7 @@ public final class TokenManager {
             byte[] b = new byte[32];
             new java.security.SecureRandom().nextBytes(b);
             writeFileAtomicallyWithOwnerOnlyAccess(mk, b, logger);
-            if (logger != null) logger.log("INFO", "Generated master key: " + mk);
+            if (logger != null) logger.info("Generated master key: " + mk);
             return b;
         } catch (IOException e) {
             throw new RuntimeException("Failed to load/create master key", e);
@@ -333,26 +333,26 @@ public final class TokenManager {
 
     private static void ensureDirectoryPermissions(Path dir, Logger logger) {
         if (!Files.isDirectory(dir)) {
-            if (logger != null) logger.log("WARN", "Path is not a directory: " + dir);
+            if (logger != null) logger.warn("Path is not a directory: " + dir);
             return;
         }
         try {
             if (!Files.isReadable(dir) || !Files.isWritable(dir) || !Files.isExecutable(dir)) {
-                if (logger != null) logger.log("WARN", "Storage directory has incorrect permissions; correcting: " + dir);
+                if (logger != null) logger.warn("Storage directory has incorrect permissions; correcting: " + dir);
                 var perms = java.util.EnumSet.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE);
                 Files.setPosixFilePermissions(dir, perms);
-                if (logger != null) logger.log("INFO", "Corrected storage directory permissions to rwx------");
+                if (logger != null) logger.info("Corrected storage directory permissions to rwx------");
             }
         } catch (UnsupportedOperationException e) {
-            if (logger != null) logger.log("WARN", "Filesystem for " + dir + " does not support POSIX permissions; secure owner-only ACLs were not available.");
+            if (logger != null) logger.warn("Filesystem for " + dir + " does not support POSIX permissions; secure owner-only ACLs were not available.");
         } catch (IOException e) {
-            if (logger != null) logger.log("ERROR", "Failed to correct storage directory permissions on " + dir + ": " + e.getMessage());
+            if (logger != null) logger.error("Failed to correct storage directory permissions on " + dir + ": " + e.getMessage());
         }
     }
 
     private static void ensureFilePermissions(Path file, Logger logger) {
         if (!Files.isRegularFile(file)) {
-            if (logger != null) logger.log("WARN", "Path is not a regular file: " + file);
+            if (logger != null) logger.warn("Path is not a regular file: " + file);
             return;
         }
         try {
@@ -361,14 +361,14 @@ public final class TokenManager {
         } catch (UnsupportedOperationException ignored) {
             // Fall through to ACL-based owner-only permissions on Windows.
         } catch (IOException e) {
-            if (logger != null) logger.log("WARN", "Failed to set file permissions on " + file + ": " + e.getMessage());
+            if (logger != null) logger.warn("Failed to set file permissions on " + file + ": " + e.getMessage());
             return;
         }
 
         try {
             AclFileAttributeView aclView = Files.getFileAttributeView(file, AclFileAttributeView.class);
             if (aclView == null) {
-                if (logger != null) logger.log("WARN", "Filesystem for " + file + " does not support POSIX or ACL owner-only permissions; file may remain accessible to other users.");
+                if (logger != null) logger.warn("Filesystem for " + file + " does not support POSIX or ACL owner-only permissions; file may remain accessible to other users.");
                 return;
             }
             java.util.List<AclEntry> acl = aclView.getAcl();
@@ -394,9 +394,9 @@ public final class TokenManager {
             }
             aclView.setAcl(newAcl);
         } catch (UnsupportedOperationException e) {
-            if (logger != null) logger.log("WARN", "Filesystem for " + file + " does not support ACL-based owner-only permissions; secure file permissions could not be enforced.");
+            if (logger != null) logger.warn("Filesystem for " + file + " does not support ACL-based owner-only permissions; secure file permissions could not be enforced.");
         } catch (IOException e) {
-            if (logger != null) logger.log("WARN", "Failed to apply ACL-based owner-only permissions on " + file + ": " + e.getMessage());
+            if (logger != null) logger.warn("Failed to apply ACL-based owner-only permissions on " + file + ": " + e.getMessage());
         }
     }
 
@@ -430,7 +430,7 @@ public final class TokenManager {
                 String tmpl = GSON.toJson(Collections.emptyMap());
                 Files.writeString(tokensFile, tmpl, StandardCharsets.UTF_8);
                 ensureFilePermissions(tokensFile, logger);
-                if (logger != null) logger.log("INFO", "Created tokens template: " + tokensFile);
+                if (logger != null) logger.info("Created tokens template: " + tokensFile);
             }
             ensureFilePermissions(tokensFile, logger);
             String txt = Files.readString(tokensFile, StandardCharsets.UTF_8);
@@ -440,10 +440,10 @@ public final class TokenManager {
             if (loaded != null) {
                 tokens.clear();
                 tokens.putAll(loaded);
-                if (logger != null) logger.log("INFO", "Loaded " + tokens.size() + " tokens from: " + tokensFile);
+                if (logger != null) logger.info("Loaded " + tokens.size() + " tokens from: " + tokensFile);
             }
         } catch (Exception e) {
-            if (logger != null) logger.log("WARN", "Failed to load tokens: " + e.getMessage());
+            if (logger != null) logger.warn("Failed to load tokens: " + e.getMessage());
         }
     }
 
@@ -456,7 +456,7 @@ public final class TokenManager {
                 String tmpl = GSON.toJson(Collections.emptyMap());
                 Files.writeString(sessionsFile, tmpl, StandardCharsets.UTF_8);
                 setOwnerOnlyPerms(sessionsFile);
-                if (logger != null) logger.log("INFO", "Created sessions template: " + sessionsFile);
+                if (logger != null) logger.info("Created sessions template: " + sessionsFile);
                 return;
             }
             String txt = Files.readString(sessionsFile, StandardCharsets.UTF_8);
@@ -466,10 +466,10 @@ public final class TokenManager {
             if (loaded != null) {
                 nonceExpiries.clear();
                 nonceExpiries.putAll(loaded);
-                if (logger != null) logger.log("INFO", "Loaded " + nonceExpiries.size() + " nonce sessions from: " + sessionsFile);
+                if (logger != null) logger.info("Loaded " + nonceExpiries.size() + " nonce sessions from: " + sessionsFile);
             }
         } catch (Exception e) {
-            if (logger != null) logger.log("WARN", "Failed to load sessions: " + e.getMessage());
+            if (logger != null) logger.warn("Failed to load sessions: " + e.getMessage());
         }
     }
 
@@ -479,7 +479,7 @@ public final class TokenManager {
             Files.writeString(sessionsFile, txt, StandardCharsets.UTF_8);
             setOwnerOnlyPerms(sessionsFile);
         } catch (IOException e) {
-            if (logger != null) logger.log("WARN", "Failed to persist sessions: " + e.getMessage());
+            if (logger != null) logger.warn("Failed to persist sessions: " + e.getMessage());
         }
     }
 
@@ -497,7 +497,7 @@ public final class TokenManager {
         if (removedAny) {
             persistSessions();
             if (logger != null && debugEnabled) {
-                logger.log("DBG", "Swept expired nonce sessions");
+                logger.debug("Swept expired nonce sessions");
             }
         }
     }
@@ -521,7 +521,7 @@ public final class TokenManager {
                 } catch (Exception ignored) {}
             }
         } catch (Exception e) {
-            if (logger != null) logger.log("WARN", "Failed to read security.yaml: " + e.getMessage());
+            if (logger != null) logger.warn("Failed to read security.yaml: " + e.getMessage());
         }
         return def;
     }
@@ -551,7 +551,7 @@ public final class TokenManager {
                 String tmpl = GSON.toJson(Collections.emptyMap());
                 Files.writeString(pickupsFile, tmpl, StandardCharsets.UTF_8);
                 ensureFilePermissions(pickupsFile, logger);
-                if (logger != null) logger.log("INFO", "Created pickups template: " + pickupsFile);
+                if (logger != null) logger.info("Created pickups template: " + pickupsFile);
             }
             ensureFilePermissions(pickupsFile, logger);
             String txt = Files.readString(pickupsFile, StandardCharsets.UTF_8);
@@ -562,10 +562,10 @@ public final class TokenManager {
                 pickups.clear();
                 pickups.putAll(loaded);
                 sweepExpiredPickups();
-                if (logger != null) logger.log("INFO", "Loaded " + pickups.size() + " pickup records from: " + pickupsFile);
+                if (logger != null) logger.info("Loaded " + pickups.size() + " pickup records from: " + pickupsFile);
             }
         } catch (Exception e) {
-            if (logger != null) logger.log("WARN", "Failed to load pickups: " + e.getMessage());
+            if (logger != null) logger.warn("Failed to load pickups: " + e.getMessage());
         }
     }
 
@@ -587,7 +587,7 @@ public final class TokenManager {
         }
         if (removedAny) {
             persistPickups();
-            if (logger != null) logger.log("INFO", "Swept expired pickup records");
+            if (logger != null) logger.info("Swept expired pickup records");
         }
     }
 
@@ -597,7 +597,7 @@ public final class TokenManager {
             Files.writeString(pickupsFile, txt, StandardCharsets.UTF_8);
             setOwnerOnlyPerms(pickupsFile);
         } catch (IOException e) {
-            if (logger != null) logger.log("WARN", "Failed to persist pickups: " + e.getMessage());
+            if (logger != null) logger.warn("Failed to persist pickups: " + e.getMessage());
         }
     }
 
@@ -607,7 +607,7 @@ public final class TokenManager {
             Files.writeString(tokensFile, txt, StandardCharsets.UTF_8);
             setOwnerOnlyPerms(tokensFile);
         } catch (IOException e) {
-            if (logger != null) logger.log("WARN", "Failed to persist tokens: " + e.getMessage());
+            if (logger != null) logger.warn("Failed to persist tokens: " + e.getMessage());
         }
     }
 
@@ -666,10 +666,10 @@ public final class TokenManager {
             boolean match = constantTimeEqualsHex(exp, signature);
             if (logger != null && debugEnabled) {
                 // Non-secret diagnostics only, at a dedicated level distinct from DEBUG.
-                logger.log("HMAC-DEBUG", "[HMAC] tokenId=" + tokenId + " salt=" + tk.salt);
-                logger.log("HMAC-DEBUG", "[HMAC] original_path=" + path + " normalized_path=" + normalizedPath);
-                logger.log("HMAC-DEBUG", "[HMAC] canonical_string=" + msgCanonical.replace("\n", "\\n"));
-                logger.log("HMAC-DEBUG", "[HMAC] match=" + match);
+                logger.debug("[HMAC] tokenId=" + tokenId + " salt=" + tk.salt);
+                logger.debug("[HMAC] original_path=" + path + " normalized_path=" + normalizedPath);
+                logger.debug("[HMAC] canonical_string=" + msgCanonical.replace("\n", "\\n"));
+                logger.debug("[HMAC] match=" + match);
             }
             if (!match) return VerifyResult.BAD_SIGNATURE;
 
@@ -683,7 +683,7 @@ public final class TokenManager {
             if (tk.expiry > 0L && now > tk.expiry) return VerifyResult.EXPIRED;
             return VerifyResult.OK;
         } catch (Exception e) {
-            if (logger != null) logger.log("ERROR", "HMAC verification error: " + e.getMessage());
+            if (logger != null) logger.error("HMAC verification error: " + e.getMessage());
             return VerifyResult.INTERNAL_ERROR;
         }
     }
@@ -715,12 +715,12 @@ public final class TokenManager {
         // enforce uniqueness: do not allow creating a token with an id that
         // already exists or that is pending pickup
         if (effectiveId != null && tokens.containsKey(effectiveId)) {
-            if (logger != null) logger.log("WARN", "Create token failed: id already exists: " + effectiveId);
+            if (logger != null) logger.warn("Create token failed: id already exists: " + effectiveId);
             return null;
         }
         for (PickupRecord pr : pickups.values()) {
             if (pr != null && pr.tokenId != null && pr.tokenId.equals(effectiveId)) {
-                if (logger != null) logger.log("WARN", "Create token failed: id already pending pickup: " + effectiveId);
+                if (logger != null) logger.warn("Create token failed: id already pending pickup: " + effectiveId);
                 return null;
             }
         }

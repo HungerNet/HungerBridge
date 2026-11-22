@@ -8,10 +8,10 @@ host, and some gaps matter once they do:
 
 | # | Gap | Risk if exposed | Fix | Effort |
 |---|---|---|---|---|
-| 1 | The query string isn't covered by the signature | A man-in-the-middle can alter parameters such as `?history=` (and future ones like `?player=`) without breaking the signature | Protocol v2 signs the canonical query; v1 stays accepted | M |
+| 1 | The query string isn't covered by the signature | A man-in-the-middle can alter parameters such as `?history=` (and future ones like `?player=`) without breaking the signature | Protocol v3 signs the canonical query; v1 stays accepted | M |
 | 2 | Plain HTTP | Command output, logs and pickup secrets travel in cleartext; a passive observer can read everything except token secrets | Documented reverse-proxy setup (now), optional built-in HTTPS (later), trusted-proxy handling for client IPs | S (doc) + M (built-in) |
 | 3 | Tokens work from any allowed IP; rate limits are global | A leaked token works from anywhere the IP filter allows; one noisy integration starves others | Per-policy `allowed-ips` and per-policy rate limits | S–M |
-| 4 | `show_console=false` does nothing | Silent bot commands still spam the console | Implement suppression on console appenders only, or remove the flag | S |
+| 4 | `show_console=false` did nothing | Silent bot commands spammed the console | **Resolved in 5-alpha.1**: native feedback capture (§4) | — |
 
 **Decisions needed**
 - [ ] §1: the window for accepting v1 signatures after v2 ships. Recommendation: accept
@@ -24,7 +24,7 @@ host, and some gaps matter once they do:
 
 ---
 
-## §1 Protocol v2: signed query strings
+## §1 Protocol v3: signed query strings
 
 ### Wire format
 
@@ -53,7 +53,7 @@ METHOD \n path \n timestamp \n nonce \n canonical_body                          
   - verifies with the matching string-to-sign;
   - rejects v1 when `min-auth-version: 2`, with 401 `reason: auth_version_too_old`.
 - Advertise support in `/server/meta`: `"auth_versions": [1, 2]`. The protocol header
-  stays `1`: v2 auth is additive.
+  does not change: signature v2 is additive.
 - Use `ex.getRequestURI().getRawQuery()`, never the decoded `getQuery()`, so the
   canonicalization is the only decoder.
 
@@ -177,41 +177,10 @@ Optionally, a token can carry its own `allowed-ips`: `/hb token create <id> <pol
 
 ---
 
-## §4 `show_console`
+## §4 `show_console`  (resolved in 5-alpha.1)
 
-### Current state
-
-`CommandExecutor.executeWithOutput(cmd, showConsole)` passes the flag to
-`CommandCapture.capture`, which ignores it.
-
-### Design (implement)
-
-`CommandCapture.capture(action, showConsole=false)`:
-1. Find the console appenders on the root `LoggerConfig`:
-   - Paper/Folia: `TerminalConsole`, the class
-     `net.minecrell.terminalconsole.TerminalConsoleAppender`;
-   - Fabric/vanilla: `SysOut` / `ServerGuiConsole`, matched by appender name and class
-     `ConsoleAppender`.
-   - Never touch file appenders (`File`, `RollingFile`) or HungerBridge's own appenders.
-2. For each one, `addFilter(SUPPRESS)`, where `SUPPRESS` is a singleton
-   `AbstractFilter` returning `DENY` when `CAPTURE_SUPPRESS.get() == TRUE` (a
-   `ThreadLocal`) and `NEUTRAL` otherwise. Add it once and keep it installed: idempotent,
-   and cheap when the flag is off.
-3. Set the `ThreadLocal` around `action.run()`. Only events logged synchronously on the
-   capturing thread are suppressed, so other threads' output is untouched.
-4. If Log4j async loggers are active, the appender runs on another thread and the
-   `ThreadLocal` is invisible there. Detect `AsyncLoggerContext` and fall back to "no
-   suppression", logging it once at DEBUG. Document this.
-
-### Alternative (if the owner prefers)
-
-Deprecate the flag: `show_console` is accepted and ignored, the docs say so, and the
-Python `showConsole` argument is kept for compatibility.
-
-### Tests
-
-- Unit: a capture with `showConsole=false` produces the captured lines while a test
-  `ListAppender` named like a console appender receives nothing.
-- Live: `runCommand("list", showConsole=False)` and check that the console log
-  (boot-test `console.log`) does not contain the output. That needs the boot-test harness
-  to expose the log path, which 01 §1 does.
+The flag never worked because command output was captured by listening to the console log while
+the command ran *as the console*. The appender-muting design that used to be here treated the
+symptom (global, racy, loader-specific). 5-alpha.1 fixes the cause instead: feedback is captured
+from a dedicated command source (Fabric `CommandSource`, Paper `Bukkit.createCommandSender`) and
+echoed to the console only when `show_console` is true. See `PLAN.md` §7 and `ENDPOINTS.md`.

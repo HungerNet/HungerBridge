@@ -1,0 +1,23 @@
+# Token policies. Create a token with: /hb token create <tokenId> <policyId> [expiry-seconds]
+#
+# Permission nodes checked by the API:
+#   server.ping  server.meta  server.run  server.stop  server.log  server.stream
+#   players.list
+#   world.tps  world.mspt  world.time  world.weather  world.chunks  world.entities
+#   system.uptime  system.cpu  system.memory  system.gc  system.threads  system.network
+# Wildcards: "world.*", "system.*", "server.*" and "*" (everything).
+# /auth/check is available to every valid token.
+#
+# Operators who want unrestricted access must add "*" explicitly, e.g.:
+#   - id: admin
+#     default-expiry: 0
+#     permissions: ["*"]
+policies:
+  - id: default
+    default-expiry: 0
+    permissions:
+      - "server.ping"
+      - "server.meta"
+      - "players.list"
+      - "world.*"
+      - "system.*"

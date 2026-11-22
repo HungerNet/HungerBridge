@@ -13,7 +13,7 @@ public class TokenManagerPickupTest {
     @Test
     public void issueAndConsumePickup() throws Exception {
         Path dir = Files.createTempDirectory("hb-token-test");
-        TokenManager tm = new TokenManager(dir, (level, thread, message) -> {});
+        TokenManager tm = new TokenManager(dir, entry -> {});
 
         TokenManager.IssueResult res = tm.issueTokenWithPickup(null, 0, null, 300);
         assertNotNull(res, "IssueResult should not be null");
@@ -31,7 +31,7 @@ public class TokenManagerPickupTest {
     @Test
     public void issueAndConsumePickupRequiresPasskey() throws Exception {
         Path dir = Files.createTempDirectory("hb-token-passkey");
-        TokenManager tm = new TokenManager(dir, (level, thread, message) -> {});
+        TokenManager tm = new TokenManager(dir, entry -> {});
 
         TokenManager.IssueResult res = tm.issueTokenWithPickup("passkey-test", 0, null, 300);
         assertNotNull(res, "IssueResult should not be null");

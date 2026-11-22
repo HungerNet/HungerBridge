@@ -4,6 +4,7 @@ import com.hungerbridge.common.BridgeServer;
 import com.hungerbridge.common.CommandExecutor;
 import com.hungerbridge.common.Config;
 import com.hungerbridge.common.Logger;
+import com.hungerbridge.common.log.BridgeLogger;
 import com.hungerbridge.common.log.PlatformLogAppender;
 import com.hungerbridge.common.security.TokenManager;
 import com.hungerbridge.paper.scheduler.PlatformScheduler;
@@ -27,7 +28,8 @@ public final class HungerBridgePlugin extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        logger = new PaperLoggerAdapter();
+        // Paper's console layout prints [logger] for plugin loggers itself.
+        logger = new BridgeLogger(false);
         PlatformScheduler scheduler = PlatformScheduler.create(this);
 
         logAppender = PlatformLogAppender.install("HungerBridgePaperLogAppender");
@@ -36,7 +38,6 @@ public final class HungerBridgePlugin extends JavaPlugin {
         Config config = Config.load(configDir, logger);
 
         TokenManager tm = new TokenManager(configDir, logger);
-        tm.setDebug(config.isDebug());
         config.setTokenManager(tm);
 
         config.setPlatform(scheduler.platformName());
@@ -63,7 +64,7 @@ public final class HungerBridgePlugin extends JavaPlugin {
             }
         }, this);
 
-        logger.log("INFO", "HungerBridge enabled (" + scheduler.platformName() + ", Minecraft " + config.getMinecraftVersion() + ").");
+        logger.info("Enabled (" + scheduler.platformName() + ", Minecraft " + config.getMinecraftVersion() + ", HungerBridge " + config.getVersion() + ")");
     }
 
     @SuppressWarnings("deprecation") // getDescription() fallback for servers without plugin meta
@@ -101,6 +102,6 @@ public final class HungerBridgePlugin extends JavaPlugin {
         }
         PlatformLogAppender.uninstall(logAppender);
         logAppender = null;
-        if (logger != null) logger.log("INFO", "HungerBridge disabled.");
+        if (logger != null) logger.info("Disabled");
     }
 }

@@ -1,10 +1,12 @@
 package com.hungerbridge.paper;
 
 import com.hungerbridge.common.CommandExecutor;
-import com.hungerbridge.common.platform.CommandCapture;
+import com.hungerbridge.common.CommandTimeoutException;
 import com.hungerbridge.paper.scheduler.PlatformScheduler;
 import org.bukkit.Bukkit;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.World;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -12,6 +14,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 import java.util.function.ToIntFunction;
 
 /**
@@ -22,8 +26,7 @@ import java.util.function.ToIntFunction;
  */
 public final class PaperCommandExecutor implements CommandExecutor {
 
-    /** Upper bound for any blocking hop onto a server thread. */
-    static final long COMMAND_TIMEOUT_MS = 5_000L;
+    /** Upper bound for reading a metric on a server thread. */
     static final long METRIC_TIMEOUT_MS = 2_000L;
 
     private final JavaPlugin plugin;
@@ -36,18 +39,38 @@ public final class PaperCommandExecutor implements CommandExecutor {
 
     // --- commands -------------------------------------------------------------------
 
+    /**
+     * Runs as a feedback-forwarding sender ({@link Bukkit#createCommandSender}): operator
+     * permissions like the console, but feedback (vanilla and plugin commands) is delivered to
+     * this callback instead of the console. With {@code showConsole} each feedback component is
+     * also sent to the console sender. Dispatch happens on the main thread (Paper/Purpur) or
+     * the global region (Folia).
+     */
     @Override
-    public void execute(String command) {
-        scheduler.runGlobal(() -> Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command));
-    }
-
-    @Override
-    public List<String> executeWithOutput(String command, boolean showConsole) {
-        // Console commands must run on the main thread (Paper) / global region (Folia).
-        return scheduler.callGlobal(
-                () -> CommandCapture.capture(() -> Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command), showConsole),
-                List.of(),
-                COMMAND_TIMEOUT_MS);
+    public List<String> run(String command, boolean showConsole) throws CommandTimeoutException {
+        List<String> lines = new ArrayList<>();
+        CommandSender sender = Bukkit.createCommandSender(component -> {
+            String text = PlainTextComponentSerializer.plainText().serialize(component);
+            synchronized (lines) {
+                lines.addAll(List.of(text.split("\n", -1)));
+            }
+            if (showConsole) Bukkit.getConsoleSender().sendMessage(component);
+        });
+        // Fabric's performPrefixedCommand accepts "/list" and "list"; Bukkit only the latter.
+        String commandLine = command.startsWith("/") ? command.substring(1) : command;
+        try {
+            scheduler.callGlobalOrThrow(() -> Bukkit.dispatchCommand(sender, commandLine), COMMAND_TIMEOUT_MS);
+        } catch (TimeoutException e) {
+            throw new CommandTimeoutException(command, COMMAND_TIMEOUT_MS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new CommandTimeoutException(command, COMMAND_TIMEOUT_MS);
+        } catch (ExecutionException e) {
+            throw new IllegalStateException("Command failed: " + command, e.getCause());
+        }
+        synchronized (lines) {
+            return List.copyOf(lines);
+        }
     }
 
     // --- TPS / MSPT -------------------------------------------------------------------

@@ -40,7 +40,7 @@ Minecraft versions), compiles against `com.velocitypowered:velocity-api:3.x`
 | Config dir | `@DataDirectory Path` |
 | Logging / SSE | Velocity uses Log4j 2, so the existing `PlatformLogAppender` works unchanged (verify in the spike) |
 | Commands | `/hb …` via `CommandManager` (`SimpleCommand`), console-only (`invocation.source() instanceof ConsoleCommandSource`) |
-| Executor | `VelocityAdapter implements CommandExecutor`: `executeWithOutput` via `server.getCommandManager().executeAsync(console, cmd)` with capture; TPS/world methods keep their defaults (-1). Endpoints whose data doesn't exist return 501 `not_supported_on_platform` |
+| Executor | `VelocityAdapter implements CommandExecutor`: `run(command, showConsole)` via `server.getCommandManager().executeAsync(source, cmd)` with a capturing command source; TPS/world methods keep their defaults (-1). Endpoints whose data doesn't exist return 501 `not_supported_on_platform` |
 
 ### New endpoints (`network.*` nodes; Velocity only)
 

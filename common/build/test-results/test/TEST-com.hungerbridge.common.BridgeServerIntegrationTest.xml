@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.hungerbridge.common.BridgeServerIntegrationTest" tests="15" skipped="0" failures="0" errors="0" timestamp="2026-11-17T18:45:43.133Z" hostname="79d36938-7512-465f-ba1b-faf4a956bda1" time="5.672">
+  <properties/>
+  <testcase name="streamSendsHistoryThenMarkerThenLiveLines()" classname="com.hungerbridge.common.BridgeServerIntegrationTest" time="0.777"/>
+  <testcase name="manyOpenStreamsDoNotStarveOtherRequests()" classname="com.hungerbridge.common.BridgeServerIntegrationTest" time="0.148"/>
+  <testcase name="streamWithoutHistoryFlushesMarkerImmediately()" classname="com.hungerbridge.common.BridgeServerIntegrationTest" time="0.02"/>
+  <testcase name="rateLimitConsumesOneTokenPerRequestAndDoesNotBurnNonce()" classname="com.hungerbridge.common.BridgeServerIntegrationTest" time="1.399"/>
+  <testcase name="legacyPermissionNodesAreAliased()" classname="com.hungerbridge.common.BridgeServerIntegrationTest" time="0.334"/>
+  <testcase name="nonceReplayIsRejectedButOnlyAfterSignatureCheck()" classname="com.hungerbridge.common.BridgeServerIntegrationTest" time="0.129"/>
+  <testcase name="tamperedBodyIsRejected()" classname="com.hungerbridge.common.BridgeServerIntegrationTest" time="0.033"/>
+  <testcase name="aclAndDefaultPolicyTemplate()" classname="com.hungerbridge.common.BridgeServerIntegrationTest" time="0.43"/>
+  <testcase name="badRequestsAreReportedInsteadOfDroppingTheConnection()" classname="com.hungerbridge.common.BridgeServerIntegrationTest" time="0.25"/>
+  <testcase name="authFailureReasonsDoNotLeakTokenExistence()" classname="com.hungerbridge.common.BridgeServerIntegrationTest" time="0.143"/>
+  <testcase name="pingAndProtocolHeader()" classname="com.hungerbridge.common.BridgeServerIntegrationTest" time="0.067"/>
+  <testcase name="unknownPathsAndMethodsAreJson()" classname="com.hungerbridge.common.BridgeServerIntegrationTest" time="0.126"/>
+  <testcase name="runLogAndWorldEndpoints()" classname="com.hungerbridge.common.BridgeServerIntegrationTest" time="0.411"/>
+  <testcase name="concurrentRequestsNeverShareAuthState()" classname="com.hungerbridge.common.BridgeServerIntegrationTest" time="1.281"/>
+  <testcase name="authCheckReportsEffectivePermissionsAndRejectsRevoked()" classname="com.hungerbridge.common.BridgeServerIntegrationTest" time="0.072"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

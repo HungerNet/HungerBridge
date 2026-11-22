@@ -4,6 +4,11 @@ import org.bukkit.World;
 import org.bukkit.plugin.Plugin;
 
 import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Thread-affinity abstraction for the Bukkit family.
@@ -19,9 +24,7 @@ import java.util.concurrent.Callable;
  *       throws {@link UnsupportedOperationException} ({@link FoliaPlatformScheduler}).</li>
  * </ul>
  *
- * <p>All {@code call*} methods block the calling (HTTP) thread for at most
- * {@code timeoutMs} and return {@code fallback} on timeout or failure, so a stalled
- * server can never hang the HTTP API.
+ * Implementations only schedule; waiting (always bounded by a timeout) is shared here.
  */
 public interface PlatformScheduler {
 
@@ -41,7 +44,7 @@ public interface PlatformScheduler {
         return isFoliaRuntime() ? new FoliaPlatformScheduler(plugin) : new BukkitPlatformScheduler(plugin);
     }
 
-    /** "paper" or "folia" — reported as the platform in {@code /server/meta}. */
+    /** "paper" or "folia", reported as the platform in {@code /server/meta}. */
     String platformName();
 
     boolean isFolia();
@@ -49,9 +52,56 @@ public interface PlatformScheduler {
     /** Fire-and-forget on the thread that owns server-wide state. */
     void runGlobal(Runnable task);
 
-    /** Run on the thread that owns server-wide state and wait for the result. */
-    <T> T callGlobal(Callable<T> task, T fallback, long timeoutMs);
+    /** Runs {@code task} on the thread that owns server-wide state (inline when already on it). */
+    <T> Future<T> submitGlobal(Callable<T> task);
 
-    /** Run on the thread that owns {@code world}'s spawn region and wait for the result. */
-    <T> T callInWorld(World world, Callable<T> task, T fallback, long timeoutMs);
+    /** Runs {@code task} on the thread that owns {@code world}'s spawn region. */
+    <T> Future<T> submitInWorld(World world, Callable<T> task);
+
+    /** {@link #submitGlobal} and wait; failures and timeouts are thrown. */
+    default <T> T callGlobalOrThrow(Callable<T> task, long timeoutMs) throws TimeoutException, ExecutionException, InterruptedException {
+        Future<T> future = submitGlobal(task);
+        try {
+            return future.get(timeoutMs, TimeUnit.MILLISECONDS);
+        } catch (TimeoutException | InterruptedException e) {
+            future.cancel(false);
+            throw e;
+        }
+    }
+
+    /** {@link #submitGlobal} and wait; {@code fallback} on failure or timeout (metrics). */
+    default <T> T callGlobal(Callable<T> task, T fallback, long timeoutMs) {
+        return await(submitGlobal(task), fallback, timeoutMs);
+    }
+
+    /** {@link #submitInWorld} and wait; {@code fallback} on failure or timeout (metrics). */
+    default <T> T callInWorld(World world, Callable<T> task, T fallback, long timeoutMs) {
+        if (world == null) return fallback;
+        return await(submitInWorld(world, task), fallback, timeoutMs);
+    }
+
+    private static <T> T await(Future<T> future, T fallback, long timeoutMs) {
+        try {
+            T value = future.get(timeoutMs, TimeUnit.MILLISECONDS);
+            return value != null ? value : fallback;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            future.cancel(false);
+            return fallback;
+        } catch (Exception e) {
+            future.cancel(false);
+            return fallback;
+        }
+    }
+
+    /** Runs {@code task} now; the result or failure as a completed future. */
+    static <T> CompletableFuture<T> callNow(Callable<T> task) {
+        CompletableFuture<T> future = new CompletableFuture<>();
+        try {
+            future.complete(task.call());
+        } catch (Throwable t) {
+            future.completeExceptionally(t);
+        }
+        return future;
+    }
 }

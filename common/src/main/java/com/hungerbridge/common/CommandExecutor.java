@@ -5,111 +5,78 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Interface for executing server commands from the HTTP bridge.
- * Implemented by platform-specific modules.
+ * What a platform (Paper/Folia, Fabric) provides to the HTTP API: command execution and
+ * read-only game metrics. All game state is accessed on the thread that owns it, with a
+ * timeout, so a stalled server never hangs an HTTP request.
  */
 public interface CommandExecutor {
 
-    /**
-     * Execute a command string on the underlying server.
-     */
-    void execute(String command);
+    /** Upper bound for running one command on the server thread. */
+    long COMMAND_TIMEOUT_MS = 5_000L;
 
     /**
-     * Execute a command and return output lines.
+     * Runs {@code command} with full (console-level) permissions and returns its feedback.
      *
-     * @param command     Command to execute.
-     * @param showConsole If true, platform should NOT suppress console output
-     *                    for this execution. If false, platform may temporarily
-     *                    remove appenders to keep the console clean.
-     * @return List of output lines, or null if the platform cannot capture output.
+     * <p>Feedback is captured from a dedicated command source, not from the console log.
+     * With {@code showConsole == false} nothing of the feedback is written to the server
+     * console; with {@code true} each feedback line is also sent to the console exactly as
+     * the console's own commands are. Game side effects that the server logs by itself (for
+     * example the chat broadcast of {@code /say}) are not command feedback.
+     *
+     * @return feedback lines in order (possibly empty), as plain text
+     * @throws CommandTimeoutException the server thread did not run the command within
+     *                                 {@link #COMMAND_TIMEOUT_MS}
      */
-    List<String> executeWithOutput(String command, boolean showConsole);
+    List<String> run(String command, boolean showConsole) throws CommandTimeoutException;
 
-    /**
-     * Execute a command and return output lines, in "silent" mode:
-     * platforms are allowed to suppress console output.
-     */
-    default List<String> executeWithOutput(String command) {
-        return executeWithOutput(command, false);
-    }
-
-    // --- Optional status hooks (platforms can override) ---
-
-    /**
-     * Current TPS (last 20 ticks or equivalent).
-     */
+    /** Current TPS (last 20 ticks or equivalent), -1 if unavailable. */
     default double getTps() {
         return -1.0;
     }
 
-    /**
-     * 1-minute TPS average, if available.
-     */
     default double getTps1m() {
         return -1.0;
     }
 
-    /**
-     * 5-minute TPS average, if available.
-     */
     default double getTps5m() {
         return -1.0;
     }
 
-    /**
-     * 15-minute TPS average, if available.
-     */
     default double getTps15m() {
         return -1.0;
     }
 
-    /**
-     * Average tick time in milliseconds.
-     */
+    /** Average tick time in milliseconds, -1 if unavailable. */
     default double getTickTimeMs() {
         return -1.0;
     }
 
-    /**
-     * Online player names.
-     */
     default List<String> getOnlinePlayerNames() {
         return Collections.emptyList();
     }
 
-    /**
-     * Maximum configured player capacity for the server.
-     */
     default int getMaxPlayers() {
         return 0;
     }
 
-    /**
-     * Loaded chunk counts by world name.
-     */
+    /** Loaded chunk counts by protocol world key ({@code world}, {@code world_nether}, ...). */
     default Map<String, Integer> getWorldChunkCounts() {
         return Collections.emptyMap();
     }
 
-    /**
-     * Entity counts by world name.
-     */
     default Map<String, Integer> getWorldEntityCounts() {
         return Collections.emptyMap();
     }
 
     /**
      * Absolute overworld day-time in ticks ({@code /time query daytime} without the modulo),
-     * or -1 if unavailable. {@code /world/time} derives tick-of-day and day number from it.
+     * or -1 if unavailable.
      */
     default long getWorldFullTime() {
         return -1L;
     }
 
-    /**
-     * Overworld weather: {@code clear}, {@code rain} or {@code thunder}.
-     */
+    /** {@code clear}, {@code rain} or {@code thunder}. */
     default String getWeather() {
         return "clear";
     }

@@ -4,6 +4,7 @@ import com.hungerbridge.common.BridgeServer;
 import com.hungerbridge.common.CommandConstants;
 import com.hungerbridge.common.Config;
 import com.hungerbridge.common.Logger;
+import com.hungerbridge.common.log.BridgeLogger;
 import com.hungerbridge.common.log.PlatformLogAppender;
 import com.hungerbridge.common.security.TokenManager;
 import net.fabricmc.api.DedicatedServerModInitializer;
@@ -18,7 +19,8 @@ import java.nio.file.Path;
  */
 public final class HungerBridgeFabric implements DedicatedServerModInitializer {
 
-    private static final Logger LOG = new FabricLoggerAdapter();
+    /** Fabric's (vanilla) console layout has no logger column, so the logger name is written into the message. */
+    private static final Logger LOG = new BridgeLogger(true);
 
     private static BridgeServer bridgeServer;
     private static MinecraftServer mcServer;
@@ -77,7 +79,7 @@ public final class HungerBridgeFabric implements DedicatedServerModInitializer {
 
     @Override
     public void onInitializeServer() {
-        LOG.log("INFO", "HungerBridge initializing.");
+        LOG.info("Loaded; the HTTP API starts with the server");
     }
 
     /** Called by the mixin on the first server tick. */
@@ -89,7 +91,6 @@ public final class HungerBridgeFabric implements DedicatedServerModInitializer {
         Config config = Config.load(configDir, LOG);
 
         TokenManager tm = new TokenManager(configDir, LOG);
-        tm.setDebug(config.isDebug());
         config.setTokenManager(tm);
 
         config.setPlatform("fabric");
@@ -105,7 +106,7 @@ public final class HungerBridgeFabric implements DedicatedServerModInitializer {
         });
         bridgeServer.start();
         registerCommands(server);
-        LOG.log("INFO", "HungerBridge started (fabric, Minecraft " + config.getMinecraftVersion() + ").");
+        LOG.info("Enabled (fabric, Minecraft " + config.getMinecraftVersion() + ", HungerBridge " + config.getVersion() + ")");
     }
 
     private static void registerCommands(MinecraftServer server) {
@@ -117,7 +118,7 @@ public final class HungerBridgeFabric implements DedicatedServerModInitializer {
     /** Called by the mixin when the server stops. */
     public static void onServerStopping() {
         if (bridgeServer != null) {
-            LOG.log("INFO", "HungerBridge stopping...");
+            LOG.info("Disabling");
             bridgeServer.stop();
             bridgeServer = null;
         }
@@ -132,9 +133,9 @@ public final class HungerBridgeFabric implements DedicatedServerModInitializer {
         bridgeServer.reloadConfig();
         try {
             registerCommands(server);
-            LOG.log("INFO", "HungerBridge reloaded config and re-registered commands.");
+            LOG.info("Reloaded configuration and re-registered commands");
         } catch (RuntimeException e) {
-            LOG.log("WARN", "Failed to re-register HungerBridge commands after reload: " + e.getMessage());
+            LOG.warn("Could not re-register /hb after /reload: " + e.getMessage());
         }
     }
 
