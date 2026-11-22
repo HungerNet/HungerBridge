@@ -1,7 +1,0 @@
-gradle.beforeSettings { settings ->
-    throw new StopExecutionException("Skipping settings evaluation for wrapper generation")
-}
-
-gradle.beforeProject { project ->
-    throw new StopExecutionException("Skipping project evaluation for wrapper generation")
-}
