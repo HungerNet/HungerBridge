@@ -1,6 +1,6 @@
 """Publish the built HungerBridge jars to Modrinth (the only release channel).
 
-    MODRINTH_TOKEN=... python ci/publish_modrinth.py --version 5-alpha.1 --type alpha --changelog CHANGELOG.md --artifacts release/
+    MODRINTH_TOKEN=... python ci/publish_modrinth.py --version 5-alpha.1 --type alpha --description "Alpha 1 release" --artifacts release/
 
 ``--artifacts`` contains one directory per build target, each with the jar and the
 ``target.json`` written by the build job: ``{"loader": "paper", "minecraft": "26.3"}``.
@@ -28,12 +28,6 @@ USER_AGENT = "HungerBridge-CI-release/1.0 (+https://github.com/HungerNet/HungerB
 LOADERS = {"paper": ["paper", "purpur", "folia"], "fabric": ["fabric"]}
 NAMES = {"paper": "Paper/Purpur/Folia", "fabric": "Fabric"}
 
-
-
-def firstSection(markdown: str) -> str:
-    """The newest release's notes: the first "## " section of CHANGELOG.md."""
-    sections = markdown.split("\n## ")
-    return ("## " + sections[1]).strip() if len(sections) > 1 else markdown.strip()
 
 
 def request(method: str, url: str, token: str = None, body: bytes = None, content_type: str = None):
@@ -72,7 +66,7 @@ def main() -> int:
     parser.add_argument("--version", required=True)
     parser.add_argument("--type", choices=["alpha", "beta", "release"], required=True)
     parser.add_argument("--artifacts", required=True, type=Path)
-    parser.add_argument("--changelog", type=Path)
+    parser.add_argument("--description", required=True)
     parser.add_argument("--dry-run", action="store_true")
 
     args = parser.parse_args()
@@ -83,7 +77,7 @@ def main() -> int:
     token = os.environ.get("MODRINTH_TOKEN")
     if not token and not args.dry_run:
         raise SystemExit("MODRINTH_TOKEN is not set (repository secret)")
-    changelog = firstSection(args.changelog.read_text(encoding="utf-8")) if args.changelog else ""
+    changelog = args.description
     targets = sorted(args.artifacts.glob("*/target.json"))
     if not targets:
         raise SystemExit(f"no target.json found under {args.artifacts}")

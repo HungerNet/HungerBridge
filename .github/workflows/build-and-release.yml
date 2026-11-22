@@ -185,12 +185,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install PyYAML
+        run: pip install pyyaml
+
       - name: Read version.yaml
         id: version
         run: |
           RUN=$(grep -m1 '^run:' version.yaml | sed -E 's/^run:[[:space:]]*//')
           VERSION=$(grep -m1 '^version:' version.yaml | sed -E 's/^version:[[:space:]]*"?([^"]*)"?[[:space:]]*$/\1/')
 
+          DESCRIPTION=$(python3 - <<'PY'
+          import yaml
+
+          with open("version.yaml", "r", encoding="utf-8") as f:
+              data = yaml.safe_load(f)
+
+          print(data.get("description", ""))
+          PY
+          )
           test -n "$VERSION"
 
           RELEASE_TYPE="release"
@@ -210,6 +222,12 @@ jobs:
           echo "release_type=$RELEASE_TYPE" >> "$GITHUB_OUTPUT"
           echo "publish_modrinth=$PUBLISH_MODRINTH" >> "$GITHUB_OUTPUT"
 
+          {
+            echo "description<<EOF"
+            echo "$DESCRIPTION"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - uses: actions/download-artifact@v4
         if: steps.version.outputs.run == 'true'
         with:
@@ -224,7 +242,7 @@ jobs:
           python ci/publish_modrinth.py \
             --version "${{ steps.version.outputs.version }}" \
             --type "${{ steps.version.outputs.release_type }}" \
-            --changelog CHANGELOG.md \
+            --description "${{ steps.version.outputs.description }}" \
             --artifacts release/
 
       - name: Create GitHub Release
@@ -233,17 +251,7 @@ jobs:
         with:
           tag_name: v${{ steps.version.outputs.version }}
           name: HungerBridge ${{ steps.version.outputs.version }}
-          body: |
-            HungerBridge multiloader release.
-
-            Paper jars also run on Purpur and Folia.
-            Fabric jars require only Fabric Loader.
-
-            Minecraft versions:
-            - 1.21.11
-            - 26.1.2
-            - 26.2
-            - 26.3
+          body: ${{ steps.version.outputs.description }}
 
           files: release/**/*.jar
         env:

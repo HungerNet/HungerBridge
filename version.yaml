@@ -1,5 +1,5 @@
 run: true
-version: "5.0-dev.2"
+version: "5-alpha.1"
 description: |
   Dev 1:
   - Protocol v2: native command feedback capture (show_console works on every loader)
@@ -8,3 +8,6 @@ description: |
   - Matched version with HungerBridgePy
   Dev 2:
   - Update Modrinth publishing
+  Alpha 1:
+  - Move to Alpha
+  - Update workflow and publishing
